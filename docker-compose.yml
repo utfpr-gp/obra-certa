@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres
+    container_name: obracerta-database
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  backend:
+    #image: ronifabio/obracerta-backend:latest
+    container_name: obracerta-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    env_file:
+      - .env
+    restart: always
+    environment:
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_VERIFY_SERVICE_SID: ${TWILIO_VERIFY_SERVICE_SID}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      - db
+
+  frontend:
+    #image: ronifabio/obracerta-frontend:latest
+    container_name: obracerta-frontend
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - '80:80'
+    restart: always
+    depends_on:
+      - backend
