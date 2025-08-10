@@ -15,7 +15,6 @@ services:
       - '5432:5432'
 
   backend:
-    #image: ronifabio/obracerta-backend:latest
     container_name: obracerta-backend
     build:
       context: ./backend
@@ -29,18 +28,17 @@ services:
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
       TWILIO_VERIFY_SERVICE_SID: ${TWILIO_VERIFY_SERVICE_SID}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_URL: 'jdbc:postgresql://db:5432/${POSTGRES_DB}'
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       - db
 
   frontend:
-    #image: ronifabio/obracerta-frontend:latest
     container_name: obracerta-frontend
     build:
-      context: .
-      dockerfile: ./frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     environment:
       NODE_ENV: production
     ports:
