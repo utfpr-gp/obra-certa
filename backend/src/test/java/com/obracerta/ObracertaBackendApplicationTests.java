@@ -1,4 +1,4 @@
-package com.obracerta.obracerta_backend;
+package com.obracerta;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

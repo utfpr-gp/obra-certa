@@ -1,4 +1,4 @@
-package com.obracerta.obracerta_backend;
+package com.obracerta;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
