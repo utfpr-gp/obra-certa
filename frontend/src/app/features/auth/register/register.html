@@ -1,1 +1,59 @@
-<p>register works!</p>
+<div class="justify-center flex h-screen items-center">
+  <div
+    class="card w-full sm:w-[90%] md:w-[60%] lg:w-[55%] shrink-0 sm:shadow-none md:shadow-2xl rounded-2xl"
+  >
+    <div class="card-body m-4">
+      <div class="flex flex-row mb-4">
+        <button
+          class="btn border-0 rounded-md text-black bg-[#FDBE00] hover:bg-[#f7ae05] md:w-[10%] font-medium"
+          (click)="goBack()"
+        >
+          Voltar
+        </button>
+        <h2
+          class="card-title justify-center text-gray-500 font-semibold w-[80%]"
+        >
+          Registre-se no ObraCerta
+        </h2>
+      </div>
+
+      <fieldset class="fieldset">
+        <label for="name" class="label font-medium">Nome Completo:</label>
+        <input
+          id="name"
+          type="text"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          placeholder="Insira o seu nome"
+        />
+        <label for="email" class="label font-medium">Email:</label>
+        <input
+          id="email"
+          type="email"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          placeholder="email@example.com"
+        />
+        <label for="password" class="label font-medium">Senha:</label>
+        <input
+          id="password"
+          type="password"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          placeholder="Insira a sua senha"
+        />
+        <label for="confirm-password" class="label font-medium"
+          >Confirme sua senha:</label
+        >
+        <input
+          id="confirm-password"
+          type="password"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          placeholder="Confirme a sua senha"
+        />
+        <button
+          class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
+        >
+          Registre-se
+        </button>
+      </fieldset>
+    </div>
+  </div>
+</div>

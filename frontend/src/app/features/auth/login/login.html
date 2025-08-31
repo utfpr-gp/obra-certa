@@ -1,10 +1,10 @@
 <div class="justify-center flex h-screen items-center">
   <div
-    class="card w-full sm:w-[90%] md:w-[60%] lg:w-[55%] shrink-0 shadow-2xl rounded-2xl"
+    class="card w-full sm:w-[90%] md:w-[60%] lg:w-[55%] shrink-0 sm:shadow-none md:shadow-2xl rounded-2xl"
   >
     <div class="card-body">
       <h2 class="card-title justify-center text-gray-500 font-semibold">
-        Seja bem-vindo ao ObraCerta
+        Seja bem-vindo ao
       </h2>
       <img src="assets/images/logo.png" class="mx-auto mb-4 w-40" />
       <fieldset class="fieldset">
@@ -33,7 +33,7 @@
         <div class="divider text-gray-500">Não possui uma conta?</div>
         <button
           class="btn border-0 rounded-md text-black bg-[#FDBE00] hover:bg-[#f7ae05] w-[40%] m-auto font-medium"
-          routerLink="/register"
+          (click)="navigateToRegister()"
         >
           Registrar-se
         </button>
