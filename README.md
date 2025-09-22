@@ -2,6 +2,14 @@
 
 O **Obra Certa** é uma aplicação web voltada ao controle financeiro de obras residenciais, com foco em construções de pequeno e médio porte. A proposta surge diante da necessidade de uma solução digital que auxilie cidadãos e pequenos construtores a manterem um planejamento financeiro eficiente, especialmente diante do cenário de constantes aumentos nos custos da construção civil. Serão disponibilizadas funcionalidades como o registro de despesas, definição de orçamentos, controle de pagamentos pendentes e a geração de alertas preventivos, proporcionando maior segurança na gestão da obra. Dessa forma, o ObraCerta busca promover organização, previsibilidade e economia ao usuário final, tornando o acompanhamento dos gastos mais acessível e confiável.
 
+## Funcionalidades principais
+
+- Cadastro e autenticação de usuários
+- Registro, Edição e exclusão de despesas
+- Criação de Orçamentos Iniciais e Comparação com despesas reais
+- Relatórios e gráficos de gastos
+- Importação de despesas via arquivo NF-e
+
 ## 📃 Equipe
 
 Desenvolvido por: [Leandro Pires Nunes](https://github.com/lpn-leandro)\
@@ -128,7 +136,7 @@ A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www
 ## 🔧 Ferramentas recomendadas
 
 - **IDE:** IntelliJ IDEA para backend e VSCode para frontend
-- **Gerenciador de banco de dados:** MySQL Workbench ou outro de preferência
+- **Gerenciador de banco de dados:** A definir
 - **Cliente de API:** Postman (ou Insomnia, se preferir)
 
 ## 🔧 Observações adicionais
