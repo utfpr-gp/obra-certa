@@ -53,8 +53,8 @@ Exemplo de configuração das variáveis de ambiente (arquivo `.env`):
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=obracerta
-DB_USER=root
-DB_PASSWORD=senha
+DB_USER=postgres
+DB_PASSWORD=postgres
 ```
 
 > **Observação:** Certifique-se de comentar ou descomentar a linha correta no arquivo `application.properties` no backend para configurar o SSL ao rodar localmente ou via Docker.
