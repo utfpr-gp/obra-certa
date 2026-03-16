@@ -143,3 +143,4 @@ A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www
 
 - O sistema está preparado para ser executado tanto localmente quanto em ambientes conteinerizados usando Docker.
 - Para ambientes de produção, revise as configurações SSL corretamente para garantir a segurança.
+- O backend faz uso da arquitetura de camadas, com separação clara entre controladores, serviços e repositórios, facilitando a manutenção e escalabilidade do código.

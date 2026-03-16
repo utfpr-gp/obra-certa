@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.beans.BeanUtils;
+
+import com.obracerta.model.dto.UserDTO;
 
 import java.time.LocalDateTime;
 
@@ -41,4 +44,8 @@ public class User {
     @UpdateTimestamp
     @Column(name =  "updated_at", nullable = false)
     private LocalDateTime updateAt;
+
+    public User(UserDTO user){
+        BeanUtils.copyProperties(user, this);
+    }
 }
