@@ -1,16 +1,13 @@
 package com.obracerta.controller;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.method.P;
-import org.springframework.web.bind.annotation.*;
-
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-import io.micrometer.core.ipc.http.HttpSender.Response;
+import jakarta.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -20,22 +17,17 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-    public String test(){
-        return "User Works!";
-    }
-
-    @GetMapping
     public List<UserDTO> getAllUsers(){
         return userService.getAllUsers();
     }
 
     @PostMapping
-    public void createUser(@RequestBody UserDTO user){
+    public void createUser(@Valid @RequestBody UserDTO user){
         userService.createUser(user);
     }
 
     @PutMapping
-    public UserDTO updateUser(@RequestBody UserDTO user){
+    public UserDTO updateUser(@Valid @RequestBody UserDTO user){
         return userService.updateUser(user);
     }
 
