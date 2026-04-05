@@ -1,13 +1,12 @@
 package com.obracerta.model.service;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.entity.User;
 import com.obracerta.model.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class UserService {
@@ -30,12 +29,12 @@ public class UserService {
         return new UserDTO(userRepository.save(userEntity));
     }
 
-    public void deleteUser(Long id){
+    public void deleteUser(String id){
         User userEntity = userRepository.findById(id).get();
         userRepository.delete(userEntity);
     }
 
-    public UserDTO getUserById(Long id){
+    public UserDTO getUserById(String id){
         return new UserDTO(userRepository.findById(id).get());
     }
 
