@@ -1,13 +1,44 @@
 # Obra Certa
 
+**Status do Sistema**
+[![CI - Develop (Laboratório)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg)](https://github.com/utfpr-gp/obra-certa/actions/workflows/cy.yml)
+[![CI - Main (Produção)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/utfpr-gp/obra-certa/actions/workflows/cy.yml)
+
+
 O **Obra Certa** é uma aplicação web voltada ao controle financeiro de obras residenciais, com foco em construções de pequeno e médio porte. A proposta surge diante da necessidade de uma solução digital que auxilie cidadãos e pequenos construtores a manterem um planejamento financeiro eficiente, especialmente diante do cenário de constantes aumentos nos custos da construção civil. Serão disponibilizadas funcionalidades como o registro de despesas, definição de orçamentos, controle de pagamentos pendentes e a geração de alertas preventivos, proporcionando maior segurança na gestão da obra. Dessa forma, o ObraCerta busca promover organização, previsibilidade e economia ao usuário final, tornando o acompanhamento dos gastos mais acessível e confiável.
 
-## 📃 Equipe
+##
+🔗 **Link em Produção:** [Aguardando Deploy na Nuvem]
+
+## 📃 Equipe    
 
 Desenvolvido por: [Leandro Pires Nunes](https://github.com/lpn-leandro)\
 Orientador: [Dr. Roni Fabio Banaszewski](https://ronifabio.github.io/)
 
-## 🔧 Tecnologias utilizadas
+## 📚 Documentação Oficial (Docs as Code)
+Toda a especificação do sistema está versionada na pasta `/docs`:
+* 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto e User Stories.
+* 📐 **[SDD (Software Design Document)](./docs/sdd.md):** Diagrama de banco de dados e contratos de API.
+* ✅ **[Checklist de Avaliação](./docs/checklist.md):** Controle de entrega dos IDs e RAs.
+
+## 🔗 Endpoints de documentação da API
+
+- **Swagger UI:** [https://localhost:8080/swagger-ui.html](https://localhost:8080/swagger-ui.html)
+- **Documentação JSON:** [https://localhost:8080/v3/api-docs](https://localhost:8080/v3/api-docs)
+
+## 🌄 Layout
+
+Os protótipos da aplicação estão disponíveis no [Figma](https://www.figma.com/design/uZ1iGjhqEolqt0XdYNzfth/ObraCerta?node-id=1-2&t=9WpBUUlnGZDrDqYD-1).
+
+## 📒 Monografia
+
+A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www.overleaf.com/read/ybgjmhcnzbsg#1a550c)
+
+## 🔧 Stack Tecnológica
+
+### **Arquitetura**
+- **[Arquitetura em Camadas]** - Organização do código em camadas(Controller, Service, Repository)
+- **[Monorepo]** - Organização do código em um único repositório(backend e frontend)
 
 ### **Backend**
 
@@ -42,11 +73,10 @@ Configurar os seguintes arquivos `.env` com as variáveis de ambiente necessári
 Exemplo de configuração das variáveis de ambiente (arquivo `.env`):
 
 ```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=obracerta
-DB_USER=root
-DB_PASSWORD=senha
+DATASOURCE_URL=jdbc:postgresql://localhost:5432/obracerta_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=obracerta_db
 ```
 
 > **Observação:** Certifique-se de comentar ou descomentar a linha correta no arquivo `application.properties` no backend para configurar o SSL ao rodar localmente ou via Docker.
@@ -111,19 +141,6 @@ Acesse a aplicação nos seguintes endereços:
 
 - **API Backend:** [https://localhost:8080](https://localhost:8080)
 - **Frontend:** [https://localhost:4200](https://localhost:4200)
-
-## 🔗 Endpoints de documentação da API
-
-- **Swagger UI:** [https://localhost:8080/swagger-ui.html](https://localhost:8080/swagger-ui.html)
-- **Documentação JSON:** [https://localhost:8080/v3/api-docs](https://localhost:8080/v3/api-docs)
-
-## 🌄 Layout
-
-Os protótipos da aplicação estão disponíveis no [Figma](https://www.figma.com/design/uZ1iGjhqEolqt0XdYNzfth/ObraCerta?node-id=1-2&t=9WpBUUlnGZDrDqYD-1).
-
-## 📒 Monografia
-
-A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www.overleaf.com/read/ybgjmhcnzbsg#1a550c)
 
 ## 🔧 Ferramentas recomendadas
 
