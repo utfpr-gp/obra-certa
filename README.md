@@ -58,6 +58,7 @@ A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www
 - **[Docker](https://www.docker.com/)** – Empacotamento e execução de serviços
 - **[GitHub Actions](https://github.com/features/actions)** – CI/CD para automação de deploy
 - **[Nginx](https://www.nginx.com/)** – Servidor reverso para balanceamento de carga
+- **[Neon](https://neon.tech/)** – Banco de dados relacional na nuvem em produção
 
 ## 🚀 8. Quick Start (Como Executar)
 
