@@ -8,11 +8,11 @@ on:
 
 jobs:
   test-backend:
+    name: Testes do Backend do ObraCerta - Java ${{ matrix.java-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         java-version: [ '21' ]
-      name: Testes do Backend do ObraCerta - Java ${{ matrix.java-version }}
 
     services:
       postgres:
