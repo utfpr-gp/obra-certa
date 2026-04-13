@@ -55,7 +55,17 @@ jobs:
           POSTGRES_DB: obracerta_test
           SPRING_PROFILES_ACTIVE: 'test'
         working-directory: ./backend
-        run: ./mvnw test -B
+        run: |
+          chmod +x mvnw
+          ./mvnw -B test -Dspring.profiles.active=test -e -X
+
+      - name: Test errors
+        if: failure()
+        working-directory: ./backend
+        run: |
+          echo "Test failed"
+          find target/surefire-reports -name "*.txt" -exec cat {} \; || true
+          exit 1 
 
   test-frontend:
     name: Testes do Frontend
