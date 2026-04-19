@@ -1,13 +1,12 @@
 package com.obracerta.controller;
 
 import com.obracerta.model.dto.UserDTO;
-import com.obracerta.model.entity.User;
-import com.obracerta.model.service.UserService;
+import com.obracerta.model.services.UserService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -18,22 +17,21 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-    public ResponseEntity getAllUsers(){
+    public ResponseEntity<List<UserDTO>> getAllUsers(){
         List<UserDTO> users = userService.getAllUsers();
-        return userService.getAllUsers();
+        return ResponseEntity.ok(users);
     }
 
     @PostMapping
-    public void createUser(@Valid @RequestBody UserDTO user){
-        User newUser = new User(user);
-
-        this.repository.save(newUser);
+    public ResponseEntity<Void> createUser(@Valid @RequestBody UserDTO user){
+        this.userService.createUser(user);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping
-    public UserDTO updateUser(@Valid @RequestBody UserDTO user){
-        return userService.updateUser(user);
+    public ResponseEntity<Void> updateUser(@Valid @RequestBody UserDTO user){
+        this.userService.updateUser(user);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")

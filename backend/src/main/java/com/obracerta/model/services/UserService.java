@@ -1,4 +1,4 @@
-package com.obracerta.model.service;
+package com.obracerta.model.services;
 
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.entity.User;

@@ -1,7 +1,7 @@
 package com.obracerta.model.dto;
 
 import com.obracerta.model.entity.User;
-import com.obracerta.model.entity.UserRole;
+import com.obracerta.enums.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
