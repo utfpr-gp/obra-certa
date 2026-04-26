@@ -1,5 +1,6 @@
 package com.obracerta.model.services;
 
+import com.obracerta.enums.UserRole;
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.entity.User;
 import com.obracerta.model.repository.UserRepository;
@@ -36,6 +37,12 @@ public class UserService {
 
     public UserDTO getUserById(String id){
         return new UserDTO(userRepository.findById(id).get());
+    }
+
+    public void updateRole(String id, UserRole role){
+        User userEntity = userRepository.findById(id).get();
+        userEntity.setUserRole(role);
+        userRepository.save(userEntity);
     }
 
     // public UserDTO getUserByEmail(String email){

@@ -1,6 +1,5 @@
 package com.obracerta.model.dto;
 
-import com.obracerta.enums.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -16,7 +15,5 @@ public record RegisterUserDTO(
         @NotBlank(message = "A senha é obrigatória")
         @Size(min = 6, message = "A senha deve conter no mínimo 6 caracteres")
 
-        String password,
-
-        UserRole role
+        String password
 ) {}

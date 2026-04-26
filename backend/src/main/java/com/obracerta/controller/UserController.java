@@ -1,5 +1,6 @@
 package com.obracerta.controller;
 
+import com.obracerta.model.dto.UpdateUserRoleDTO;
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.services.UserService;
 import jakarta.validation.Valid;
@@ -40,4 +41,9 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{id}/role")
+    public ResponseEntity<Void> updateUserRole(@PathVariable String id, @RequestBody @Valid UpdateUserRoleDTO dto){
+        userService.updateRole(id, dto.role());
+        return ResponseEntity.ok().build();
+    }
 }

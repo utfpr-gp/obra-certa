@@ -34,15 +34,16 @@ public class AuthService implements UserDetailsService {
     }
 
     public void register(RegisterUserDTO data){
-        if(repository.findByEmail(data.email()) != null)
-            throw new RuntimeException("E-mail já cadastrado");
+        if(repository.findByEmail(data.email()).isPresent())
+            throw new IllegalArgumentException("E-mail já cadastrado");
         String encryptedPassword = passwordEncoder.encode(data.password());
-        User newUser = new User(data.name(), data.email(), encryptedPassword, data.role());
+        User newUser = new User(data.name(), data.email(), encryptedPassword);
         repository.save(newUser);
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return repository.findByEmail(username);
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        return repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o email: " + email));
     }
 }

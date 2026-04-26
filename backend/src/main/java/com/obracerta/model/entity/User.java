@@ -54,11 +54,11 @@ public class User implements UserDetails {
         BeanUtils.copyProperties(user, this);
     }
 
-    public User(String name, String email, String password, UserRole userRole){
+    public User(String name, String email, String password){
         this.name = name;
         this.email = email;
         this.password = password;
-        this.userRole = userRole;
+        this.userRole = UserRole.USER;
     }
 
     @Override
