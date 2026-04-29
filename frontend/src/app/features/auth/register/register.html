@@ -17,44 +17,77 @@
         </h2>
       </div>
 
-      <fieldset class="fieldset">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="fieldset">
         <label for="name" class="label font-medium">Nome Completo:</label>
         <input
           id="name"
           type="text"
+          formControlName="name"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="Insira o seu nome"
         />
+        @if (form.get("name")?.invalid && form.get("name")?.touched) {
+          <div class="text-red-500 text-sm mb-3">
+            O nome é obrigatório e deve ter no minimo 3 caracteres.
+          </div>
+        }
         <label for="email" class="label font-medium">Email:</label>
         <input
           id="email"
           type="email"
+          formControlName="email"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="email@example.com"
         />
+        @if (form.get("email")?.invalid && form.get("email")?.touched) {
+          <div class="text-red-500 text-sm mb-3">Informe um e-mail válido.</div>
+        }
+
         <label for="password" class="label font-medium">Senha:</label>
         <input
           id="password"
           type="password"
+          formControlName="password"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="Insira a sua senha"
         />
+        @if (form.get("password")?.invalid && form.get("password")?.touched) {
+          <div class="text-red-500 text-sm mb-3">
+            A senha deve ter no mínimo 6 caracteres.
+          </div>
+        }
+
         <label for="confirm-password" class="label font-medium"
           >Confirme sua senha:</label
         >
         <input
           id="confirm-password"
           type="password"
+          formControlName="confirmPassword"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="Confirme a sua senha"
         />
+        @if (
+          form.get("confirmPassword")?.touched &&
+          form.hasError("passwordMismatch")
+        ) {
+          <div class="text-red-500 text-sm mb-3">Informe a senha correta.</div>
+        }
+
+        @if (errorMessage) {
+          <div class="text-red-500 text-sm text-center mt-2">
+            {{ errorMessage }}
+          </div>
+        }
+
         <button
+          type="submit"
           class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
-          (click)="navigateToHome()"
+          [disabled]="isLoading"
         >
           Registre-se
         </button>
-      </fieldset>
+      </form>
     </div>
   </div>
 </div>

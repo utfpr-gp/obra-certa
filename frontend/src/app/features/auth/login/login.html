@@ -7,38 +7,57 @@
         Seja bem-vindo ao
       </h2>
       <img src="assets/images/logo.png" class="mx-auto mb-4 w-40" />
-      <fieldset class="fieldset">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="fieldset">
         <label for="email" class="label font-medium">Email:</label>
         <input
           id="email"
           type="email"
+          formControlName="email"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="Insira o seu e-mail"
         />
+        @if (form.get("email")?.invalid && form.get("email")?.touched) {
+          <span class="text-red-500 text-sm mb-3"
+            >Por favor, insira um e-mail válido.</span
+          >
+        }
         <label for="password" class="label font-medium">Senha:</label>
         <input
           id="password"
           type="password"
+          formControlName="password"
           class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
           placeholder="Insira a sua senha"
         />
+        @if (form.get("password")?.invalid && form.get("password")?.touched) {
+          <span class="text-red-500 text-sm mb-3"
+            >A senha deve ter no minimo 6 caracteres.</span
+          >
+        }
         <div class="m-auto">
           <a class="link link-hover text-[#007A80]">Esqueceu a senha?</a>
         </div>
+        @if (errorMessage) {
+          <span class="text-red-500 text-sm text-center mt-2">{{
+            errorMessage
+          }}</span>
+        }
         <button
+          type="submit"
           class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
-          (click)="navigateToHome()"
+          [disabled]="isLoading"
         >
           Entrar
         </button>
         <div class="divider text-gray-500">Não possui uma conta?</div>
         <button
+          type="button"
           class="btn border-0 rounded-md text-black bg-[#FDBE00] hover:bg-[#f7ae05] w-[40%] m-auto font-medium"
           (click)="navigateToRegister()"
         >
           Registrar-se
         </button>
-      </fieldset>
+      </form>
     </div>
   </div>
 </div>

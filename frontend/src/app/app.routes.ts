@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { Login } from './features/auth/login/login';
 import { Register } from './features/auth/register/register';
 import { HomePage } from './features/home-page/home-page';
+import {authGuard} from './core/guards/auth-guard';
 
 export const routes: Routes = [
   {
@@ -15,5 +16,6 @@ export const routes: Routes = [
   {
     path: 'home',
     component: HomePage,
+    canActivate: [authGuard],
   },
 ];

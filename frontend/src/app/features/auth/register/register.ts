@@ -1,21 +1,60 @@
-import { Component } from '@angular/core';
+import {Component, inject} from '@angular/core';
 import { Location } from '@angular/common';
 import { Router } from '@angular/router';
+import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
+import {Auth} from '../../../core/services/auth';
+
+function passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+  const password = control.get('password')?.value;
+  const confirmPassword = control.get('confirmPassword')?.value;
+  return password === confirmPassword ? null : { passwordMismatch: true };
+}
 
 @Component({
   selector: 'app-register',
-  imports: [],
+  imports: [
+    ReactiveFormsModule
+  ],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
 export class Register {
-  constructor(private location: Location, private router: Router) {}
+  private location = inject(Location);
+  private router = inject(Router);
+  private formBuilder = inject(FormBuilder);
+  private authService = inject(Auth);
 
-  goBack(): void {
+  isLoading = false;
+  errorMessage = '';
+
+  form = this.formBuilder.group({
+    name: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    confirmPassword: ['', [Validators.required]],
+  }, { validators: passwordMatchValidator });
+
+  onSubmit():void {
+    if (this.form.invalid) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    const {name, email, password} = this.form.value;
+
+    this.authService.register(name!, email!, password!).subscribe({
+      next: () => this.router.navigate(['/']),
+      error: (err) => {
+        this.errorMessage = err.error?.erro ?? 'Erro ao registrar usuário. Tente novamente.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+    goBack(): void {
     this.location.back();
   }
 
-  navigateToHome(): void {
-    this.router.navigate(['/home']);
-  }
 }

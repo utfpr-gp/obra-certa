@@ -1,21 +1,49 @@
-import { Component } from '@angular/core';
-import { Register } from '../register/register';
+import {Component, inject} from '@angular/core';
 import { Router } from '@angular/router';
+import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {Auth} from '../../../core/services/auth';
 
 @Component({
   selector: 'app-login',
-  imports: [],
+  imports: [
+    ReactiveFormsModule
+  ],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
-  constructor(private router: Router) {}
+  private router = inject(Router);
+  private formBuilder = inject(FormBuilder);
+  private authService = inject(Auth);
 
-  navigateToRegister() {
-    this.router.navigate(['/register']);
+  isLoading = false;
+  errorMessage = '';
+
+  form = this.formBuilder.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+  });
+
+  onSubmit() {
+    if (this.form.invalid) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    const { email, password } = this.form.value;
+
+    this.authService.login(email!, password!).subscribe({
+      next: () => this.router.navigate(['/home']),
+      error: () => {
+        this.errorMessage = 'E-mail ou senha inválida';
+        this.isLoading = false;
+      }
+    });
   }
 
-  navigateToHome() {
-    this.router.navigate(['/home']);
+  navigateToRegister(): void {
+    this.router.navigate(['/register']);
   }
 }
