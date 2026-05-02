@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: ['develop', 'main']
+    branches: [ "develop", "main" ]
   push:
-    branches: ['develop', 'main']
+    branches: [ "develop", "main" ]
 
 jobs:
   test-backend:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: ['21']
+        java-version: [ '21' ]
 
     services:
       postgres:
@@ -64,7 +64,7 @@ jobs:
         working-directory: ./backend
         run: |
           echo "Test failed"
-          find target/surefire-reports -name "*.txt" -exec cat {} \; || true
+          find backend/target/surefire-reports -name "*.txt" -exec cat {} \ || true;
           exit 1
 
   test-frontend:
