@@ -3,6 +3,8 @@ import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {Auth} from '../../../core/services/auth';
+import { LucideEye, LucideEyeOff } from '@lucide/angular';
+
 
 function passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
   const password = control.get('password')?.value;
@@ -13,7 +15,9 @@ function passwordMatchValidator(control: AbstractControl): ValidationErrors | nu
 @Component({
   selector: 'app-register',
   imports: [
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    LucideEye,
+    LucideEyeOff,
   ],
   templateUrl: './register.html',
   styleUrl: './register.css',
@@ -26,6 +30,8 @@ export class Register {
 
   isLoading = false;
   errorMessage = '';
+  showPassword = false;
+  showConfirmPassword = false;
 
   form = this.formBuilder.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
@@ -33,6 +39,14 @@ export class Register {
     password: ['', [Validators.required, Validators.minLength(6)]],
     confirmPassword: ['', [Validators.required]],
   }, { validators: passwordMatchValidator });
+
+  togglePassword():void {
+    this.showPassword = !this.showPassword;
+}
+
+  toggleConfirmPassword():void {
+    this.showConfirmPassword = !this.showConfirmPassword;
+  }
 
   onSubmit():void {
     if (this.form.invalid) {

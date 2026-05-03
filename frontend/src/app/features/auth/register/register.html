@@ -4,14 +4,8 @@
   >
     <div class="card-body m-4">
       <div class="flex flex-row mb-4">
-        <button
-          class="btn border-0 rounded-md text-black bg-[#FDBE00] hover:bg-[#f7ae05] md:w-[10%] font-medium"
-          (click)="goBack()"
-        >
-          Voltar
-        </button>
         <h2
-          class="card-title justify-center text-gray-500 font-semibold w-[80%]"
+          class="card-title justify-center text-gray-500 font-semibold m-auto"
         >
           Registre-se no ObraCerta
         </h2>
@@ -23,7 +17,7 @@
           id="name"
           type="text"
           formControlName="name"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
           placeholder="Insira o seu nome"
         />
         @if (form.get("name")?.invalid && form.get("name")?.touched) {
@@ -36,7 +30,7 @@
           id="email"
           type="email"
           formControlName="email"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
           placeholder="email@example.com"
         />
         @if (form.get("email")?.invalid && form.get("email")?.touched) {
@@ -44,13 +38,26 @@
         }
 
         <label for="password" class="label font-medium">Senha:</label>
+        <div class="relative w-auto mb-3">
         <input
           id="password"
-          type="password"
+          [type]="showPassword ? 'text' : 'password'"
           formControlName="password"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
           placeholder="Insira a sua senha"
         />
+          <button
+          type="button"
+          class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+          (click)="togglePassword()"
+          >
+          @if (showPassword) {
+            <svg lucideEyeOff [size]="20"/>
+          } @else {
+            <svg lucideEye [size]="20"/>
+          }
+          </button>
+        </div>
         @if (form.get("password")?.invalid && form.get("password")?.touched) {
           <div class="text-red-500 text-sm mb-3">
             A senha deve ter no mínimo 6 caracteres.
@@ -60,13 +67,26 @@
         <label for="confirm-password" class="label font-medium"
           >Confirme sua senha:</label
         >
+        <div class="relative w-auto mb-3">
         <input
           id="confirm-password"
-          type="password"
+          [type]="showConfirmPassword ? 'text' : 'password'"
           formControlName="confirmPassword"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
           placeholder="Confirme a sua senha"
         />
+          <button
+            type="button"
+            class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+            (click)="toggleConfirmPassword()"
+          >
+            @if (showConfirmPassword) {
+              <svg lucideEyeOff [size]="20"/>
+            } @else {
+              <svg lucideEye [size]="20"/>
+            }
+          </button>
+        </div>
         @if (
           form.get("confirmPassword")?.touched &&
           form.hasError("passwordMismatch")

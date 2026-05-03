@@ -2,11 +2,14 @@ import {Component, inject} from '@angular/core';
 import { Router } from '@angular/router';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Auth} from '../../../core/services/auth';
+import { LucideEye, LucideEyeOff } from '@lucide/angular';
 
 @Component({
   selector: 'app-login',
   imports: [
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    LucideEye,
+    LucideEyeOff
   ],
   templateUrl: './login.html',
   styleUrl: './login.css',
@@ -18,16 +21,20 @@ export class Login {
 
   isLoading = false;
   errorMessage = '';
+  showPassword = false;
 
   form = this.formBuilder.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
+  togglePassword():void {
+    this.showPassword = !this.showPassword;
+  }
+
   onSubmit() {
-    if (this.form.invalid) {
+    if (this.form.invalid)
       return;
-    }
 
     this.isLoading = true;
     this.errorMessage = '';
