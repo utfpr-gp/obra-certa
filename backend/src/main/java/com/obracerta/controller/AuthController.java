@@ -3,7 +3,7 @@ package com.obracerta.controller;
 import com.obracerta.model.dto.AuthDTO;
 import com.obracerta.model.dto.LoginResponseDTO;
 import com.obracerta.model.dto.RegisterUserDTO;
-import com.obracerta.model.services.AuthService;
+import com.obracerta.services.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,13 +19,13 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity login (@RequestBody @Valid AuthDTO authDTO){
+    public ResponseEntity<LoginResponseDTO> login (@RequestBody @Valid AuthDTO authDTO){
         var token = this.authService.login(authDTO);
         return ResponseEntity.ok(new LoginResponseDTO(token));
     }
 
     @PostMapping("/register")
-    public ResponseEntity register(@RequestBody @Valid RegisterUserDTO data){
+    public ResponseEntity<Void> register(@RequestBody @Valid RegisterUserDTO data){
         this.authService.register(data);
         return ResponseEntity.ok().build();
     }

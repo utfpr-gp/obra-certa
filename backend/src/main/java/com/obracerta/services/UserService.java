@@ -1,13 +1,14 @@
-package com.obracerta.model.services;
+package com.obracerta.services;
 
 import com.obracerta.enums.UserRole;
 import com.obracerta.model.dto.UserDTO;
 import com.obracerta.model.entity.User;
-import com.obracerta.model.repository.UserRepository;
+import com.obracerta.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 public class UserService {
@@ -31,22 +32,22 @@ public class UserService {
     }
 
     public void deleteUser(String id){
-        User userEntity = userRepository.findById(id).get();
+        User userEntity = userRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Usuário não encontrado com o id: " + id));
         userRepository.delete(userEntity);
     }
 
     public UserDTO getUserById(String id){
-        return new UserDTO(userRepository.findById(id).get());
+        return new UserDTO(userRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Usuário não encontrado com o id: " + id)));
     }
 
     public void updateRole(String id, UserRole role){
-        User userEntity = userRepository.findById(id).get();
+        User userEntity = userRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Usuário não encontrado com o id: " + id));
         userEntity.setUserRole(role);
         userRepository.save(userEntity);
     }
 
     // public UserDTO getUserByEmail(String email){
-    //     return new UserDTO(userRepository.findByEmail(email).get());
+    //     return new UserDTO(userRepository.findByEmail(email).orElseThrow(() -> new NoSuchElementException("Usuário não encontrado com o e-mail: " + email)));
     // }
 
 }

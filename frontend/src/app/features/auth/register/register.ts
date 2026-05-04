@@ -1,12 +1,19 @@
-import {Component, inject} from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router } from '@angular/router';
-import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
-import {Auth} from '../../../core/services/auth';
-import { LucideEye, LucideEyeOff } from '@lucide/angular';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import { Auth } from '../../../core/services/auth';
+import { LucideEye, LucideEyeOff, LucideArrowLeft } from '@lucide/angular';
 
-
-function passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+function passwordMatchValidator(
+  control: AbstractControl,
+): ValidationErrors | null {
   const password = control.get('password')?.value;
   const confirmPassword = control.get('confirmPassword')?.value;
   return password === confirmPassword ? null : { passwordMismatch: true };
@@ -14,11 +21,7 @@ function passwordMatchValidator(control: AbstractControl): ValidationErrors | nu
 
 @Component({
   selector: 'app-register',
-  imports: [
-    ReactiveFormsModule,
-    LucideEye,
-    LucideEyeOff,
-  ],
+  imports: [ReactiveFormsModule, LucideEye, LucideEyeOff, LucideArrowLeft],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
@@ -33,22 +36,25 @@ export class Register {
   showPassword = false;
   showConfirmPassword = false;
 
-  form = this.formBuilder.group({
-    name: ['', [Validators.required, Validators.minLength(3)]],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
-    confirmPassword: ['', [Validators.required]],
-  }, { validators: passwordMatchValidator });
+  form = this.formBuilder.group(
+    {
+      name: ['', [Validators.required, Validators.minLength(3)]],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', [Validators.required]],
+    },
+    { validators: passwordMatchValidator },
+  );
 
-  togglePassword():void {
+  togglePassword(): void {
     this.showPassword = !this.showPassword;
-}
+  }
 
-  toggleConfirmPassword():void {
+  toggleConfirmPassword(): void {
     this.showConfirmPassword = !this.showConfirmPassword;
   }
 
-  onSubmit():void {
+  onSubmit(): void {
     if (this.form.invalid) {
       return;
     }
@@ -56,19 +62,19 @@ export class Register {
     this.isLoading = true;
     this.errorMessage = '';
 
-    const {name, email, password} = this.form.value;
+    const { name, email, password } = this.form.value;
 
     this.authService.register(name!, email!, password!).subscribe({
       next: () => this.router.navigate(['/']),
       error: (err) => {
-        this.errorMessage = err.error?.erro ?? 'Erro ao registrar usuário. Tente novamente.';
+        this.errorMessage =
+          err.error?.erro ?? 'Erro ao registrar usuário. Tente novamente.';
         this.isLoading = false;
-      }
+      },
     });
   }
 
-    goBack(): void {
+  goBack(): void {
     this.location.back();
   }
-
 }

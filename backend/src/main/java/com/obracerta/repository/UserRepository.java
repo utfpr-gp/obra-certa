@@ -1,4 +1,4 @@
-package com.obracerta.model.repository;
+package com.obracerta.repository;
 
 import com.obracerta.model.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;

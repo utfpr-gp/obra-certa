@@ -1,6 +1,6 @@
 package com.obracerta.configuration.security;
 
-import com.obracerta.model.repository.UserRepository;
+import com.obracerta.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

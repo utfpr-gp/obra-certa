@@ -2,7 +2,7 @@ package com.obracerta.controller;
 
 import com.obracerta.model.dto.UpdateUserRoleDTO;
 import com.obracerta.model.dto.UserDTO;
-import com.obracerta.model.services.UserService;
+import com.obracerta.services.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

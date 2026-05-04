@@ -1,10 +1,10 @@
-package com.obracerta.model.services;
+package com.obracerta.services;
 
 import com.obracerta.configuration.security.TokenService;
 import com.obracerta.model.dto.AuthDTO;
 import com.obracerta.model.dto.RegisterUserDTO;
 import com.obracerta.model.entity.User;
-import com.obracerta.model.repository.UserRepository;
+import com.obracerta.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
