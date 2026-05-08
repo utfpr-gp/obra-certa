@@ -55,7 +55,7 @@ export class Register {
   }
 
   onSubmit(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || this.isLoading) {
       return;
     }
 

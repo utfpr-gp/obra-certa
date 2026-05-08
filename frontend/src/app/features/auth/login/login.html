@@ -23,22 +23,22 @@
         }
         <label for="password" class="label font-medium">Senha:</label>
         <div class="relative w-auto mb-3">
-        <input
-          id="password"
-          [type]="showPassword ? 'text' : 'password'"
-          formControlName="password"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
-          placeholder="Insira a sua senha"
-        />
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            formControlName="password"
+            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+            placeholder="Insira a sua senha"
+          />
           <button
             type="button"
             class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
             (click)="togglePassword()"
           >
             @if (showPassword) {
-              <svg lucideEyeOff [size]="20"/>
+              <svg lucideEyeOff [size]="20" />
             } @else {
-              <svg lucideEye [size]="20"/>
+              <svg lucideEye [size]="20" />
             }
           </button>
         </div>
@@ -47,7 +47,6 @@
         }
         <div class="divider m-auto">
           <a class="link link-hover text-[#007A80]">Esqueceu a senha?</a>
-
         </div>
         @if (errorMessage) {
           <span class="text-red-500 text-sm text-center mt-2">{{
@@ -57,9 +56,14 @@
         <button
           type="submit"
           class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
-          [disabled]="isLoading"
+          [class.opacity-50]="isLoading"
+          [class.pointer-events-none]="isLoading"
         >
-          Entrar
+          @if (isLoading) {
+            <span class="loading loading-spinner loading-sm"></span>
+          } @else {
+            Entrar
+          }
         </button>
         <div class="divider text-gray-500">Não possui uma conta?</div>
         <button

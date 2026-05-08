@@ -33,7 +33,7 @@ export class Login {
   }
 
   onSubmit() {
-    if (this.form.invalid)
+    if (this.form.invalid || this.isLoading)
       return;
 
     this.isLoading = true;

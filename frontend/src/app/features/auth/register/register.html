@@ -121,9 +121,14 @@
         <button
           type="submit"
           class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
-          [disabled]="isLoading"
+          [class.opacity-50]="isLoading"
+          [class.pointer-events-none]="isLoading"
         >
-          Registre-se
+          @if (isLoading) {
+            <span class="loading loading-spinner loading-sm"></span>
+          } @else {
+            Registre-se
+          }
         </button>
       </form>
       <div class="divider m-auto">
