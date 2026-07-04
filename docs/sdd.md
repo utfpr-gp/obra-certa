@@ -20,7 +20,7 @@ O projeto utiliza uma arquitetura de Monorepo para garantir a paridade entre os 
 > **Instrução para a IA:** Este projeto utiliza o Model Context Protocol (MCP) para garantir que as implementações nunca desviem da especificação. Sempre utilize as ferramentas abaixo antes de propor alterações.
 
 * **GitHub Projects MCP:** Utilize para sincronizar o status das User Stories (PRD) com o desenvolvimento técnico. As definições de "Done" devem seguir os Critérios de Aceitação das Issues.
-* **Neon.com MCP:** Interface obrigatória para introspecção e validação do banco de dados PostgreSQL. O esquema gerado pelas classes `@Entity` (JPA/Hibernate) e versionado pelo Flyway deve ser validado contra o estado real do banco via este MCP.
+* **Neon.com MCP:** Interface obrigatória para introspecção e validação do banco de dados PostgreSQL. O esquema gerado pelas classes `@Entity` (JPA/Hibernate) e gerenciado pelo Hibernate deve ser validado contra o estado real do banco via este MCP.
 * **SpringDoc OpenAPI:** A especificação Swagger viva servirá como o contrato de verdade para a geração de serviços e modelos no Frontend Angular.
 
 ## 📦 3. Stack Tecnológica e Bibliotecas
@@ -31,7 +31,7 @@ O projeto utiliza uma arquitetura de Monorepo para garantir a paridade entre os 
 * **Banco de Dados:** PostgreSQL 16 (Hospedado no Neon.com).
 * **Backend:** Spring Boot v3.5.4.
 * **Frontend:** Angular v21.x (Obrigatório o uso do novo Control Flow `@if`, `@for` e Standalone Components. O uso de `NgModule` está proibido).
-* **Persistência:** Spring Data JPA + Hibernate + Flyway (Controle de Migrações).
+* **Persistência:** Spring Data JPA + Hibernate (DDL gerenciado via `ddl-auto=update`).
 * **Testes:** JUnit 5, Mockito e Rest-Assured (E2E).
 
 ### Bibliotecas e Utilitários Permitidos
@@ -58,7 +58,7 @@ O projeto utiliza uma arquitetura de Monorepo para garantir a paridade entre os 
 
 ### 🗄️ 4.2. Modelagem de Dados (MER)
 
-> **Instrução para a IA:** Utilize este diagrama Mermaid como fonte da verdade para gerar as entidades JPA e as migrações via Flyway.
+> **Instrução para a IA:** Utilize este diagrama Mermaid como fonte da verdade para gerar as entidades JPA. O schema é gerenciado automaticamente pelo Hibernate.
 
 ```mermaid
 erDiagram
