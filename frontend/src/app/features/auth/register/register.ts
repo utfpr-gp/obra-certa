@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { Location } from '@angular/common';
+import { Location, NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import {
   AbstractControl,
@@ -21,7 +21,7 @@ function passwordMatchValidator(
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, LucideEye, LucideEyeOff, LucideArrowLeft],
+  imports: [ReactiveFormsModule, NgClass, LucideEye, LucideEyeOff, LucideArrowLeft],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })

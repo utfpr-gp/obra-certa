@@ -7,7 +7,7 @@
         <button
           type="button"
           (click)="goBack()"
-          class="absolute flex items-center focus:outline-none focus:text-[#007A80] w-10 h-10 justify-center rounded-2xl hover:bg-gray-100 focus:bg-gray-100"
+          class="absolute flex items-center focus:outline-none focus:text-[#007A80] w-10 h-10 justify-center rounded-2xl hover:bg-gray-100 hover:text-[#007A80] focus:bg-gray-100"
         >
           <svg lucideArrowLeft [size]="18" />
         </button>
@@ -30,12 +30,13 @@
       </div>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="fieldset">
-        <label for="name" class="label font-medium">Nome Completo:</label>
+        <label for="name" class="label font-medium">Nome Completo: <span class="text-red-500">*</span></label>
         <input
           id="name"
           type="text"
           formControlName="name"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+          class="input border-1 rounded-md text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:border-transparent"
+          [ngClass]="form.get('name')?.invalid && form.get('name')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
           placeholder="Insira o seu nome"
         />
         @if (form.get("name")?.invalid && form.get("name")?.touched) {
@@ -43,30 +44,33 @@
             O nome é obrigatório e deve ter no minimo 3 caracteres.
           </div>
         }
-        <label for="email" class="label font-medium">Email:</label>
+
+        <label for="email" class="label font-medium">Email: <span class="text-red-500">*</span></label>
         <input
           id="email"
           type="email"
           formControlName="email"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+          class="input border-1 rounded-md text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:border-transparent"
+          [ngClass]="form.get('email')?.invalid && form.get('email')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
           placeholder="email@example.com"
         />
         @if (form.get("email")?.invalid && form.get("email")?.touched) {
           <div class="text-red-500 text-sm mb-3">Informe um e-mail válido.</div>
         }
 
-        <label for="password" class="label font-medium">Senha:</label>
+        <label for="password" class="label font-medium">Senha: <span class="text-red-500">*</span></label>
         <div class="relative w-auto mb-3">
           <input
             id="password"
             [type]="showPassword ? 'text' : 'password'"
             formControlName="password"
-            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+            class="input border-1 rounded-md text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:border-transparent"
+            [ngClass]="form.get('password')?.invalid && form.get('password')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
             placeholder="Insira a sua senha"
           />
           <button
             type="button"
-            class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+            class="absolute inset-y-0 right-3 z-10 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
             (click)="togglePassword()"
           >
             @if (showPassword) {
@@ -82,20 +86,19 @@
           </div>
         }
 
-        <label for="confirm-password" class="label font-medium"
-          >Confirme sua senha:</label
-        >
+        <label for="confirm-password" class="label font-medium">Confirme sua senha: <span class="text-red-500">*</span></label>
         <div class="relative w-auto mb-3">
           <input
             id="confirm-password"
             [type]="showConfirmPassword ? 'text' : 'password'"
             formControlName="confirmPassword"
-            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+            class="input border-1 rounded-md text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:border-transparent"
+            [ngClass]="form.get('confirmPassword')?.touched && (form.get('confirmPassword')?.invalid || form.hasError('passwordMismatch')) ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
             placeholder="Confirme a sua senha"
           />
           <button
             type="button"
-            class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+            class="absolute inset-y-0 right-3 z-10 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
             (click)="toggleConfirmPassword()"
           >
             @if (showConfirmPassword) {
