@@ -1,6 +1,5 @@
-ARG VARIANT=17
 FROM maven:3.9-eclipse-temurin-21 AS build
-LABEL mantainer="Leandro Pires Nunes"
+LABEL maintainer="Leandro Pires Nunes"
 WORKDIR /app
 COPY . .
 RUN chmod +x ./mvnw

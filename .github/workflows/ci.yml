@@ -64,7 +64,7 @@ jobs:
         working-directory: ./backend
         run: |
           echo "Test failed"
-          find target/surefire-reports -name "*.txt" -exec cat {} \; || true
+          cat target/surefire-reports/*.txt || true
           exit 1 
 
   test-frontend:

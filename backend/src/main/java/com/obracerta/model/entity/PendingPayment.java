@@ -1,4 +1,4 @@
-package com.obracerta.model;
+package com.obracerta.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 @Builder
 public class PendingPayment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expense_id", nullable = false, unique = true)

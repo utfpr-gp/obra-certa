@@ -1,13 +1,23 @@
 # 🏗️ ObraCerta! (Gestão de Obras Residenciais)
 
 ### 🚦 Status do Sistema
+
 [![CI - Develop (Laboratório)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
 [![CI - Main (Produção)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
 
 🔗 **Link em Produção:** [Aguardando Deploy na Nuvem]
 
 ## 🎯 1. Visão Geral
+
 O **ObraCerta** é uma aplicação web voltada ao controle financeiro de obras residenciais, com foco em construções de pequeno e médio porte. A proposta surge diante da necessidade de uma solução digital que auxilie cidadãos e pequenos construtores a manterem um planejamento financeiro eficiente, especialmente diante do cenário de constantes aumentos nos custos da construção civil. Serão disponibilizadas funcionalidades como o registro de despesas, definição de orçamentos, controle de pagamentos pendentes e a geração de alertas preventivos, proporcionando maior segurança na gestão da obra. Dessa forma, o ObraCerta busca promover organização, previsibilidade e economia ao usuário final, tornando o acompanhamento dos gastos mais acessível e confiável.
+
+## Funcionalidades principais
+
+- Cadastro e autenticação de usuários
+- Registro, Edição e exclusão de despesas
+- Criação de Orçamentos Iniciais e Comparação com despesas reais
+- Relatórios e gráficos de gastos
+- Importação de despesas via arquivo NF-e
 
 ## 👥 2. Equipe
 
@@ -15,10 +25,12 @@ Desenvolvido por: [Leandro Pires Nunes](https://github.com/lpn-leandro)\
 Orientador: [Dr. Roni Fabio Banaszewski](https://ronifabio.github.io/)
 
 ## 📚 3. Documentação Oficial (Docs as Code)
+
 Toda a especificação do sistema está versionada na pasta `/docs`:
-* 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto e User Stories.
-* 📐 **[SDD (Software Design Document)](./docs/sdd.md):** Diagrama de banco de dados e contratos de API.
-* ✅ **[Checklist de Avaliação](./docs/checklist.md):** Controle de entrega dos IDs e RAs.
+
+- 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto e User Stories.
+- 📐 **[SDD (Software Design Document)](./docs/sdd.md):** Diagrama de banco de dados e contratos de API.
+- ✅ **[Checklist de Avaliação](./docs/checklist.md):** Controle de entrega dos IDs e RAs.
 
 ## 🔗 4. Endpoints de documentação da API
 
@@ -36,6 +48,7 @@ A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www
 ## 🔧 7. Stack Tecnológica
 
 ### **Arquitetura**
+
 - **[Arquitetura em Camadas]** - Organização do código em camadas(Controller, Service, Repository)
 - **[Monorepo]** - Organização do código em um único repositório(backend e frontend)
 
@@ -73,10 +86,10 @@ Configurar os seguintes arquivos `.env` com as variáveis de ambiente necessári
 Exemplo de configuração das variáveis de ambiente (arquivo `.env`):
 
 ```
-DATASOURCE_URL=jdbc:postgresql://localhost:5432/obracerta_db
+DATASOURCE_URL=jdbc:postgresql://localhost:5432/obracerta
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-POSTGRES_DB=obracerta_db
+POSTGRES_DB=obracerta
 ```
 
 > **Observação:** Certifique-se de comentar ou descomentar a linha correta no arquivo `application.properties` no backend para configurar o SSL ao rodar localmente ou via Docker.
@@ -141,15 +154,18 @@ Acesse a aplicação nos seguintes endereços:
 
 - **API Backend:** [https://localhost:8080](https://localhost:8080)
 - **Frontend:** [https://localhost:4200](https://localhost:4200)
+
 ---
 
 ## 🧰 9. Ferramentas Recomendadas
 
 - **IDE:** IntelliJ IDEA para backend e VSCode para frontend
 - **Gerenciador de banco de dados:** pgAdmin, DBeaver ou outro para PostgreSQL
+- **Gerenciador de banco de dados:** A definir
 - **Cliente de API:** Postman (ou Insomnia, se preferir)
 
 ## 📝 10. Observações adicionais
 
 - O sistema está preparado para ser executado tanto localmente quanto em ambientes conteinerizados usando Docker.
 - Para ambientes de produção, revise as configurações SSL corretamente para garantir a segurança.
+- O backend faz uso da arquitetura de camadas, com separação clara entre controladores, serviços e repositórios, facilitando a manutenção e escalabilidade do código.

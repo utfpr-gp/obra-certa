@@ -1,4 +1,4 @@
-package com.obracerta.model;
+package com.obracerta.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,18 +10,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "expense_categories")
+@Table(name = "suppliers")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ExpenseCategory {
+public class Supplier {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     @Column(nullable = false)
     private String name;
+
+    @Column(name = "document")
+    private String document;
+
+    @Column(columnDefinition = "TEXT")
+    private String email;
+
+    @Column(columnDefinition = "TEXT")
+    private String phone;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -31,9 +40,6 @@ public class ExpenseCategory {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL)
     private List<Expense> expenses = new ArrayList<>();
-
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
-    private List<Budget> budgets = new ArrayList<>();
 }

@@ -1,4 +1,4 @@
-package com.obracerta.model;
+package com.obracerta.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @Builder
 public class Notification {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
