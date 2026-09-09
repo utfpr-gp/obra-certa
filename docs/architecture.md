@@ -12,40 +12,42 @@ O projeto adota uma arquitetura de **Monorepo**, centralizando a API de serviço
 
 ```
 obra-certa/
-├── backend/                    # API RESTful em Java (Spring Boot)
-│   ├── src/main/java/com/obracerta/
-│   │   ├── configuration/      # Configurações de Segurança, CORS e Beans
-│   │   ├── controller/         # Endpoints REST (Controladores HTTP)
-│   │   ├── enums/              # Enumerações de Domínio (ex: UserRole)
-│   │   ├── exception/          # Handler global de exceções e erros padronizados
-│   │   ├── model/
-│   │   │   ├── dto/            # Data Transfer Objects (Java Records)
-│   │   │   └── entity/         # Entidades persistentes JPA (Hibernate)
-│   │   ├── repository/         # Interfaces de acesso a dados (Spring Data JPA)
-│   │   └── services/           # Regras de negócio, cálculos e validações
-│   ├── src/main/resources/     # Configurações de ambiente (application.properties)
-│   ├── Dockerfile              # Empacotamento do container backend
-│   └── pom.xml                 # Dependências e plugins Maven
-│
-├── frontend/                   # Client SPA em TypeScript (Angular)
-│   ├── src/app/
-│   │   ├── core/               # Singleton Services, Guards e Interceptors HTTP
-│   │   │   ├── guards/         # Proteção de rotas autenticadas (authGuard)
-│   │   │   ├── interceptors/   # Anexação automática do Bearer Token
-│   │   │   └── services/       # Comunicação com a API (Auth, Budget, Expense)
-│   │   └── features/           # Módulos e Componentes de telas (Login, Register, Home)
-│   ├── Dockerfile              # Empacotamento do container frontend (Nginx)
-│   └── package.json            # Dependências e scripts do frontend
+├── apps/
+│   ├── api/                    # API RESTful em Java (Spring Boot 3)
+│   │   ├── src/main/java/com/obracerta/
+│   │   │   ├── configuration/  # Configurações de Segurança, CORS e Beans
+│   │   │   ├── controller/     # Endpoints REST (Controladores HTTP)
+│   │   │   ├── enums/          # Enumerações de Domínio (ex: UserRole)
+│   │   │   ├── exception/      # Handler global de exceções e erros padronizados
+│   │   │   ├── model/
+│   │   │   │   ├── dto/        # Data Transfer Objects (Java Records)
+│   │   │   │   └── entity/     # Entidades persistentes JPA (Hibernate)
+│   │   │   ├── repository/     # Interfaces de acesso a dados (Spring Data JPA)
+│   │   │   └── services/       # Regras de negócio, cálculos e validações
+│   │   ├── src/main/resources/ # Configurações de ambiente (application.properties)
+│   │   ├── Dockerfile          # Empacotamento do container da API
+│   │   └── pom.xml             # Dependências e plugins Maven
+│   │
+│   └── web/                    # Client SPA em TypeScript (Angular 21)
+│       ├── src/app/
+│       │   ├── core/           # Singleton Services, Guards e Interceptors HTTP
+│       │   │   ├── guards/     # Proteção de rotas autenticadas (authGuard)
+│       │   │   ├── interceptors/# Anexação automática do Bearer Token
+│       │   │   └── services/   # Comunicação com a API (Auth, Budget, Expense)
+│       │   └── features/       # Módulos e Componentes de telas (Login, Register, Home)
+│       ├── Dockerfile          # Empacotamento do container web (Nginx)
+│       └── package.json        # Dependências e scripts do frontend
 │
 ├── docs/                       # Documentação Viva (Docs as Code - Fase 0)
 │   ├── prd.md                  # Requisitos, Histórias e Glossário Ubíquo
 │   ├── architecture.md         # Estrutura, Modelagem, Padrões e Segurança (este arquivo)
-│   └── user-flows.md           # Jornadas do usuário e pontos de decisão/abandono
+│   ├── user-flows.md           # Jornadas do usuário e pontos de decisão/abandono
+│   └── design-tokens.md        # Tokens de design, cores, tipografia e protótipos
 │
 ├── specs/                      # Especificações por Issue (Ciclos de Desenvolvimento)
 │   └── README.md               # Índice central de rastreabilidade de specs
 │
-├── docker-compose.yml          # Orquestração dos serviços (Database, Backend, Frontend)
+├── docker-compose.yml          # Orquestração dos serviços (Database, Backend/API, Frontend/Web)
 └── README.md                   # Vitrine do projeto, Quick Start e variáveis de ambiente
 ```
 

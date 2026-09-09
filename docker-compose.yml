@@ -17,7 +17,7 @@ services:
   backend:
     container_name: obracerta-backend
     build:
-      context: ./backend
+      context: ./apps/api
       dockerfile: Dockerfile
     ports:
       - '8080:8080'
@@ -35,7 +35,7 @@ services:
   frontend:
     container_name: obracerta-frontend
     build:
-      context: ./frontend
+      context: ./apps/web
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production

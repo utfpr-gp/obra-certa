@@ -104,9 +104,9 @@ CREATE DATABASE obracerta;
 ```
 
 #### 2. Backend (Spring Boot)
-1. Acesse o diretório do backend:
+1. Acesse o diretório da API (Backend):
    ```bash
-   cd backend
+   cd apps/api
    ```
 2. Configure as variáveis de ambiente necessárias ou use as configurações padrão de `src/main/resources/application-dev.properties`.
 3. Execute o servidor de desenvolvimento:
@@ -116,9 +116,9 @@ CREATE DATABASE obracerta;
    *(No Windows PowerShell, utilize `.\mvnw.cmd spring-boot:run`)*
 
 #### 3. Frontend (Angular)
-1. Em outro terminal, acesse o diretório do frontend:
+1. Em outro terminal, acesse o diretório web (Frontend):
    ```bash
-   cd frontend
+   cd apps/web
    ```
 2. Instale as dependências:
    ```bash
@@ -134,14 +134,14 @@ CREATE DATABASE obracerta;
 
 ## 🧪 Executando os Testes Automatizados
 
-- **Testes do Backend:**
+- **Testes da API (Backend):**
   ```bash
-  cd backend
+  cd apps/api
   ./mvnw test
   ```
 
-- **Testes do Frontend:**
+- **Testes da Aplicação Web (Frontend):**
   ```bash
-  cd frontend
+  cd apps/web
   npm test
   ```
