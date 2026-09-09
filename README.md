@@ -1,171 +1,147 @@
 # 🏗️ ObraCerta! (Gestão de Obras Residenciais)
 
-### 🚦 Status do Sistema
-
-[![CI - Develop (Laboratório)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
-[![CI - Main (Produção)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
-
-🔗 **Link em Produção:** [Aguardando Deploy na Nuvem]
-
-## 🎯 1. Visão Geral
-
-O **ObraCerta** é uma aplicação web voltada ao controle financeiro de obras residenciais, com foco em construções de pequeno e médio porte. A proposta surge diante da necessidade de uma solução digital que auxilie cidadãos e pequenos construtores a manterem um planejamento financeiro eficiente, especialmente diante do cenário de constantes aumentos nos custos da construção civil. Serão disponibilizadas funcionalidades como o registro de despesas, definição de orçamentos, controle de pagamentos pendentes e a geração de alertas preventivos, proporcionando maior segurança na gestão da obra. Dessa forma, o ObraCerta busca promover organização, previsibilidade e economia ao usuário final, tornando o acompanhamento dos gastos mais acessível e confiável.
-
-## Funcionalidades principais
-
-- Cadastro e autenticação de usuários
-- Registro, Edição e exclusão de despesas
-- Criação de Orçamentos Iniciais e Comparação com despesas reais
-- Relatórios e gráficos de gastos
-- Importação de despesas via arquivo NF-e
-
-## 👥 2. Equipe
-
-Desenvolvido por: [Leandro Pires Nunes](https://github.com/lpn-leandro)\
-Orientador: [Dr. Roni Fabio Banaszewski](https://ronifabio.github.io/)
-
-## 📚 3. Documentação Oficial (Docs as Code)
-
-Toda a especificação do sistema está versionada na pasta `/docs`:
-
-- 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto e User Stories.
-- 📐 **[SDD (Software Design Document)](./docs/sdd.md):** Diagrama de banco de dados e contratos de API.
-- ✅ **[Checklist de Avaliação](./docs/checklist.md):** Controle de entrega dos IDs e RAs.
-
-## 🔗 4. Endpoints de documentação da API
-
-- **Swagger UI:** [https://localhost:8080/swagger-ui.html](https://localhost:8080/swagger-ui.html)
-- **Documentação JSON:** [https://localhost:8080/v3/api-docs](https://localhost:8080/v3/api-docs)
-
-## 🌄 5. Layout
-
-Os protótipos da aplicação estão disponíveis no [Figma](https://www.figma.com/design/uZ1iGjhqEolqt0XdYNzfth/ObraCerta?node-id=1-2&t=9WpBUUlnGZDrDqYD-1).
-
-## 📒 6. Monografia
-
-A monografia da aplicação pode ser acessada neste link: [Overleaf](https://www.overleaf.com/read/ybgjmhcnzbsg#1a550c)
-
-## 🔧 7. Stack Tecnológica
-
-### **Arquitetura**
-
-- **[Arquitetura em Camadas]** - Organização do código em camadas(Controller, Service, Repository)
-- **[Monorepo]** - Organização do código em um único repositório(backend e frontend)
-
-### **Backend**
-
-- **[Java 21](https://www.oracle.com/java)**
-- **[Spring Boot 3](https://spring.io/projects/spring-boot)**
-- **[Spring Security](https://spring.io/projects/spring-security)** – Controle de autenticação e autorização
-- **[Postgresql](https://www.postgresql.org)** – Banco de dados relacional
-- **[Swagger](https://swagger.io)** – Documentação automática da API
-- **[Docker Compose](https://docs.docker.com/compose/)** – Orquestração de containers
-
-### **Frontend**
-
-- **[Angular 21](https://angular.io)**
-- **[Tailwind CSS](https://tailwindcss.com/) + [DaisyUI](https://daisyui.com/)** – Estilização moderna e responsiva
-
-### **Infraestrutura e DevOps**
-
-- **[Docker](https://www.docker.com/)** – Empacotamento e execução de serviços
-- **[GitHub Actions](https://github.com/features/actions)** – CI/CD para automação de deploy
-- **[Nginx](https://www.nginx.com/)** – Servidor reverso para balanceamento de carga
-- **[Neon](https://neon.tech/)** – Banco de dados relacional na nuvem em produção
-
-## 🚀 8. Quick Start (Como Executar)
-
-### 1. Configuração dos arquivos `.env`
-
-Configurar os seguintes arquivos `.env` com as variáveis de ambiente necessárias:
-
-- **Na raiz do projeto:** `.env`
-- **No backend:** `backend/.env`
-- **No frontend:** `frontend/src/environments/environment.ts` (para desenvolvimento, use o arquivo `environment.dev.ts`)
-
-Exemplo de configuração das variáveis de ambiente (arquivo `.env`):
-
-```
-DATASOURCE_URL=jdbc:postgresql://localhost:5432/obracerta
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=obracerta
-```
-
-> **Observação:** Certifique-se de comentar ou descomentar a linha correta no arquivo `application.properties` no backend para configurar o SSL ao rodar localmente ou via Docker.
-
-### 2. Como executar a aplicação?
-
-#### **2.1 Rodando localmente via IDE**
-
-**Banco de Dados:**
-
-Certifique-se de que o PostgreSQL está rodando na porta 5432
-Crie o banco de dados manualmente (caso necessário):
-
-```
-CREATE DATABASE obracerta;
-```
-
-**Backend:**
-
-Clonar o repositório:
-
-```
-git clone https://github.com/utfpr-gp/obracerta.git
-cd obracerta
-```
-
-Configurar os arquivos .env conforme descrito anteriormente.
-Abrir o backend em sua IDE (IntelliJ, Eclipse, etc.)
-Verificar o arquivo application.properties
-Rodar a aplicação Spring Boot pela classe principal
-
-**Frontend:**
-
-Acesse a pasta `frontend` e execute:
-
-```
-nvm install 20.9.0
-nvm use 20.9.0
-npm install
-ng serve
-```
-
-O frontend estará disponível em [https://localhost:4200](https://localhost:4200)
-
-#### 2.2 Rodando com Docker Compose
-
-Configurar o arquivo `.env`
-Construir e subir os containers:
-
-```
-docker compose build
-docker compose up -d
-```
-
-Verifique se os containers estão rodando:
-
-```
-docker ps
-```
-
-Acesse a aplicação nos seguintes endereços:
-
-- **API Backend:** [https://localhost:8080](https://localhost:8080)
-- **Frontend:** [https://localhost:4200](https://localhost:4200)
+> **Aplicação web para planejamento e controle financeiro de obras residenciais autogeridas, proporcionando organização, previsibilidade orçamentária e acompanhamento em tempo real de despesas e pagamentos.**
 
 ---
 
-## 🧰 9. Ferramentas Recomendadas
+### 🚦 Status do Projeto & Deploy
 
-- **IDE:** IntelliJ IDEA para backend e VSCode para frontend
-- **Gerenciador de banco de dados:** pgAdmin, DBeaver ou outro para PostgreSQL
-- **Gerenciador de banco de dados:** A definir
-- **Cliente de API:** Postman (ou Insomnia, se preferir)
+- [![CI - Develop](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
+- [![CI - Main](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/utfpr-gp/obra-certa/actions/workflows/ci.yml)
+- 🔗 **Link da Aplicação em Produção:** [https://obracerta.app](https://obracerta.app) *(Aguardando Deploy)*
 
-## 📝 10. Observações adicionais
+---
 
-- O sistema está preparado para ser executado tanto localmente quanto em ambientes conteinerizados usando Docker.
-- Para ambientes de produção, revise as configurações SSL corretamente para garantir a segurança.
-- O backend faz uso da arquitetura de camadas, com separação clara entre controladores, serviços e repositórios, facilitando a manutenção e escalabilidade do código.
+## 👥 Autores & Equipe
+
+- **Desenvolvedor:** [Leandro Pires Nunes](https://github.com/lpn-leandro)
+- **Orientador:** [Prof. Dr. Roni Fabio Banaszewski](https://ronifabio.github.io/)
+- **Instituição:** Universidade Tecnológica Federal do Paraná (UTFPR - Campus Guarapuava)
+- 📒 **Monografia:** [Overleaf](https://www.overleaf.com/read/ybgjmhcnzbsg#1a550c) | 🎨 **Protótipo Figma:** [Figma Design](https://www.figma.com/design/uZ1iGjhqEolqt0XdYNzfth/ObraCerta?node-id=1-2&t=9WpBUUlnGZDrDqYD-1)
+
+---
+
+## 📚 Documentação do Projeto (Docs as Code)
+
+Toda a especificação formal do sistema segue a metodologia **Spec-Driven Development (SDD)** e está versionada na pasta [`/docs`](./docs):
+
+- 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto, glossário ubíquo, atores e histórias de usuário com status explícitos.
+- 📐 **[Arquitetura do Sistema](./docs/architecture.md):** Estrutura do monorepo, modelo de dados (ER), padrões arquiteturais, segurança e contratos da API.
+- 🔄 **[Jornadas do Usuário (User Flows)](./docs/user-flows.md):** Fluxos de navegação, decisões do sistema e mitigação de pontos de desistência/falha.
+- 🎨 **[Tokens de Design & Protótipo](./docs/design-tokens.md):** Paleta de cores, tipografia, estados de botões e especificação das telas principais.
+- 📑 **[Especificações por Issue](./specs/README.md):** Índice de especificações técnicas das histórias em desenvolvimento.
+
+---
+
+## 🔧 Stack Tecnológica
+
+- **Arquitetura:** Monorepo com Arquitetura em Camadas (Controller, Service, Repository)
+- **Backend:** Java, Spring Boot, Spring Security (Autenticação Stateless com JWT), Spring Data JPA
+- **Frontend:** Angular (Standalone Components, Modern Control Flow, SSR), Tailwind CSS, DaisyUI, Lucide Icons
+- **Banco de Dados:** PostgreSQL (Ambiente local via Docker / Nuvem via Neon Serverless Postgres)
+- **DevOps & Infra:** Docker, Docker Compose, Nginx, GitHub Actions (CI/CD)
+
+---
+
+## 🔐 Variáveis de Ambiente
+
+Crie o arquivo `.env` na raiz do projeto a partir do modelo `.env.example`.
+
+| Variável | Descrição / Finalidade | Escopo |
+| :--- | :--- | :--- |
+| `POSTGRES_DB` | Nome do banco de dados relacional | Docker / Backend |
+| `POSTGRES_USER` | Usuário de autenticação do PostgreSQL | Docker / Backend |
+| `POSTGRES_PASSWORD` | Senha do usuário do banco de dados | Docker / Backend |
+| `SPRING_DATASOURCE_URL` | String de conexão JDBC com o PostgreSQL | Docker / Backend |
+| `JWT_SECRET` | Chave criptográfica para assinatura e validação dos tokens JWT | Backend |
+| `SPRING_PROFILES_ACTIVE` | Perfil de execução do Spring Boot (`dev`, `prod`, `test`) | Backend |
+| `FRONTEND_URL` | Origem permitida nas políticas de CORS do backend | Backend |
+| `SEFAZ_API_KEY` | Chave de integração com o serviço de consulta e importação de NF-e | Backend |
+
+> ⚠️ **Atenção:** Nunca comite arquivos `.env` contendo credenciais ou chaves reais no repositório.
+
+---
+
+## 🚀 Quick Start (Como Executar)
+
+### Pré-requisitos
+- [Docker](https://www.docker.com/) e [Docker Compose](https://docs.docker.com/compose/) instalados **OU**
+- [Java 21 LTS](https://adoptium.net/), [Node.js 22+ (LTS)](https://nodejs.org/) e [PostgreSQL 16](https://www.postgresql.org/) instalados localmente.
+
+---
+
+### Opção 1: Executando via Docker Compose (Recomendado)
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/utfpr-gp/obra-certa.git
+   cd obra-certa
+   ```
+
+2. **Configure o arquivo de ambiente:**
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Construa e inicie os contêineres:**
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. **Acesse as aplicações:**
+   - **Frontend (Web):** [http://localhost:80](http://localhost:80) ou [http://localhost:4200](http://localhost:4200)
+   - **Backend (API REST):** [http://localhost:8080](http://localhost:8080)
+   - **Documentação da API (Swagger UI):** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+
+---
+
+### Opção 2: Executando Localmente (Ambiente de Desenvolvimento)
+
+#### 1. Banco de Dados (PostgreSQL)
+Certifique-se de que uma instância do PostgreSQL esteja ativa na porta `5432` com o banco `obracerta` criado:
+```sql
+CREATE DATABASE obracerta;
+```
+
+#### 2. Backend (Spring Boot)
+1. Acesse o diretório da API (Backend):
+   ```bash
+   cd apps/api
+   ```
+2. Configure as variáveis de ambiente necessárias ou use as configurações padrão de `src/main/resources/application-dev.properties`.
+3. Execute o servidor de desenvolvimento:
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+   *(No Windows PowerShell, utilize `.\mvnw.cmd spring-boot:run`)*
+
+#### 3. Frontend (Angular)
+1. Em outro terminal, acesse o diretório web (Frontend):
+   ```bash
+   cd apps/web
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm start
+   ```
+4. Acesse no navegador: [http://localhost:4200](http://localhost:4200)
+
+---
+
+## 🧪 Executando os Testes Automatizados
+
+- **Testes da API (Backend):**
+  ```bash
+  cd apps/api
+  ./mvnw test
+  ```
+
+- **Testes da Aplicação Web (Frontend):**
+  ```bash
+  cd apps/web
+  npm test
+  ```
