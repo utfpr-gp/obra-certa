@@ -33,7 +33,10 @@ obra-certa/
 │       │   ├── core/           # Singleton Services, Guards e Interceptors HTTP
 │       │   │   ├── guards/     # Proteção de rotas autenticadas (authGuard)
 │       │   │   ├── interceptors/# Anexação automática do Bearer Token
+│       │   │   ├── models/     # Modelos de domínio e interfaces TypeScript
 │       │   │   └── services/   # Comunicação com a API (Auth, Budget, Expense)
+│       │   ├── shared/         # Componentes e utilitários reutilizáveis
+│       │   │   └── components/ # Componentes globais compartilhados (Navbar, Sidebar, etc.)
 │       │   └── features/       # Módulos e Componentes de telas (Login, Register, Home)
 │       ├── Dockerfile          # Empacotamento do container web (Nginx)
 │       └── package.json        # Dependências e scripts do frontend
