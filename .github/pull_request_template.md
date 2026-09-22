@@ -1,26 +1,18 @@
-## Título PR
+Closes #
 
-<!--- Forneça um resumo geral de suas alterações no título acima. -->
+## O que este PR faz e por quê
 
-<!-- URL do problema vinculado automaticamente -->
+<!-- Com as suas palavras. Não cole o diff nem a saída da IA.
+     Mínimo de 250 caracteres — é o que o Portão de Entendimento verifica,
+     em TODO PR, inclusive nos de manutenção. A etiqueta `manutencao` decide
+     outra coisa: se o PR precisava ou não de `spec.md`. São duas perguntas
+     independentes. -->
 
-Issue: **#ISSUE_NUMBER**
+## Apontamentos da revisão
 
-### Descrição
+<!-- Fonte: specs/<issue>-<slug>/reviews/tarefa-NN-decisoes-rN.md
+     Só nos PRs de história. Em PR de manutenção, escreva "não se aplica". -->
 
-<!--- Descreva suas alterações em detalhes -->
+**Aceitos:**
 
-### Tipos de mudanças
-
-<!--- Quais tipos de mudanças seu código introduz? Coloque um `x` em todas as caixas que se aplicam: -->
-
-- [ ] fix: Correção de um bug
-- [ ] feat: Um novo recurso
-- [ ] refactor: Uma mudança de código que não corrige um bug nem adiciona um recurso
-- [ ] enhancement: Uma melhoria que torna algo melhor
-- [ ] test: Adicionando testes ausentes ou corrigindo testes existentes
-- [ ] perf: Uma mudança de código que melhora o desempenho
-- [ ] docs: Mudanças apenas na documentação
-- [ ] style: Mudanças que não afetam o significado do código (por exemplo, formatação prettier)
-- [ ] ci: Mudanças em nossos arquivos e scripts de configuração CI
-- [ ] chore: Mudanças no processo de construção ou na funcionalidade de ferramentas e bibliotecas auxiliares para não funcionar como esperado
+**Recusados (com o motivo):**
