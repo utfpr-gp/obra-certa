@@ -70,37 +70,85 @@ Este documento define os **tokens visuais obrigatórios** da aplicação ObraCer
 
 ## 🔘 5. Padrão de Componentes & Estados de Botão
 
+O projeto adota classes utilitárias no `@layer components` (`styles.css`) além do padrão Tailwind/DaisyUI para manter uniformidade absoluta:
+
 ### 5.1 Botão Primário (Ação Principal)
+- **Token:** `bg-[#007A80]` com hover `hover:bg-[#00686d]`, bordas `rounded-md`, sem borda (`border-0`), texto branco `text-white` e tipografia `font-medium`.
 ```html
-<!-- Padrão: Verde Petróleo com texto branco -->
-<button class="btn bg-[#007A80] hover:bg-[#00686D] text-white font-medium rounded-md border-0 transition-all active:scale-95">
-  Salvar Despesa
+<!-- Opção 1: Classe utilitária do Design System (Recomendada) -->
+<button type="button" class="btn-oc-primary">
+  Lançar Nova Despesa
+</button>
+
+<!-- Opção 2: Classes utilitárias explícitas -->
+<button type="button" class="btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium">
+  Lançar Nova Despesa
 </button>
 ```
 
-### 5.2 Botão Secundário / Destaque
+### 5.2 Botão Secundário / Destaque (Accent)
+- **Token:** `bg-[#FDBE00]` com hover `hover:bg-[#f7ae05]`, bordas `rounded-md`, sem borda (`border-0`), texto escuro `text-slate-900` e tipografia `font-medium`.
 ```html
-<!-- Padrão: Amarelo com texto escuro -->
-<button class="btn bg-[#FDBE00] hover:bg-[#F7AE05] text-slate-900 font-medium rounded-md border-0 transition-all active:scale-95">
+<!-- Opção 1: Classe utilitária do Design System (Recomendada) -->
+<button type="button" class="btn-oc-secondary">
+  Registrar-se
+</button>
+
+<!-- Opção 2: Classes utilitárias explícitas -->
+<button type="button" class="btn border-0 bg-[#FDBE00] hover:bg-[#f7ae05] rounded-md text-slate-900 font-medium">
   Registrar-se
 </button>
 ```
 
 ### 5.3 Botão Outline / Cancelar
 ```html
-<button class="btn btn-outline border-slate-300 text-slate-700 hover:bg-slate-100 font-medium rounded-md">
+<button type="button" class="btn-oc-outline">
+  Cancelar
+</button>
+
+<!-- Ou com utilitários explícitos: -->
+<button type="button" class="btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium">
   Cancelar
 </button>
 ```
 
 ### 5.4 Botão Destrutivo / Excluir
 ```html
-<button class="btn bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-md border-0">
+<button type="button" class="btn-oc-danger">
+  Excluir
+</button>
+
+<!-- Ou com utilitários explícitos: -->
+<button type="button" class="btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium">
   Excluir
 </button>
 ```
 
-### 5.5 Inputs e Formulários
+### 5.5 Botão Ghost
+```html
+<button type="button" class="btn-oc-ghost">
+  Ver detalhes
+</button>
+```
+
+### 5.6 Botão de Redirecionamento de Seção (Ghost Compacto com Ícone)
+- **Finalidade:** Utilizado nos cabeçalhos de seções de dashboards e painéis para redirecionar o usuário para a página correspondente (ex: *"Gerenciar Orçamentos"*, *"Ver todas"*).
+- **Padrão:** Efeito ghost suave com texto em Teal (`#007A80`), hover com fundo sutil (`hover:bg-[#007A80]/10`), cantos `rounded-md`, tipografia `font-semibold text-xs` e ícone direcional `lucideArrowRight` [size 14].
+```html
+<!-- Classe utilitária do Design System (Recomendada) -->
+<a routerLink="/orcamentos" class="btn-oc-redirect">
+  <span>Gerenciar Orçamentos</span>
+  <svg lucideArrowRight [size]="14" />
+</a>
+
+<!-- Ou com classes atômicas Tailwind/DaisyUI: -->
+<a routerLink="/orcamentos" class="btn btn-ghost btn-sm text-[#007A80] hover:bg-[#007A80]/10 rounded-md font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors">
+  <span>Gerenciar Orçamentos</span>
+  <svg lucideArrowRight [size]="14" />
+</a>
+```
+
+### 5.7 Inputs e Formulários
 ```html
 <input 
   type="text" 
@@ -109,10 +157,11 @@ Este documento define os **tokens visuais obrigatórios** da aplicação ObraCer
 />
 ```
 
-### 5.6 Badges de Status
+### 5.8 Badges de Status
 ```html
 <!-- Pago -->
 <span class="badge bg-emerald-100 text-emerald-800 border-0 font-medium">Pago</span>
+
 
 <!-- A Pagar / Pendente -->
 <span class="badge bg-amber-100 text-amber-800 border-0 font-medium">Pendente</span>

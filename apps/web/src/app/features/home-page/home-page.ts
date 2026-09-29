@@ -1,8 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ObraMockService } from '../../core/services/obra-mock.service';
-import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
-import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
@@ -12,7 +11,8 @@ import {
   LucideHome,
   LucidePlusCircle,
   LucideClock,
-  LucideCheckCircle
+  LucideCheckCircle,
+  LucideArrowRight
 } from '@lucide/angular';
 
 @Component({
@@ -20,8 +20,7 @@ import {
   standalone: true,
   imports: [
     CommonModule,
-    NavbarComponent,
-    SidebarComponent,
+    RouterLink,
     AlertBannerComponent,
     RadialGaugeComponent,
     KpiCardComponent,
@@ -30,15 +29,14 @@ import {
     LucideHome,
     LucidePlusCircle,
     LucideClock,
-    LucideCheckCircle
+    LucideCheckCircle,
+    LucideArrowRight
   ],
   templateUrl: './home-page.html',
   styleUrl: './home-page.css'
 })
 export class HomePage {
   private obraService = inject(ObraMockService);
-
-  sidebarOpen = signal<boolean>(false);
 
   readonly activeObra = this.obraService.activeObra;
   readonly riskCategories = this.obraService.riskCategories;
@@ -47,14 +45,6 @@ export class HomePage {
     const list = this.riskCategories();
     return list.length > 0 ? list[0] : null;
   });
-
-  toggleSidebar(): void {
-    this.sidebarOpen.update((v) => !v);
-  }
-
-  closeSidebar(): void {
-    this.sidebarOpen.set(false);
-  }
 
   formatBrl(value: number): string {
     return this.obraService.formatBrl(value);

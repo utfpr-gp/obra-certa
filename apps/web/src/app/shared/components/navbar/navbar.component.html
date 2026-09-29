@@ -90,7 +90,7 @@
           <div class="pt-2 border-t border-slate-100 mt-1">
             <button
               type="button"
-              class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-[#007A80] hover:bg-[#E5F6F6] transition-colors"
+              class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium w-full flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors cursor-pointer"
             >
               <svg lucidePlus [size]="16" />
               <span>Cadastrar nova obra</span>
@@ -137,17 +137,20 @@
 
       @if (userMenuOpen()) {
         <div class="fixed inset-0 z-40 bg-transparent" (click)="userMenuOpen.set(false)"></div>
-        <div class="absolute top-[calc(100%+8px)] right-0 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-50 animate-pop">
-          <div class="px-3 py-2 border-b border-slate-100">
-            <p class="text-xs font-bold text-slate-800">Leandro Nunes</p>
-            <p class="text-[11px] text-slate-400 truncate">leandro@exemplo.com</p>
+        <div class="absolute top-[calc(100%+8px)] right-0 min-w-[210px] w-56 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-900/10 p-2 z-50 animate-pop">
+          <!-- User Info Header -->
+          <div class="px-3 py-2.5 mb-1 border-b border-slate-100">
+            <p class="font-semibold text-sm text-slate-800 leading-tight">Leandro Nunes</p>
+            <p class="text-xs text-slate-500 mt-0.5 truncate">leandro@exemplo.com</p>
           </div>
+
+          <!-- Logout Action Button -->
           <button
             type="button"
             (click)="onLogout()"
-            class="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors font-medium"
+            class="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-rose-600 hover:bg-rose-50/80 rounded-lg text-left transition-all duration-150 font-medium cursor-pointer active:scale-98"
           >
-            <svg lucideLogOut [size]="14" />
+            <svg lucideLogOut [size]="15" class="shrink-0" />
             <span>Sair do sistema</span>
           </button>
         </div>
@@ -245,7 +248,7 @@
       <div class="p-4 border-t border-slate-100">
         <button
           type="button"
-          class="btn w-full bg-[#007A80] hover:bg-[#00686D] text-white font-bold rounded-xl border-0 flex items-center justify-center gap-2"
+          class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium w-full flex items-center justify-center gap-2 cursor-pointer"
         >
           <svg lucidePlus [size]="18" />
           <span>Cadastrar nova obra</span>

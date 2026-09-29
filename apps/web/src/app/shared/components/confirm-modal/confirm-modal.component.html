@@ -34,15 +34,15 @@
         <button
           type="button"
           (click)="onCancel()"
-          class="btn btn-ghost text-slate-600 hover:bg-slate-100 font-bold rounded-xl px-4 h-10 min-h-0 text-sm"
+          class="btn btn-ghost text-slate-600 hover:bg-slate-100 font-medium rounded-md px-4 h-10 min-h-0 text-sm cursor-pointer"
         >
           {{ cancelText() }}
         </button>
         <button
           type="button"
           (click)="onConfirm()"
-          class="btn font-bold rounded-xl px-5 h-10 min-h-0 text-sm border-0 shadow-sm transition-all active:scale-98"
-          [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686D] text-white'"
+          class="btn border-0 font-medium rounded-md px-5 h-10 min-h-0 text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+          [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686d] text-white'"
         >
           {{ confirmText() }}
         </button>

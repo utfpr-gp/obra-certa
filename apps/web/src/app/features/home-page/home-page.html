@@ -1,41 +1,15 @@
-<div class="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden">
-  <!-- Desktop Sidebar -->
-  <aside class="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col shrink-0 z-20">
-    <app-sidebar (closeDrawer)="closeSidebar()" />
-  </aside>
+<!-- Optional Danger / Due Today Alert Banner -->
+@if (activeObra().alertaHoje) {
+  <app-alert-banner
+    type="danger"
+    [title]="activeObra().alertaHoje!.titulo"
+    [message]="activeObra().alertaHoje!.detalhe"
+    actionLabel="Ver Conta"
+  />
+}
 
-  <!-- Mobile Drawer Overlay -->
-  @if (sidebarOpen()) {
-    <div
-      class="fixed inset-0 bg-black/40 z-50 lg:hidden flex transition-opacity duration-200"
-      (click)="closeSidebar()"
-    >
-      <div
-        class="w-72 max-w-[80vw] h-full bg-white shadow-2xl flex flex-col z-50 animate-drawer"
-        (click)="$event.stopPropagation()"
-      >
-        <app-sidebar (closeDrawer)="closeSidebar()" />
-      </div>
-    </div>
-  }
-
-  <!-- Main View Area -->
-  <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-    <!-- Top Navbar -->
-    <app-navbar (toggleSidebar)="toggleSidebar()" />
-
-    <!-- Optional Danger / Due Today Alert Banner -->
-    @if (activeObra().alertaHoje) {
-      <app-alert-banner
-        type="danger"
-        [title]="activeObra().alertaHoje!.titulo"
-        [message]="activeObra().alertaHoje!.detalhe"
-        actionLabel="Ver Conta"
-      />
-    }
-
-    <!-- Scrollable Main Dashboard Content -->
-    <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
+<!-- Scrollable Main Dashboard Content -->
+<main class="p-4 md:p-6 lg:p-8 space-y-6">
       <!-- Page Header with Title and Action CTA -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -50,7 +24,7 @@
 
         <button
           type="button"
-          class="btn bg-[#007A80] hover:bg-[#00686D] text-white font-bold rounded-xl border-0 shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          class="btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
         >
           <svg lucidePlusCircle [size]="18" />
           <span>Lançar Nova Despesa</span>
@@ -97,9 +71,19 @@
 
       <!-- Orçamento por Categoria Section -->
       <div>
-        <h2 class="text-base font-bold text-slate-900 mb-3">
-          Orçamento por categoria ({{ activeObra().categorias.length }})
-        </h2>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-slate-900">
+            Orçamento por categoria ({{ activeObra().categorias.length }})
+          </h2>
+          <a
+            routerLink="/orcamentos"
+            class="btn-oc-redirect"
+            title="Acessar página de orçamentos"
+          >
+            <span>Gerenciar Orçamentos</span>
+            <svg lucideArrowRight [size]="14" />
+          </a>
+        </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
           @for (cat of activeObra().categorias; track cat.id) {
@@ -117,8 +101,13 @@
               <h3 class="text-base font-bold text-slate-900">
                 Contas Próximas ({{ activeObra().contasProximas.length }})
               </h3>
-              <a href="javascript:void(0)" class="text-sm font-bold text-[#007A80] hover:text-[#00686D] hover:underline">
-                Ver todas
+              <a
+                routerLink="/contas"
+                class="btn-oc-redirect"
+                title="Ver todas as contas"
+              >
+                <span>Ver todas</span>
+                <svg lucideArrowRight [size]="14" />
               </a>
             </div>
 
@@ -163,8 +152,13 @@
               <h3 class="text-base font-bold text-slate-900">
                 Últimos Gastos ({{ activeObra().ultimosGastos.length }})
               </h3>
-              <a href="javascript:void(0)" class="text-sm font-bold text-[#007A80] hover:text-[#00686D] hover:underline">
-                Ver todos
+              <a
+                routerLink="/despesas"
+                class="btn-oc-redirect"
+                title="Ver todos os gastos"
+              >
+                <span>Ver todos</span>
+                <svg lucideArrowRight [size]="14" />
               </a>
             </div>
 
@@ -204,5 +198,3 @@
         </div>
       </div>
     </main>
-  </div>
-</div>

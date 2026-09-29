@@ -2,3 +2,35 @@
   display: block;
   height: 100%;
 }
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem; /* rounded-md */
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569; /* text-slate-600 */
+  background-color: transparent;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sidebar-nav-item:hover {
+  background-color: #f1f5f9; /* hover:bg-slate-100 */
+  color: #007A80;
+}
+
+.sidebar-nav-item.active-item {
+  background-color: #007A80 !important;
+  color: #ffffff !important;
+  font-weight: 500;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-nav-item.active-item:hover {
+  background-color: #00686d !important;
+  color: #ffffff !important;
+}

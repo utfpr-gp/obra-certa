@@ -37,11 +37,12 @@ describe('HomePage', () => {
     expect(compiled.textContent).toContain('Fundação');
   });
 
-  it('should toggle sidebar visibility on mobile', () => {
-    expect(component.sidebarOpen()).toBeFalse();
-    component.toggleSidebar();
-    expect(component.sidebarOpen()).toBeTrue();
-    component.closeSidebar();
-    expect(component.sidebarOpen()).toBeFalse();
+  it('should react when active obra changes', () => {
+    const secondObra = obraService.obras()[1];
+    obraService.selectObra(secondObra.id);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain(secondObra.nome);
   });
 });

@@ -25,31 +25,30 @@
     <nav class="flex flex-col gap-1.5" aria-label="Menu Principal">
       @for (item of navItems; track item.id) {
         <a 
-          href="javascript:void(0)"
-          class="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium transition-all duration-150"
-          [ngClass]="{
-            'bg-[#007A80] text-white font-bold shadow-md shadow-[#007A80]/20': item.active,
-            'text-slate-600 hover:text-slate-900 hover:bg-slate-100': !item.active
-          }"
+          [routerLink]="item.route"
+          routerLinkActive="active-item"
+          [routerLinkActiveOptions]="{ exact: false }"
+          (click)="onClose()"
+          class="sidebar-nav-item"
         >
           @switch (item.icon) {
             @case ('pie-chart') {
-              <svg lucidePieChart [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucidePieChart [size]="19" class="shrink-0" />
             }
             @case ('wallet') {
-              <svg lucideWallet [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucideWallet [size]="19" class="shrink-0" />
             }
             @case ('receipt') {
-              <svg lucideReceipt [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucideReceipt [size]="19" class="shrink-0" />
             }
             @case ('calendar') {
-              <svg lucideCalendar [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucideCalendar [size]="19" class="shrink-0" />
             }
             @case ('users') {
-              <svg lucideUsers [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucideUsers [size]="19" class="shrink-0" />
             }
             @case ('file-text') {
-              <svg lucideFileText [size]="19" [class.opacity-80]="!item.active" />
+              <svg lucideFileText [size]="19" class="shrink-0" />
             }
           }
           <span>{{ item.label }}</span>

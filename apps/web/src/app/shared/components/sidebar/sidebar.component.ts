@@ -1,5 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LucidePieChart,
   LucideWallet,
@@ -14,7 +15,7 @@ export interface NavMenuItem {
   id: string;
   label: string;
   icon: string;
-  active?: boolean;
+  route: string;
 }
 
 @Component({
@@ -22,6 +23,8 @@ export interface NavMenuItem {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
+    RouterLinkActive,
     LucidePieChart,
     LucideWallet,
     LucideReceipt,
@@ -38,12 +41,12 @@ export class SidebarComponent {
   closeDrawer = output<void>();
 
   navItems: NavMenuItem[] = [
-    { id: 'resumo', label: 'Resumo da Obra', icon: 'pie-chart', active: true },
-    { id: 'orcamentos', label: 'Orçamentos', icon: 'wallet' },
-    { id: 'despesas', label: 'Despesas', icon: 'receipt' },
-    { id: 'contas', label: 'Contas a Pagar', icon: 'calendar' },
-    { id: 'fornecedores', label: 'Fornecedores', icon: 'users' },
-    { id: 'relatorios', label: 'Relatórios', icon: 'file-text' }
+    { id: 'resumo', label: 'Resumo da Obra', icon: 'pie-chart', route: '/home' },
+    { id: 'orcamentos', label: 'Orçamentos', icon: 'wallet', route: '/orcamentos' },
+    { id: 'despesas', label: 'Despesas', icon: 'receipt', route: '/despesas' },
+    { id: 'contas', label: 'Contas a Pagar', icon: 'calendar', route: '/contas' },
+    { id: 'fornecedores', label: 'Fornecedores', icon: 'users', route: '/fornecedores' },
+    { id: 'relatorios', label: 'Relatórios', icon: 'file-text', route: '/relatorios' }
   ];
 
   onClose(): void {
