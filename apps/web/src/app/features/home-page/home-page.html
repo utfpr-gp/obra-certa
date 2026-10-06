@@ -1,1 +1,200 @@
-<p>home-page works!</p>
+<!-- Optional Danger / Due Today Alert Banner -->
+@if (activeObra().alertaHoje) {
+  <app-alert-banner
+    type="danger"
+    [title]="activeObra().alertaHoje!.titulo"
+    [message]="activeObra().alertaHoje!.detalhe"
+    actionLabel="Ver Conta"
+  />
+}
+
+<!-- Scrollable Main Dashboard Content -->
+<main class="p-4 md:p-6 lg:p-8 space-y-6">
+      <!-- Page Header with Title and Action CTA -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2.5">
+            <svg lucideHome [size]="24" class="text-slate-700 shrink-0" />
+            <span>{{ activeObra().nome }}</span>
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">
+            Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+        >
+          <svg lucidePlusCircle [size]="18" />
+          <span>Lançar Nova Despesa</span>
+        </button>
+      </div>
+
+      <!-- KPI Summary Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[270px_repeat(3,1fr)] gap-4">
+        <!-- 1. Total Gasto Radial Gauge Component -->
+        <app-radial-gauge
+          [percent]="activeObra().percentualGasto"
+          [currentValue]="formatBrl(activeObra().totalGasto)"
+          [totalValue]="formatBrl(activeObra().orcamentoTotal)"
+          label="Total Gasto"
+        />
+
+        <!-- 2. Saldo Disponível Card Component -->
+        <app-kpi-card
+          title="Saldo Disponível"
+          [value]="formatBrl(activeObra().saldoDisponivel)"
+          icon="piggy-bank"
+          iconBgClass="bg-amber-100/70 text-amber-700"
+        />
+
+        <!-- 3. Contas a Vencer Card Component -->
+        <app-kpi-card
+          title="Contas a Vencer"
+          [value]="activeObra().contasAVencerQtd + ' contas'"
+          subtitle="/ 30 dias"
+          icon="calendar-clock"
+          iconBgClass="bg-amber-100/70 text-amber-700"
+        />
+
+        <!-- 4. Categorias em Risco Card Component -->
+        <app-kpi-card
+          title="Categorias em Risco"
+          [value]="riskCategories().length.toString()"
+          [subtitle]="'de ' + activeObra().categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '')"
+          icon="triangle-alert"
+          iconBgClass="bg-rose-100 text-rose-600"
+          valueClass="text-rose-600"
+        />
+      </div>
+
+      <!-- Orçamento por Categoria Section -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-slate-900">
+            Orçamento por categoria ({{ activeObra().categorias.length }})
+          </h2>
+          <a
+            routerLink="/orcamentos"
+            class="btn-oc-redirect"
+            title="Acessar página de orçamentos"
+          >
+            <span>Gerenciar Orçamentos</span>
+            <svg lucideArrowRight [size]="14" />
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+          @for (cat of activeObra().categorias; track cat.id) {
+            <app-category-progress-card [category]="cat" />
+          }
+        </div>
+      </div>
+
+      <!-- Bottom Lists: Contas Próximas & Últimos Gastos -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Panel 1: Contas Próximas -->
+        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-slate-900">
+                Contas Próximas ({{ activeObra().contasProximas.length }})
+              </h3>
+              <a
+                routerLink="/contas"
+                class="btn-oc-redirect"
+                title="Ver todas as contas"
+              >
+                <span>Ver todas</span>
+                <svg lucideArrowRight [size]="14" />
+              </a>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+              @for (conta of activeObra().contasProximas; track conta.id) {
+                <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <svg
+                      lucideClock
+                      [size]="16"
+                      class="shrink-0"
+                      [ngClass]="{
+                        'text-rose-500': conta.status === 'hoje' || conta.status === 'atrasado',
+                        'text-amber-500': conta.status === 'amanha',
+                        'text-slate-400': conta.status === 'futuro'
+                      }"
+                    />
+                    <span class="text-slate-700 truncate font-medium">
+                      {{ conta.descricao }} — {{ conta.vencimentoTexto }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <app-status-badge [status]="conta.status" />
+                    <span class="font-bold text-slate-900 tabular-nums">
+                      {{ formatBrl(conta.valor) }}
+                    </span>
+                  </div>
+                </div>
+              } @empty {
+                <div class="py-8 text-center text-sm text-slate-400">
+                  Nenhuma conta a vencer cadastrada.
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Últimos Gastos -->
+        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-slate-900">
+                Últimos Gastos ({{ activeObra().ultimosGastos.length }})
+              </h3>
+              <a
+                routerLink="/despesas"
+                class="btn-oc-redirect"
+                title="Ver todos os gastos"
+              >
+                <span>Ver todos</span>
+                <svg lucideArrowRight [size]="14" />
+              </a>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+              @for (gasto of activeObra().ultimosGastos; track gasto.id) {
+                <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    @if (gasto.status === 'pago') {
+                      <svg lucideCheckCircle [size]="16" class="text-[#007A80] shrink-0" />
+                    } @else {
+                      <svg lucideClock [size]="16" class="text-amber-500 shrink-0" />
+                    }
+                    <span class="text-slate-700 truncate font-medium">
+                      {{ gasto.descricao }} <span class="text-slate-400">· {{ gasto.categoriaNome }}</span>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <app-status-badge [status]="gasto.status" />
+                    <span
+                      class="font-bold tabular-nums"
+                      [ngClass]="{
+                        'text-slate-900': gasto.status === 'pago',
+                        'text-amber-700': gasto.status === 'pendente'
+                      }"
+                    >
+                      {{ formatBrl(gasto.valor) }}
+                    </span>
+                  </div>
+                </div>
+              } @empty {
+                <div class="py-8 text-center text-sm text-slate-400">
+                  Nenhum gasto registrado recentemente.
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>

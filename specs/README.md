@@ -10,8 +10,11 @@ Este diretório centraliza todas as ordens de serviço e planos de implementaç�
 | :---: | :--- | :---: | :--- |
 | `#01` | `specs/001-cadastro-usuario/` | `🟢 Implementada` | Cadastro de usuário com validação de unicidade e BCrypt (HU01). |
 | `#02` | `specs/002-autenticacao-jwt/` | `🟢 Implementada` | Login com emissão de token JWT, authGuard e authInterceptor (HU02). |
-| `#03` | `specs/003-home-page-scaffold/` | `🟡 Aberta` | Scaffold da tela inicial com layout DaisyUI e dados mockados temporários. |
+| `#03` | `specs/003-home-page-scaffold/` | `🟢 Implementada` | Scaffold da tela inicial com layout DaisyUI e componentes reativos. |
 | `#04` | `specs/004-gestao-orcamento/` | `⚪ Aguardando` | CRUD de orçamentos por categoria e cálculo de progresso (HU07). |
+| `#05` | `specs/005-entidade-project-e-crud/` | `⚪ Planejada` | Criação da entidade `Project` (Obra) e associação com Budgets/Expenses. |
+| `#06` | `specs/006-data-seeder-factory/` | `⚪ Planejada` | Data Seeder / Factory para popular banco com obras de exemplo no perfil Dev. |
+| `#07` | `specs/007-integracao-home-com-api/` | `⚪ Planejada` | Integração do frontend (Home-page e Navbar) com a API REST real. |
 
 ---
 

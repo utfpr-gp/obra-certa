@@ -2,6 +2,47 @@
 @plugin "daisyui" {
   themes: light;
 }
+
+@theme {
+  --color-primary-oc: #007A80;
+  --color-primary-oc-hover: #00686d;
+  --color-secondary-oc: #FDBE00;
+  --color-secondary-oc-hover: #f7ae05;
+}
+
+/* ObraCerta Design System - Componentes de Botão Padronizados */
+@layer components {
+  /* Botão Primário (Ação Principal) */
+  .btn-oc-primary {
+    @apply btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Secundário / Destaque */
+  .btn-oc-secondary {
+    @apply btn border-0 bg-[#FDBE00] hover:bg-[#f7ae05] rounded-md text-slate-900 font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Outline / Neutro */
+  .btn-oc-outline {
+    @apply btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Destrutivo / Excluir */
+  .btn-oc-danger {
+    @apply btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Ghost */
+  .btn-oc-ghost {
+    @apply btn btn-ghost text-slate-600 hover:text-[#007A80] hover:bg-slate-100 rounded-md font-medium transition-all duration-150 cursor-pointer;
+  }
+
+  /* Botão de Redirecionamento de Seção (Ghost Compacto com Ícone) */
+  .btn-oc-redirect {
+    @apply btn btn-ghost btn-sm text-[#007A80] hover:bg-[#007A80]/10 rounded-md font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors;
+  }
+}
+
 * {
   font-family: "Inter", sans-serif;
 }

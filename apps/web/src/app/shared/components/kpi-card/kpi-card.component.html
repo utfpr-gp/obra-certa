@@ -1,0 +1,44 @@
+<div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-center gap-3 w-full h-full">
+  <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" [ngClass]="iconBgClass()">
+    @switch (icon()) {
+      @case ('piggy-bank') {
+        <svg lucidePiggyBank [size]="24" />
+      }
+      @case ('calendar-clock') {
+        <svg lucideCalendarClock [size]="24" />
+      }
+      @case ('triangle-alert') {
+        <svg lucideTriangleAlert [size]="24" />
+      }
+      @case ('wallet') {
+        <svg lucideWallet [size]="24" />
+      }
+      @case ('receipt') {
+        <svg lucideReceipt [size]="24" />
+      }
+      @case ('users') {
+        <svg lucideUsers [size]="24" />
+      }
+      @case ('file-text') {
+        <svg lucideFileText [size]="24" />
+      }
+      @case ('pie-chart') {
+        <svg lucidePieChart [size]="24" />
+      }
+      @case ('coins') {
+        <svg lucideCoins [size]="24" />
+      }
+    }
+  </div>
+  <div>
+    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+      {{ title() }}
+    </div>
+    <div class="text-2xl font-extrabold mt-1 flex items-baseline gap-1.5 tabular-nums truncate" [ngClass]="valueClass()">
+      <span>{{ value() }}</span>
+      @if (subtitle()) {
+        <span class="text-sm font-normal text-slate-500">{{ subtitle() }}</span>
+      }
+    </div>
+  </div>
+</div>

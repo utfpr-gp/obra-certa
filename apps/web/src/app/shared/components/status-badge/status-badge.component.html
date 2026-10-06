@@ -1,0 +1,15 @@
+<span
+  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border tabular-nums transition-colors"
+  [ngClass]="badgeClasses()"
+>
+  <span
+    class="w-1.5 h-1.5 rounded-full"
+    [ngClass]="{
+      'bg-emerald-500': status() === 'pago',
+      'bg-amber-500': status() === 'pendente' || status() === 'amanha',
+      'bg-rose-500': status() === 'vencido' || status() === 'atrasado' || status() === 'em_risco' || status() === 'hoje',
+      'bg-slate-400': status() === 'futuro'
+    }"
+  ></span>
+  <span>{{ displayLabel() }}</span>
+</span>
