@@ -126,26 +126,34 @@
    - **Dado** que o formulário exibe a indicação dos formatos permitidos (JPEG, PNG e PDF até 10MB),
    - **Quando** o proprietário seleciona um arquivo válido dentro dessas regras,
    - **Então** o sistema anexa o comprovante à despesa para consulta futura.
-4. **Caminho Feliz com Alerta (Estouro de teto orçamentário):**
+4. **Caminho Feliz com Alerta (Despesa em categoria sem teto orçado):**
+   - **Dado** que o proprietário seleciona uma categoria que não possui orçamento definido na obra,
+   - **Quando** preenche os dados da despesa,
+   - **Então** o sistema exibe um aviso inline não bloqueante informando que a categoria não possui teto orçado e exibe atalho direto para cadastrar o orçamento, permitindo salvar a despesa normalmente.
+5. **Caminho Feliz com Alerta (Estouro de teto orçamentário):**
    - **Dado** que o lançamento da despesa faz com que o total gasto na categoria atinja ou ultrapasse 100% do teto orçado,
    - **Quando** a despesa é salva com sucesso,
    - **Então** o sistema conclui o salvamento e dispara um alerta visual informando que o orçamento da categoria estourou e precisa ser revisado.
-5. **Caminho Triste (Tentativa de registrar em obra de terceiro / Anti-IDOR):**
+6. **Caminho Alternativo (Upload de comprovante em rede instável):**
+   - **Dado** que o envio do anexo sofre oscilação de sinal ou timeout no canteiro de obras,
+   - **Quando** a transferência do arquivo falha,
+   - **Então** o sistema persiste os dados da despesa com sucesso, sinaliza o comprovante como pendente e disponibiliza ação de reenvio (Retry) sem exigir redigitação do lançamento.
+7. **Caminho Triste (Tentativa de registrar em obra de terceiro / Anti-IDOR):**
    - **Dado** que há tentativa de gravar despesa informando identificador de obra pertencente a outro usuário,
    - **Quando** a operação é solicitada,
    - **Então** o sistema recusa a ação informando que a obra não foi localizada.
-6. **Caminho Triste (Anexo em formato inválido ou excedendo tamanho):**
+8. **Caminho Triste (Anexo em formato inválido ou excedendo tamanho):**
    - **Dado** que o usuário tenta anexar arquivo que não seja JPEG, PNG ou PDF, ou cujo tamanho exceda 10MB,
    - **Quando** seleciona o arquivo,
    - **Então** o sistema rejeita o anexo e alerta sobre os formatos e o limite máximo aceito.
-7. **Caminho Triste (Inconsistência temporal de vencimento):**
+9. **Caminho Triste (Inconsistência temporal de vencimento):**
    - **Dado** que o proprietário assinala pagamento pendente mas informa data de vencimento anterior à data da despesa,
    - **Quando** tenta salvar,
    - **Então** o sistema bloqueia a gravação e destaca o erro de data de vencimento.
-8. **Caminho Triste (Campos obrigatórios ou valores inválidos):**
-   - **Dado** que faltam dados obrigatórios (descrição, categoria, fornecedor ou data) ou que quantidade, valor unitário ou valor total sejam menores ou iguais a zero,
-   - **Quando** solicita a gravação,
-   - **Então** o sistema impede o salvamento e destaca as validações no formulário.
+10. **Caminho Triste (Campos obrigatórios ou valores inválidos):**
+    - **Dado** que faltam dados obrigatórios (descrição, categoria, fornecedor ou data) ou que quantidade, valor unitário ou valor total sejam menores ou iguais a zero,
+    - **Quando** solicita a gravação,
+    - **Então** o sistema impede o salvamento e destaca as validações no formulário.
 
 ---
 
@@ -185,11 +193,15 @@
    - **Dado** que o diálogo de confirmação de exclusão está aberto,
    - **Quando** o proprietário clica em cancelar,
    - **Então** o sistema aborta a operação e nenhum dado ou arquivo é alterado.
-7. **Caminho Triste (Tentativa de alteração/exclusão em obra de terceiro / Anti-IDOR):**
+7. **Caminho Alternativo (Sessão expirada durante confirmação de exclusão):**
+   - **Dado** que a sessão do usuário expira enquanto o diálogo de confirmação de exclusão estava aberto,
+   - **Quando** o proprietário confirma a exclusão,
+   - **Então** o sistema retém a ação, exibe modal de autenticação rápida inline e, após validação das credenciais, efetiva a exclusão lógica sem fechar silenciosamente nem exigir novo clique.
+8. **Caminho Triste (Tentativa de alteração/exclusão em obra de terceiro / Anti-IDOR):**
    - **Dado** que há tentativa de editar ou excluir despesa pertencente a outro usuário ou obra de terceiro,
    - **Quando** a operação é solicitada,
    - **Então** o sistema recusa a ação informando que o registro não foi localizado.
-8. **Caminho Triste (Inconsistência de datas ou valores na edição):**
+9. **Caminho Triste (Inconsistência de datas ou valores na edição):**
    - **Dado** que o usuário tenta salvar a edição com data de vencimento anterior à data da despesa ou com valores menores ou iguais a zero,
    - **Quando** tenta salvar,
    - **Então** o sistema bloqueia a gravação e destaca as validações no formulário.
@@ -321,10 +333,10 @@
    - **Dado** que a obra selecionada ainda não possui nenhum orçamento configurado,
    - **Quando** o proprietário acessa a tela de orçamentos,
    - **Então** o sistema exibe um estado visual orientativo convidando a cadastrar o primeiro orçamento por categoria.
-7. **Caminho Triste (Bloqueio de redução abaixo do total já gasto — RN02):**
+7. **Caminho Triste (Bloqueio de redução abaixo do total já gasto — RN02 com atalho de auditoria):**
    - **Dado** que uma categoria possui despesas ativas que somam um determinado valor X (ex: R$ 5.000),
    - **Quando** o proprietário tenta editar o orçamento para um valor positivo inferior a X (ex: R$ 4.000),
-   - **Então** o sistema bloqueia o salvamento e exibe mensagem de erro ("O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria").
+   - **Então** o sistema bloqueia o salvamento e exibe mensagem de erro explicativa ("O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ X") acompanhada de link/atalho direto ("Ver despesas desta categoria") que abre a listagem de despesas filtrada pela respectiva categoria para auditoria imediata.
 8. **Caminho Triste (Valor negativo ou zerado no formulário):**
    - **Dado** que o usuário tenta salvar um orçamento com valor menor ou igual a zero pelo formulário de edição/criação,
    - **Quando** submete o formulário,
