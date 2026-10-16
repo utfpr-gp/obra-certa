@@ -1,4 +1,4 @@
-name: Portão de Entendimento
+name: Verificar PR
 
 on:
   pull_request:

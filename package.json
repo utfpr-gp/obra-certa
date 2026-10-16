@@ -2,13 +2,10 @@
   "name": "obra-certa-monorepo",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "apps/web"
-  ],
   "scripts": {
-    "start": "npm start --workspace=apps/web",
-    "build": "npm run build --workspace=apps/web",
-    "test": "npm test --workspace=apps/web",
+    "start": "npm start --prefix apps/web",
+    "build": "npm run build --prefix apps/web",
+    "test": "npm test --prefix apps/web",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   }
