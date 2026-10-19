@@ -73,6 +73,17 @@
     - `apps/api/src/test/java/com/obracerta/service/ProjectServiceTest.java`
     - `apps/api/src/test/java/com/obracerta/controller/ProjectControllerTest.java`
 
+- [ ] **Tarefa 2A — Provar o isolamento Anti-IDOR com repository e fluxo integrados**
+  - Depende de: Tarefa 2
+  - Cobre: reforço de CA7 e fechamento do bloqueio da revisão da Tarefa 2
+  - Teste primeiro: Teste `@DataJpaTest` contra PostgreSQL real/Testcontainers criando usuários A e B e uma obra de B, provando que a consulta filtrada pelo usuário A retorna vazio, a consulta pelo usuário B encontra a obra, obra própria com `deleted_at` preenchido retorna vazio e ID inexistente retorna vazio. Teste de fluxo integrado com controller, service e repository reais, usando autenticação do usuário A, provando `GET` contra obra de B com HTTP 404 e payload idêntico ao de ID inexistente, sem alterar a obra de B. Renomear o teste unitário existente para refletir que ele cobre apenas `Optional.empty()` e executar uma mutação temporária da query para confirmar que a suíte falha sem o filtro por usuário; reverter a mutação antes de concluir.
+  - Dependência de escopo: os cenários equivalentes de `PUT` e `DELETE` contra obra alheia devem ser adicionados à Tarefa 4, junto com os endpoints de edição e exclusão lógica; não antecipar esses endpoints nesta tarefa.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/api/src/test/java/com/obracerta/repository/ProjectRepositoryTest.java`
+    - `apps/api/src/test/java/com/obracerta/controller/ProjectAntiIdorIntegrationTest.java`
+    - `apps/api/src/test/java/com/obracerta/service/ProjectServiceTest.java`
+
 - [ ] **Tarefa 3 — Implementar validações de entrada e tratamento de erros no backend**
   - Cobre: CA6
   - Teste primeiro: Teste em `apps/api` com `@WebMvcTest` provando que submissões com nome vazio ou com menos de 3 caracteres, ou sem o tipo obrigatório, retornam HTTP 400 Bad Request com payload de erro e mensagens descritivas de validação.
