@@ -60,7 +60,7 @@
     - `apps/api/src/main/java/com/obracerta/model/entity/Expense.java`
     - `apps/api/src/test/java/com/obracerta/migration/ProjectSchemaMigrationTest.java`
 
-- [ ] **Tarefa 2 — Implementar cadastro e detalhe de obras com isolamento Anti-IDOR**
+- [x] **Tarefa 2 — Implementar cadastro e detalhe de obras com isolamento Anti-IDOR**
   - Cobre: CA1, CA7
   - Teste primeiro: Testes unitários e de integração em `apps/api` (`ProjectServiceTest` e `ProjectControllerTest`) provando: (1) que a criação vincula a obra ao usuário autenticado e a persiste; (2) que consultar uma obra existente pertencente a outro usuário retorna HTTP 404 (Anti-IDOR) sem expor detalhes.
   - Migration: nenhuma
