@@ -29,6 +29,10 @@ public class Budget {
     @JoinColumn(name = "category_id", nullable = false)
     private ExpenseCategory category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
     @Column(name = "estimated_amount", precision = 15, scale = 2)
     private BigDecimal estimatedAmount;
 

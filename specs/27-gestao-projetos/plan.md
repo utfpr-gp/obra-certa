@@ -47,15 +47,15 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Criar schema relacional da tabela projects e chaves estrangeiras**
+- [x] **Tarefa 1 — Criar schema relacional da tabela projects e chaves estrangeiras**
   - Cobre: CA10
   - Teste primeiro: Teste de integração do Spring Boot com Flyway e Testcontainers provando a aplicação da migration `V2`, conferindo a criação da tabela `projects` e as colunas `project_id` em `budgets` e `expenses`, com `ddl-auto=validate` passando sem divergências.
   - Migration: `V2__create_projects_and_project_fk.sql`
   - Arquivos previstos:
     - `apps/api/src/main/resources/db/migration/V2__create_projects_and_project_fk.sql`
     - `apps/api/src/main/java/com/obracerta/model/entity/Project.java`
-    - `apps/api/src/main/java/com/obracerta/model/enums/ProjectType.java`
-    - `apps/api/src/main/java/com/obracerta/model/enums/ProjectStatus.java`
+    - `apps/api/src/main/java/com/obracerta/enums/ProjectType.java`
+    - `apps/api/src/main/java/com/obracerta/enums/ProjectStatus.java`
     - `apps/api/src/main/java/com/obracerta/model/entity/Budget.java`
     - `apps/api/src/main/java/com/obracerta/model/entity/Expense.java`
     - `apps/api/src/test/java/com/obracerta/migration/ProjectSchemaMigrationTest.java`
