@@ -484,11 +484,11 @@
 
 ---
 
-### ⚪ US14 — Gestão e Seleção de Obras (Projetos)
+### 🟡 US14 — Gestão e Seleção de Obras (Projetos)
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** ⚪ Draft  
+- **Status:** 🟡 Ready  
 - **Dependências:** US01 (Cadastro); US02 (Autenticação)  
 - **História:** Como proprietário autenticado, quero cadastrar, editar, excluir e alternar entre minhas obras, para gerenciar os custos e orçamentos de cada construção ou reforma de forma independente.
 - **Regras de Negócio Associadas:** RN01, RN04
