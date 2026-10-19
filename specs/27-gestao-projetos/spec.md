@@ -1,6 +1,6 @@
 ---
 issue: 27
-status: rascunho   # rascunho | aprovada
+status: aprovada
 ---
 
 # US14 — Gestão e Seleção de Obras (Projetos)
@@ -44,9 +44,9 @@ Hoje, o proprietário gerencia suas despesas e orçamentos de forma global na pl
 
 ## Assume que
 
-| Premissa | Issue que fecha |
-| --- | --- |
-| Ao cadastrar uma obra, o teto orçamentário inicial por categorias ainda não é provisionado imediatamente na mesma transação. | Issue #04 / US07 |
+| Premissa                                                                                                                                                                         | Issue que fecha  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Ao cadastrar uma obra, o teto orçamentário inicial por categorias ainda não é provisionado imediatamente na mesma transação.                                                     | Issue #04 / US07 |
 | A Home-Page carrega os dados da obra selecionada via `ProjectService`, mas totalizadores de despesas e contas a pagar permanecem vazios/zerados até o consumo de despesas reais. | Issue #03 / US03 |
 
 ## Depende de
@@ -56,5 +56,5 @@ Hoje, o proprietário gerencia suas despesas e orçamentos de forma global na pl
 
 ## Dúvidas em aberto
 
-| # | Dúvida | Quem responde |
-| --- | --- | --- |
+| #   | Dúvida | Quem responde |
+| --- | ------ | ------------- |
