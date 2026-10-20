@@ -119,7 +119,7 @@
     - `apps/api/src/main/java/com/obracerta/service/...` (configuração/bean de `Clock`, se necessária conforme o padrão existente)
     - `apps/api/src/main/resources/db/migration/V<N>__...sql`
 
-- [ ] **Tarefa 5 — Desenvolver serviço de cliente HTTP e gerenciamento de obra ativa no Angular**
+- [x] **Tarefa 5 — Desenvolver serviço de cliente HTTP e gerenciamento de obra ativa no Angular**
   - Cobre: CA2
   - Teste primeiro: Teste no Vitest em `apps/web` (`project.service.spec.ts` e `active-project.service.spec.ts`) provando o consumo dos endpoints REST com token JWT, a reatividade do Signal `activeProject`, a sincronização com `localStorage` e a seleção automática da primeira obra válida caso o cache esteja desatualizado.
   - Migration: nenhuma
