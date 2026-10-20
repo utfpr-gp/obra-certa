@@ -84,7 +84,7 @@
     - `apps/api/src/test/java/com/obracerta/controller/ProjectAntiIdorIntegrationTest.java`
     - `apps/api/src/test/java/com/obracerta/service/ProjectServiceTest.java`
 
-- [ ] **Tarefa 3 — Implementar validações de entrada e tratamento de erros no backend**
+- [x] **Tarefa 3 — Implementar validações de entrada e tratamento de erros no backend**
   - Cobre: CA6
   - Teste primeiro: Teste em `apps/api` com `@WebMvcTest` provando que submissões com nome vazio ou com menos de 3 caracteres, ou sem o tipo obrigatório, retornam HTTP 400 Bad Request com payload de erro e mensagens descritivas de validação.
   - Migration: nenhuma

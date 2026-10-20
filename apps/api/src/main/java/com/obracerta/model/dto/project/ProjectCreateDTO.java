@@ -6,8 +6,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record ProjectCreateDTO(
-        @NotBlank @Size(min = 3, max = 255) String name,
-        @NotNull ProjectType type,
-        @Size(max = 255) String location
+        @NotBlank(message = "Name is required and cannot be blank")
+        @Size(min = 3, max = 255, message = "Name must contain between 3 and 255 characters")
+        String name,
+        @NotNull(message = "Type is required") ProjectType type,
+        @Size(max = 255, message = "Location must contain at most 255 characters") String location
 ) {
 }
