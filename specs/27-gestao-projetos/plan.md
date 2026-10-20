@@ -94,7 +94,7 @@
     - `apps/api/src/main/java/com/obracerta/exception/GlobalExceptionHandler.java`
     - `apps/api/src/test/java/com/obracerta/controller/ProjectValidationTest.java`
 
-- [ ] **Tarefa 4 — Implementar edição de nome/dados e exclusão lógica no backend**
+- [x] **Tarefa 4 — Implementar edição de nome/dados e exclusão lógica no backend**
   - Cobre: CA3, CA4
   - Teste primeiro: Teste em `apps/api` provando que `PUT /api/projects/{id}` altera o nome e demais dados preservando orçamentos/despesas, e que `DELETE /api/projects/{id}` aplica exclusão lógica (`deleted_at != null`), garantindo que a obra deletada não é retornada em `GET /api/projects`.
   - Migration: nenhuma
@@ -103,6 +103,21 @@
     - `apps/api/src/main/java/com/obracerta/service/ProjectService.java`
     - `apps/api/src/main/java/com/obracerta/controller/ProjectController.java`
     - `apps/api/src/test/java/com/obracerta/service/ProjectLifecycleTest.java`
+
+- [x] **Tarefa 4A — Corrigir pendências temporais e ampliar a prova do soft delete**
+  - Depende de: Tarefa 4
+  - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 4
+  - Teste primeiro: ampliar `ProjectLifecycleTest` para criar e verificar explicitamente um `PendingPayment` após a exclusão lógica; adicionar cobertura determinística do instante de exclusão com `Clock.fixed()`; validar a migration e o mapeamento dos campos `deleted_at` com o tipo temporal compatível com timezone definido na arquitetura.
+  - Correções obrigatórias:
+    - Injetar `java.time.Clock` no `ProjectService` e usar o instante controlado para a exclusão lógica.
+    - Corrigir a migration dos vínculos financeiros para usar o tipo temporal com timezone (`timestamptz`), preservando a regra de migrations versionadas e sem editar migrations já aplicadas.
+    - Comprovar explicitamente a propagação do soft delete para `pending_payments`.
+  - Migration: criar uma nova migration versionada para corrigir o tipo temporal, sem editar a V3 se ela já tiver sido aplicada em qualquer ambiente.
+  - Arquivos previstos:
+    - `apps/api/src/test/java/com/obracerta/service/ProjectLifecycleTest.java`
+    - `apps/api/src/main/java/com/obracerta/service/ProjectService.java`
+    - `apps/api/src/main/java/com/obracerta/service/...` (configuração/bean de `Clock`, se necessária conforme o padrão existente)
+    - `apps/api/src/main/resources/db/migration/V<N>__...sql`
 
 - [ ] **Tarefa 5 — Desenvolver serviço de cliente HTTP e gerenciamento de obra ativa no Angular**
   - Cobre: CA2

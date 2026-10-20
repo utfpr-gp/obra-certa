@@ -11,7 +11,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +44,7 @@ class ProjectRepositoryTest {
     void doesNotFindAnOwnedProjectAfterSoftDelete() {
         User userA = persistUser("deleted");
         Project deletedProject = persistProject(userA, "Obra excluída");
-        deletedProject.setDeletedAt(LocalDateTime.now());
+        deletedProject.setDeletedAt(Instant.now());
         projectRepository.saveAndFlush(deletedProject);
 
         assertThat(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(deletedProject.getId(), userA.getId()))

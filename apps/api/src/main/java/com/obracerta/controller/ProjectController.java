@@ -2,6 +2,7 @@ package com.obracerta.controller;
 
 import com.obracerta.model.dto.project.ProjectCreateDTO;
 import com.obracerta.model.dto.project.ProjectResponseDTO;
+import com.obracerta.model.dto.project.ProjectUpdateDTO;
 import com.obracerta.service.ProjectService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -34,5 +35,18 @@ public class ProjectController {
     @GetMapping("/{id}")
     public ResponseEntity<ProjectResponseDTO> findById(@PathVariable String id) {
         return ResponseEntity.ok(projectService.findById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectResponseDTO> update(
+            @PathVariable String id,
+            @Valid @RequestBody ProjectUpdateDTO request) {
+        return ResponseEntity.ok(projectService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        projectService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -90,6 +90,19 @@ class ProjectSchemaMigrationTest {
                     "id", "user_id", "name", "type", "location", "status",
                     "created_at", "updated_at", "deleted_at"
             );
+            var deletedAtType = jdbcTemplate.queryForMap("""
+                    SELECT data_type, datetime_precision
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = 'projects'
+                      AND column_name = 'deleted_at'
+                    """);
+            assertThat(deletedAtType.get("data_type"))
+                    .as("projects.deleted_at deve usar timestamp com timezone")
+                    .isEqualTo("timestamp with time zone");
+            assertThat(deletedAtType.get("datetime_precision"))
+                    .as("projects.deleted_at deve preservar precisao de 6 casas")
+                    .isEqualTo(6);
 
             // 3. Validar presenca da coluna 'project_id' em 'budgets'
             Set<String> budgetColumns = new HashSet<>();
