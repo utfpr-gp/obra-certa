@@ -8,13 +8,17 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
+import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 
 describe('HomePage', () => {
   let component: HomePage;
   let fixture: ComponentFixture<HomePage>;
   let activeProjectState: ReturnType<typeof signal<Project | null>>;
+  let clearActiveProject: jasmine.Spy;
   let projectService: jasmine.SpyObj<ProjectService>;
+
   const activeProject: Project = {
     id: '550e8400-e29b-41d4-a716-446655440000',
     name: 'Obra ativa global',
@@ -24,9 +28,36 @@ describe('HomePage', () => {
     createdAt: '',
     updatedAt: '',
   };
+  const anotherProject: Project = {
+    id: '7f8c0a6d-2b4e-4e6e-9f4c-1d9a2a4b5c6d',
+    name: 'Segunda obra',
+    type: ProjectType.NEW_CONSTRUCTION,
+    location: 'Rua secundária',
+    status: ProjectStatus.IN_PROGRESS,
+    createdAt: '',
+    updatedAt: '',
+  };
+
+  function page(): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  function query<T extends Element>(testId: string): T | null {
+    return page().querySelector<T>(`[data-testid="${testId}"]`);
+  }
+
+  function click(testId: string): void {
+    const element = query<HTMLElement>(testId);
+    expect(element).withContext(`elemento [data-testid="${testId}"]`).not.toBeNull();
+    element!.click();
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
     activeProjectState = signal<Project | null>(activeProject);
+    clearActiveProject = jasmine
+      .createSpy('clear')
+      .and.callFake(() => activeProjectState.set(null));
     projectService = jasmine.createSpyObj<ProjectService>('ProjectService', [
       'getProjects',
       'deleteProject',
@@ -40,6 +71,7 @@ describe('HomePage', () => {
           provide: ActiveProjectService,
           useValue: {
             activeProject: activeProjectState,
+            clear: clearActiveProject,
           },
         },
         { provide: ProjectService, useValue: projectService },
@@ -49,7 +81,7 @@ describe('HomePage', () => {
         },
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideRouter([])
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -63,128 +95,307 @@ describe('HomePage', () => {
   });
 
   it('displays a real UUID project without borrowing financial data from a mock', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain(activeProject.name);
-    expect(compiled.textContent).toContain('Ainda não há dados financeiros disponíveis');
-    expect(compiled.textContent).not.toContain('Cimento CP II 50kg');
+    expect(page().textContent).toContain(activeProject.name);
+    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
+    expect(page().textContent).not.toContain('Cimento CP II 50kg');
   });
 
   it('should react when the global active project changes', () => {
-    const nextProject = {
-      ...activeProject,
-      id: '7f8c0a6d-2b4e-4e6e-9f4c-1d9a2a4b5c6d',
-      name: 'Outra obra ativa',
-    };
-    activeProjectState.set(nextProject);
+    activeProjectState.set(anotherProject);
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain(nextProject.name);
-    expect(compiled.textContent).not.toContain('Cimento CP II 50kg');
+    expect(page().textContent).toContain(anotherProject.name);
+    expect(page().textContent).not.toContain('Cimento CP II 50kg');
   });
 
   it('uses the global active project for the header and dashboard data', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain(activeProject.name);
-    expect(compiled.textContent).toContain('Ainda não há dados financeiros disponíveis');
+    expect(page().querySelector('h1')?.textContent).toContain(activeProject.name);
+    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
   });
 
-  it('shows onboarding with a CTA to register the first project when there are no projects', () => {
-    projectService.getProjects.and.returnValue(of([]));
-    activeProjectState.set(null);
-    component.reloadProjects();
-    fixture.detectChanges();
+  describe('budget availability', () => {
+    it('does not advertise missing budgets while the budget state is unknown', () => {
+      expect(component.budgetAvailability()).toBe('unknown');
+      expect(query('define-project-budgets')).toBeNull();
+      expect(page().textContent).not.toContain('Esta obra ainda não possui orçamentos');
+    });
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Vamos começar sua obra');
-    expect(compiled.textContent).toContain('Cadastrar primeira obra');
+    it('shows the budget CTA only when the active project explicitly has no budgets', () => {
+      component.budgetAvailability.set('none');
+      fixture.detectChanges();
+
+      const cta = query<HTMLAnchorElement>('define-project-budgets');
+      expect(cta).not.toBeNull();
+      expect(page().textContent).toContain('Esta obra ainda não possui orçamentos');
+      expect(cta!.textContent).toContain('Definir Orçamentos da Obra');
+      expect(cta!.getAttribute('href')).toBe('/orcamentos');
+    });
+
+    it('does not show the budget CTA when the active project has budgets', () => {
+      component.budgetAvailability.set('available');
+      fixture.detectChanges();
+
+      expect(query('define-project-budgets')).toBeNull();
+      expect(page().textContent).not.toContain('Esta obra ainda não possui orçamentos');
+    });
+
+    it('does not infer missing budgets from a zeroed dashboard total', () => {
+      expect(component.activeObra()?.orcamentoTotal).toBe(0);
+      expect(query('define-project-budgets')).toBeNull();
+    });
   });
 
-  it('opens the existing project registration flow from the onboarding CTA', () => {
-    activeProjectState.set(null);
-    fixture.detectChanges();
+  describe('onboarding', () => {
+    it('shows onboarding with a CTA to register the first project when the response is empty', () => {
+      projectService.getProjects.and.returnValue(of([]));
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('Cadastrar nova obra');
-    (fixture.nativeElement.querySelector('[data-testid="onboarding-create-project"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+      expect(page().textContent).toContain('Vamos começar sua obra');
+      expect(page().textContent).toContain('Cadastrar primeira obra');
+    });
 
-    expect(fixture.nativeElement.textContent).toContain('Cadastrar nova obra');
+    it('opens the existing project registration flow from the onboarding CTA', () => {
+      projectService.getProjects.and.returnValue(of([]));
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      expect(page().textContent).not.toContain('Cadastrar nova obra');
+      click('onboarding-create-project');
+
+      expect(page().textContent).toContain('Cadastrar nova obra');
+    });
+
+    it('leaves onboarding and shows the dashboard after the first project is saved', () => {
+      projectService.getProjects.and.returnValue(of([]));
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      expect(page().textContent).toContain('Vamos começar sua obra');
+
+      click('onboarding-create-project');
+
+      const firstProject: Project = {
+        id: '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f',
+        name: 'Primeira obra',
+        type: ProjectType.NEW_CONSTRUCTION,
+        location: 'Rua primeira',
+        status: ProjectStatus.IN_PROGRESS,
+        createdAt: '',
+        updatedAt: '',
+      };
+      projectService.getProjects.and.returnValue(of([firstProject]));
+      activeProjectState.set(firstProject);
+      const callsBeforeSave = projectService.getProjects.calls.count();
+
+      const projectModal = fixture.debugElement.query(By.directive(ProjectModalComponent))
+        .componentInstance as ProjectModalComponent;
+      projectModal.saved.emit(firstProject);
+      fixture.detectChanges();
+
+      expect(projectService.getProjects.calls.count()).toBe(callsBeforeSave + 1);
+      expect(component.projects().map((project) => project.id)).toEqual([firstProject.id]);
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+      expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
+      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
+    });
+
+    it('does not show onboarding when the project list is not empty', () => {
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+    });
   });
 
-  it('shows the budget CTA for an active project without budgets and navigates to budgets', () => {
-    component.budgetAvailability.set('none');
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    const cta = compiled.querySelector('[data-testid="define-project-budgets"]') as HTMLAnchorElement;
+  describe('project selection state', () => {
+    it('renders a neutral select-a-project state when the list is filled but no project is active', () => {
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('Esta obra ainda não possui orçamentos');
-    expect(cta.textContent).toContain('Definir Orçamentos da Obra');
-    expect(cta.getAttribute('href')).toBe('/orcamentos');
+      expect(query('select-project-empty-state')).not.toBeNull();
+      expect(page().textContent).toContain('Selecione uma obra');
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+      expect(page().textContent).not.toContain('Carregando suas obras...');
+    });
   });
 
-  it('shows onboarding only when the real project response is empty', () => {
-    projectService.getProjects.and.returnValue(of([activeProject]));
-    activeProjectState.set(null);
-    component.reloadProjects();
-    fixture.detectChanges();
+  describe('project loading errors', () => {
+    it('does not treat a project loading error as an empty project list', () => {
+      projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
+      component.reloadProjects();
+      fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('Vamos começar sua obra');
+      expect(page().textContent).toContain('Não foi possível carregar suas obras');
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+    });
+
+    it('reaches the loading error even when an active project is still in memory', () => {
+      projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      expect(activeProjectState()).toBe(activeProject);
+      expect(query('projects-load-error')).not.toBeNull();
+      expect(page().textContent).not.toContain('Ainda não há dados financeiros disponíveis');
+    });
+
+    it('retries loading the projects from the error state', () => {
+      projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      projectService.getProjects.and.returnValue(of([activeProject]));
+      const callsBeforeRetry = projectService.getProjects.calls.count();
+      click('retry-load-projects');
+
+      expect(projectService.getProjects.calls.count()).toBe(callsBeforeRetry + 1);
+      expect(query('projects-load-error')).toBeNull();
+      expect(page().textContent).toContain(activeProject.name);
+      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
+    });
   });
 
-  it('does not treat a project loading error as an empty project list', () => {
-    projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
-    component.reloadProjects();
-    fixture.detectChanges();
+  describe('delete project', () => {
+    beforeEach(() => {
+      projectService.getProjects.and.returnValue(of([activeProject, anotherProject]));
+      component.reloadProjects();
+      fixture.detectChanges();
+    });
 
-    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar suas obras');
-    expect(fixture.nativeElement.textContent).not.toContain('Vamos começar sua obra');
-  });
+    it('shows an actionable delete error, closes the modal and keeps the project when deletion fails', () => {
+      projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
 
-  it('shows an actionable delete error and keeps the project when deletion fails', () => {
-    projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-    component.openDeleteModal();
-    component.confirmDeleteProject();
-    fixture.detectChanges();
+      click('open-delete-project');
+      click('confirm-confirmation');
 
-    expect(component.activeProject()).toBe(activeProject);
-    expect(fixture.nativeElement.textContent).toContain('Não foi possível excluir a obra');
-  });
+      expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
+      expect(activeProjectState()).toBe(activeProject);
+      expect(component.projects().map((project) => project.id)).toEqual([
+        activeProject.id,
+        anotherProject.id,
+      ]);
+      expect(clearActiveProject).not.toHaveBeenCalled();
+      expect(query('confirm-confirmation')).toBeNull();
+      expect(query('delete-project-error')).not.toBeNull();
+      expect(page().textContent).toContain('Não foi possível excluir a obra');
+      expect(query('retry-delete-project')).not.toBeNull();
+    });
 
-  it('does not delete or change the active project when exclusion is cancelled by button', () => {
-    (fixture.nativeElement.querySelector('[data-testid="open-delete-project"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    it('reopens the delete confirmation from the error retry action', () => {
+      projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
+      click('open-delete-project');
+      click('confirm-confirmation');
 
-    const modal = fixture.nativeElement.querySelector('app-confirm-modal [data-testid="cancel-confirmation"]')?.parentElement?.parentElement?.parentElement as HTMLElement;
-    expect(modal).not.toBeNull();
-    (modal.querySelector('[data-testid="cancel-confirmation"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+      expect(query('confirm-confirmation')).toBeNull();
+      click('retry-delete-project');
 
-    expect(projectService.deleteProject).not.toHaveBeenCalled();
-    expect(activeProjectState()).toBe(activeProject);
-    expect(fixture.nativeElement.querySelector('app-confirm-modal [data-testid="cancel-confirmation"]')).toBeNull();
-  });
+      expect(query('confirm-confirmation')).not.toBeNull();
+      expect(query('delete-project-error')).toBeNull();
+    });
 
-  it('does not delete or change the active project when exclusion is cancelled with Escape', () => {
-    (fixture.nativeElement.querySelector('[data-testid="open-delete-project"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    it('names the project in the delete confirmation', () => {
+      click('open-delete-project');
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    fixture.detectChanges();
+      const content = query<HTMLElement>('confirm-modal-content');
+      expect(content).not.toBeNull();
+      expect(content!.textContent).toContain(activeProject.name);
+    });
 
-    expect(projectService.deleteProject).not.toHaveBeenCalled();
-    expect(activeProjectState()).toBe(activeProject);
-    expect(fixture.nativeElement.querySelector('app-confirm-modal [data-testid="cancel-confirmation"]')).toBeNull();
-  });
+    it('does not show the deletion error of a project after another project becomes active', () => {
+      projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
+      click('open-delete-project');
+      click('confirm-confirmation');
 
-  it('does not delete or change the active project when the exclusion modal is closed', () => {
-    (fixture.nativeElement.querySelector('[data-testid="open-delete-project"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+      const error = query<HTMLElement>('delete-project-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent).toContain(activeProject.name);
+      expect(error!.textContent).toContain('Não foi possível excluir a obra');
 
-    const modal = fixture.nativeElement.querySelector('app-confirm-modal') as HTMLElement;
-    (modal.querySelector('[data-testid="close-confirmation"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
+      activeProjectState.set(anotherProject);
+      fixture.detectChanges();
 
-    expect(projectService.deleteProject).not.toHaveBeenCalled();
-    expect(activeProjectState()).toBe(activeProject);
+      expect(query('delete-project-error')).toBeNull();
+      expect(query('retry-delete-project')).toBeNull();
+      expect(page().textContent).not.toContain('Não foi possível excluir a obra');
+      expect(activeProjectState()).toBe(anotherProject);
+      expect(component.projects().map((project) => project.id)).toEqual([
+        activeProject.id,
+        anotherProject.id,
+      ]);
+    });
+
+    it('keeps the retry bound to the project that failed when it becomes active again', () => {
+      projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
+      click('open-delete-project');
+      click('confirm-confirmation');
+
+      activeProjectState.set(anotherProject);
+      fixture.detectChanges();
+      activeProjectState.set(activeProject);
+      fixture.detectChanges();
+
+      const error = query<HTMLElement>('delete-project-error');
+      expect(error).not.toBeNull();
+      expect(error!.textContent).toContain(activeProject.name);
+      expect(page().querySelector('h1')?.textContent).toContain(activeProject.name);
+
+      click('retry-delete-project');
+      expect(query('confirm-modal-content')!.textContent).toContain(activeProject.name);
+
+      projectService.deleteProject.and.returnValue(of(void 0));
+      click('confirm-confirmation');
+
+      expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
+      expect(projectService.deleteProject).not.toHaveBeenCalledWith(anotherProject.id);
+    });
+
+    it('clears the active project and removes it from the list only after a successful deletion', () => {
+      click('open-delete-project');
+      click('confirm-confirmation');
+
+      expect(clearActiveProject).toHaveBeenCalled();
+      expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
+      expect(activeProjectState()).toBeNull();
+      expect(query('confirm-confirmation')).toBeNull();
+      expect(query('delete-project-error')).toBeNull();
+      expect(query('select-project-empty-state')).not.toBeNull();
+    });
+
+    it('does not delete or change the active project when exclusion is cancelled by button', () => {
+      click('open-delete-project');
+
+      click('cancel-confirmation');
+
+      expect(projectService.deleteProject).not.toHaveBeenCalled();
+      expect(activeProjectState()).toBe(activeProject);
+      expect(query('cancel-confirmation')).toBeNull();
+    });
+
+    it('does not delete or change the active project when exclusion is cancelled with Escape', () => {
+      click('open-delete-project');
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+
+      expect(projectService.deleteProject).not.toHaveBeenCalled();
+      expect(activeProjectState()).toBe(activeProject);
+      expect(query('cancel-confirmation')).toBeNull();
+    });
+
+    it('does not delete or change the active project when the exclusion modal is closed', () => {
+      click('open-delete-project');
+
+      click('close-confirmation');
+
+      expect(projectService.deleteProject).not.toHaveBeenCalled();
+      expect(activeProjectState()).toBe(activeProject);
+      expect(query('close-confirmation')).toBeNull();
+    });
   });
 });

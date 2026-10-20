@@ -52,7 +52,7 @@ export class HomePage {
   readonly projectsLoadError = signal('');
   readonly projectModalOpen = signal(false);
   readonly deleteModalOpen = signal(false);
-  readonly deleteError = signal('');
+  readonly deleteFailure = signal<{ id: string; name: string } | null>(null);
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
   /**
    * Financial endpoints are not part of this task yet. Keep the dashboard
@@ -65,6 +65,23 @@ export class HomePage {
   readonly hasNoBudgets = computed(() => {
     const obra = this.activeObra();
     return !!obra && this.budgetAvailability() === 'none';
+  });
+  /**
+   * The deletion failure belongs to the project that failed. It is only shown
+   * while that project is active, so the retry can never target another project.
+   */
+  readonly deleteError = computed(() => {
+    const failure = this.deleteFailure();
+    const project = this.activeProject();
+    if (!failure || project?.id !== failure.id) return '';
+    return `Não foi possível excluir a obra "${failure.name}". Verifique sua conexão e tente novamente.`;
+  });
+  readonly deleteConfirmationMessage = computed(() => {
+    const project = this.activeProject();
+    const target = project
+      ? `A obra "${project.name}" será removida da sua lista.`
+      : 'A obra será removida da sua lista.';
+    return `${target} Deseja continuar?`;
   });
   readonly showOnboarding = computed(
     () => !this.projectsLoading() && !this.projectsLoadError() && this.projects().length === 0,
@@ -121,10 +138,11 @@ export class HomePage {
 
   onProjectSaved(): void {
     this.closeProjectModal();
+    this.reloadProjects();
   }
 
   openDeleteModal(): void {
-    this.deleteError.set('');
+    this.deleteFailure.set(null);
     this.deleteModalOpen.set(true);
   }
 
@@ -140,12 +158,12 @@ export class HomePage {
       next: () => {
         this.activeProjectService.clear();
         this.projects.update((projects) => projects.filter((item) => item.id !== project.id));
+        this.deleteFailure.set(null);
         this.closeDeleteModal();
       },
       error: () => {
-        this.deleteError.set(
-          'Não foi possível excluir a obra. Verifique sua conexão e tente novamente.',
-        );
+        this.closeDeleteModal();
+        this.deleteFailure.set({ id: project.id, name: project.name });
       },
     });
   }

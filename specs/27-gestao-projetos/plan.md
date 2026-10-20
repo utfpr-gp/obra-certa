@@ -200,9 +200,10 @@
     - `apps/web/src/app/shared/components/confirm-modal/confirm-modal.component.html`
     - `apps/web/src/app/features/home-page/home-page.spec.ts`
 
-- [ ] **Tarefa 7A — Corrigir estado de orçamentos, exclusão e modal**
+- [x] **Tarefa 7A — Corrigir estado de orçamentos, exclusão e modal**
   - Depende de: Tarefa 7
   - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 7
+  - Fechamento: encerrada na rodada 2 (limite atingido); o apontamento aceito residual — onboarding após cadastro pela Navbar — foi movido para a Tarefa 8.
   - Teste primeiro: ampliar os testes Angular com Karma/Jasmine para distinguir lista de obras vazia de ausência de obra ativa, distinguir obra com/sem orçamento por fonte/estado explícito, tratar erro de `DELETE` com feedback, bloquear clique externo no `ConfirmModal` e usar seletores semânticos nos testes.
   - Correções obrigatórias:
     - Não exibir o card de “sem orçamentos” para toda obra por default; usar dado real ou estado explicitamente modelado, sem inventar orçamento.
@@ -213,6 +214,20 @@
   - Arquivos previstos:
     - `apps/web/src/app/features/home-page/`
     - `apps/web/src/app/shared/components/confirm-modal/`
+    - testes Angular relacionados
+
+- [ ] **Tarefa 8 — Sair do onboarding quando a primeira obra é criada pela Navbar**
+  - Depende de: Tarefa 7A
+  - Cobre: fechamento do apontamento aceito na rodada 2 da Tarefa 7A (CA1 e CA5)
+  - Teste primeiro: teste no Karma/Jasmine provando que a Home sai do onboarding e exibe o dashboard quando uma obra passa a ser a ativa sem que a lista local da Home tenha sido recarregada (cadastro feito pelo modal da Navbar), mantendo o onboarding apenas quando a resposta de obras é comprovadamente vazia.
+  - Correções obrigatórias:
+    - Não exibir o onboarding quando já existe obra ativa válida, mesmo que a lista local da Home ainda esteja vazia.
+    - Preservar o caminho de zero obras (resposta vazia) e o estado neutro de lista não vazia sem obra ativa.
+    - Cobrir o caminho de cadastro pela Navbar sem depender de reload manual, sem introduzir store compartilhado nesta tarefa.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/features/home-page/`
+    - `apps/web/src/app/shared/components/navbar/` (somente se indispensável para o teste do caminho)
     - testes Angular relacionados
 
 ---

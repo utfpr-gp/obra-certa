@@ -1,11 +1,12 @@
 @if (isOpen()) {
+  <!-- Clique no backdrop ou no conteúdo é inerte de propósito: confirmar/cancelar exige botão, X ou Escape. -->
   <div
     class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-opacity animate-fade-in"
     data-testid="confirm-modal-backdrop"
   >
     <div
+      data-testid="confirm-modal-content"
       class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 animate-scale-up"
-      (click)="$event.stopPropagation()"
     >
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-center gap-3">
