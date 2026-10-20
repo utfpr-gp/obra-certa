@@ -158,6 +158,10 @@ export class ObraMockService {
     return list.find((o) => o.id === id) || list[0];
   });
 
+  getObraById(id: string): Obra | null {
+    return this.obras().find((obra) => obra.id === id) ?? null;
+  }
+
   readonly riskCategories = computed(() => {
     const active = this.activeObra();
     return active.categorias.filter((c) => c.emRisco || c.percentual >= 90);

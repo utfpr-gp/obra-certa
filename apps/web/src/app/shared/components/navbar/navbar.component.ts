@@ -1,48 +1,41 @@
-import { Component, HostListener, inject, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ObraMockService } from '../../../core/services/obra-mock.service';
+import { Component, HostListener, inject, output, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { LucideCheck, LucideChevronDown, LucideHome, LucideLogOut, LucideMenu, LucidePlus } from '@lucide/angular';
+import { Project } from '../../../core/models/project.model';
+import { ActiveProjectService } from '../../../core/services/active-project.service';
+import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
 import { Auth } from '../../../core/services/auth';
-import { Obra } from '../../../core/models/obra.model';
-import {
-  LucideHome,
-  LucideChevronDown,
-  LucideMenu,
-  LucidePlus,
-  LucideX,
-  LucideCheck,
-  LucideLogOut
-} from '@lucide/angular';
+import { ProjectService } from '../../../core/services/project.service';
+import { ProjectModalComponent } from '../project-modal/project-modal.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [
-    CommonModule,
-    LucideHome,
-    LucideChevronDown,
-    LucideMenu,
-    LucidePlus,
-    LucideX,
-    LucideCheck,
-    LucideLogOut
-  ],
+  imports: [CommonModule, ProjectModalComponent, LucideCheck, LucideChevronDown, LucideHome, LucideLogOut, LucideMenu, LucidePlus],
   templateUrl: './navbar.component.html',
-  styleUrl: './navbar.component.css'
+  styleUrl: './navbar.component.css',
 })
 export class NavbarComponent {
-  private obraService = inject(ObraMockService);
-  private authService = inject(Auth);
+  private readonly projectService = inject(ProjectService);
+  private readonly activeProjectService = inject(ActiveProjectService);
+  private readonly authService = inject(Auth);
+  private readonly router = inject(Router);
+  private readonly userId = inject(AuthenticatedIdentityService).getUserId();
 
   toggleSidebar = output<void>();
+  readonly projects = signal<Project[]>([]);
+  readonly projectsLoadError = signal('');
+  readonly activeProject = this.activeProjectService.activeProject;
+  readonly deskDropdownOpen = signal(false);
+  readonly mobileSheetOpen = signal(false);
+  readonly userMenuOpen = signal(false);
+  readonly projectModalOpen = signal(false);
+  readonly projectBeingEdited = signal<Project | null>(null);
 
-  // State
-  deskDropdownOpen = signal<boolean>(false);
-  mobileSheetOpen = signal<boolean>(false);
-  userMenuOpen = signal<boolean>(false);
-
-  // Data from Service
-  readonly obras = this.obraService.obras;
-  readonly activeObra = this.obraService.activeObra;
+  constructor() {
+    this.loadProjects();
+  }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
@@ -50,24 +43,19 @@ export class NavbarComponent {
   }
 
   toggleDeskDropdown(event?: Event): void {
-    if (event) event.stopPropagation();
-    this.deskDropdownOpen.update((v) => !v);
+    event?.stopPropagation();
+    this.deskDropdownOpen.update((open) => !open);
     this.userMenuOpen.set(false);
   }
 
-  openMobileSheet(): void {
-    this.mobileSheetOpen.set(true);
-  }
-
-  closeMobileSheet(): void {
-    this.mobileSheetOpen.set(false);
-  }
-
   toggleUserMenu(event?: Event): void {
-    if (event) event.stopPropagation();
-    this.userMenuOpen.update((v) => !v);
+    event?.stopPropagation();
+    this.userMenuOpen.update((open) => !open);
     this.deskDropdownOpen.set(false);
   }
+
+  openMobileSheet(): void { this.mobileSheetOpen.set(true); }
+  closeMobileSheet(): void { this.mobileSheetOpen.set(false); }
 
   closeAll(): void {
     this.deskDropdownOpen.set(false);
@@ -75,27 +63,54 @@ export class NavbarComponent {
     this.userMenuOpen.set(false);
   }
 
-  selectObra(obra: Obra, event?: Event): void {
-    if (event) event.stopPropagation();
-    this.obraService.selectObra(obra.id);
+  selectProject(project: Project, event?: Event): void {
+    event?.stopPropagation();
+    this.activeProjectService.selectProject(project, this.userId);
     this.closeAll();
   }
 
-  formatBrl(val: number): string {
-    return this.obraService.formatBrlShort(val);
+  openProjectModal(project: Project | null = null): void {
+    this.projectBeingEdited.set(project);
+    this.projectModalOpen.set(true);
+    this.closeAll();
   }
 
-  getProgressBarColor(percent: number): string {
-    if (percent >= 95) return '#EF4444';
-    if (percent >= 80) return '#F59E0B';
-    return '#007A80';
+  closeProjectModal(): void {
+    this.projectModalOpen.set(false);
+    this.projectBeingEdited.set(null);
   }
 
-  onMenuClick(): void {
-    this.toggleSidebar.emit();
+  onProjectSaved(project: Project): void {
+    const projects = this.projects();
+    const index = projects.findIndex((item) => item.id === project.id);
+    if (index === -1) this.projects.set([...projects, project]);
+    else this.projects.set(projects.map((item) => item.id === project.id ? project : item));
+    this.closeProjectModal();
   }
 
-  onLogout(): void {
-    this.authService.logout();
+  goToBudgets(): void {
+    void this.router.navigate(['/orcamentos']);
+  }
+
+  retryLoadProjects(): void {
+    this.loadProjects();
+  }
+
+  onMenuClick(): void { this.toggleSidebar.emit(); }
+  onLogout(): void { this.authService.logout(); }
+
+  private loadProjects(): void {
+    this.projectsLoadError.set('');
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects.set(projects);
+        this.activeProjectService.initialize(projects, this.userId);
+      },
+      error: () => {
+        this.projectsLoadError.set(
+          'Não foi possível carregar suas obras. Verifique sua conexão e tente novamente.',
+        );
+      },
+    });
   }
 }

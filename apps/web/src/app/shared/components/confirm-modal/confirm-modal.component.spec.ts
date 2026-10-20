@@ -30,17 +30,26 @@ describe('ConfirmModalComponent', () => {
 
   it('should emit confirm when confirm button is clicked', () => {
     spyOn(component.confirm, 'emit');
-    const buttons = fixture.nativeElement.querySelectorAll('button');
-    const confirmBtn = buttons[2]; // index 0 is close X, 1 is cancel, 2 is confirm
-    confirmBtn?.click();
+    const confirmBtn = fixture.nativeElement.querySelector('[data-testid="confirm-confirmation"]') as HTMLButtonElement;
+    confirmBtn.click();
     expect(component.confirm.emit).toHaveBeenCalled();
   });
 
   it('should emit cancel when cancel button is clicked', () => {
     spyOn(component.cancel, 'emit');
-    const buttons = fixture.nativeElement.querySelectorAll('button');
-    const cancelBtn = buttons[1];
-    cancelBtn?.click();
+    const cancelBtn = fixture.nativeElement.querySelector('[data-testid="cancel-confirmation"]') as HTMLButtonElement;
+    cancelBtn.click();
     expect(component.cancel.emit).toHaveBeenCalled();
+  });
+
+  it('does not emit an action when the backdrop is clicked', () => {
+    spyOn(component.confirm, 'emit');
+    spyOn(component.cancel, 'emit');
+
+    const backdrop = fixture.nativeElement.querySelector('[data-testid="confirm-modal-backdrop"]') as HTMLElement;
+    backdrop.click();
+
+    expect(component.confirm.emit).not.toHaveBeenCalled();
+    expect(component.cancel.emit).not.toHaveBeenCalled();
   });
 });

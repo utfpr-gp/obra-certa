@@ -51,4 +51,15 @@ describe('ActiveProjectService', () => {
     expect(service.activeProject()).toEqual(projects[0]);
     expect(localStorage.getItem('active-project:user-1')).toBe('project-1');
   });
+
+  it('does not read or write a selection without an authenticated user id', () => {
+    localStorage.setItem('active-project:current-user', 'project-2');
+    const service = TestBed.inject(ActiveProjectService);
+
+    service.initialize(projects, null);
+    service.selectProject(projects[1], null);
+
+    expect(service.activeProject()).toBeNull();
+    expect(localStorage.getItem('active-project:current-user')).toBe('project-2');
+  });
 });

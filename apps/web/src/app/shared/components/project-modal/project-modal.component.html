@@ -1,0 +1,36 @@
+@if (isOpen()) {
+  <div class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" (click)="closed.emit()">
+    <section class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold text-slate-900">{{ project() ? 'Editar obra' : 'Cadastrar nova obra' }}</h2>
+        <button type="button" (click)="closed.emit()" aria-label="Fechar" class="text-slate-400 text-xl">×</button>
+      </div>
+      <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+        <label class="block text-sm font-medium text-slate-700">Nome
+          <input formControlName="name" class="input input-bordered w-full mt-1" />
+        </label>
+        @if (form.controls.name.touched && form.controls.name.invalid) { <p class="text-xs text-rose-600">Informe um nome com ao menos 3 caracteres.</p> }
+        <label class="block text-sm font-medium text-slate-700">Tipo
+          <select formControlName="type" class="select select-bordered w-full mt-1">
+            <option value="NEW_CONSTRUCTION">Construção Nova</option><option value="RENOVATION">Reforma</option><option value="EXPANSION">Ampliação</option>
+          </select>
+        </label>
+        <label class="block text-sm font-medium text-slate-700">Localização
+          <input formControlName="location" class="input input-bordered w-full mt-1" />
+        </label>
+        @if (project()) {
+          <label class="block text-sm font-medium text-slate-700">Status
+            <select formControlName="status" class="select select-bordered w-full mt-1">
+              <option value="IN_PROGRESS">Em andamento</option><option value="PAUSED">Pausada</option><option value="COMPLETED">Concluída</option>
+            </select>
+          </label>
+        }
+        @if (errorMessage()) { <p role="alert" class="text-sm text-rose-600">{{ errorMessage() }}</p> }
+        <div class="flex justify-between items-center pt-3">
+          <button type="button" (click)="goToBudgets()" class="text-sm font-semibold text-[#007A80]">Definir Orçamentos</button>
+          <div class="flex gap-2"><button type="button" (click)="closed.emit()" class="btn btn-ghost">Cancelar</button><button type="submit" class="btn bg-[#007A80] text-white">Salvar</button></div>
+        </div>
+      </form>
+    </section>
+  </div>
+}

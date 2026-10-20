@@ -11,18 +11,32 @@ export class ActiveProjectService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly storageKeyPrefix = 'active-project:';
 
-  initialize(projects: Project[], userId: string): void {
+  initialize(projects: Project[], userId: string | null): void {
+    if (!userId) {
+      this.activeProject.set(null);
+      return;
+    }
     const cachedId = this.readCachedId(userId);
     const cachedProject = projects.find((project) => project.id === cachedId);
     this.setProject(cachedProject ?? projects[0] ?? null, userId);
   }
 
-  selectProject(project: Project, userId: string): void {
+  selectProject(project: Project, userId: string | null): void {
+    if (!userId) {
+      return;
+    }
     this.setProject(project, userId);
   }
 
-  setActiveProject(project: Project | null, userId: string): void {
+  setActiveProject(project: Project | null, userId: string | null): void {
+    if (!userId) {
+      return;
+    }
     this.setProject(project, userId);
+  }
+
+  clear(): void {
+    this.activeProject.set(null);
   }
 
   private setProject(project: Project | null, userId: string): void {

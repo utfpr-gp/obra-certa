@@ -130,7 +130,7 @@
     - `apps/web/src/app/core/services/project.service.spec.ts`
     - `apps/web/src/app/core/services/active-project.service.spec.ts`
 
-- [ ] **Tarefa 6 — Integrar seletor na Navbar e modal de cadastro/edição com atalho para orçamentos**
+- [x] **Tarefa 6 — Integrar seletor na Navbar e modal de cadastro/edição com atalho para orçamentos**
   - Cobre: CA1, CA2, CA3, CA9
   - Teste primeiro: Teste no Vitest em `apps/web` (`navbar.component.spec.ts` e `project-modal.component.spec.ts`) provando: (1) a listagem e alternância de obras na Navbar; (2) a abertura do modal de edição com o nome atual e atualização reativa do nome na tela; (3) a exibição do botão "Definir Orçamentos"; (4) a preservação dos dados do formulário sem reset quando ocorre erro de rede/timeout.
   - Migration: nenhuma
@@ -142,16 +142,78 @@
     - `apps/web/src/app/shared/components/project-modal/project-modal.component.spec.ts`
     - `apps/web/src/app/shared/components/navbar/navbar.component.spec.ts`
 
-- [ ] **Tarefa 7 — Implementar fluxo de onboarding para zero obras e estado sem orçamentos na Home**
-  - Cobre: CA5, CA8
-  - Teste primeiro: Teste no Vitest em `apps/web` (`home-page.component.spec.ts` e modal de exclusão/onboarding) provando: (1) exibição do estado de onboarding quando o usuário possui zero obras cadastradas; (2) exibição do card/banner com CTA para `/orcamentos` quando a obra ativa não possui orçamentos; (3) cancelamento não-destrutivo ao fechar modal de exclusão via botão ou tecla `Escape`.
+- [x] **Tarefa 6A — Corrigir pendências de integração da Navbar, Home e modal**
+  - Depende de: Tarefa 6
+  - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 6
+  - Teste primeiro: ampliar os testes Angular com Karma/Jasmine para provar que a Home e a Navbar refletem o mesmo `ActiveProjectService`, que o modal fecha antes da navegação para `/orcamentos`, que falha no carregamento inicial exibe feedback explícito e que todos os campos permanecem preenchidos com nova submissão possível após erro de criação ou edição.
+  - Correções obrigatórias:
+    - Integrar o cabeçalho da Home ao estado global de obra ativa, sem manter uma fonte de verdade paralela no `ObraMockService`.
+    - Fechar o modal antes ou durante a navegação para `/orcamentos`.
+    - Tratar falhas de `getProjects()` na Navbar com estado de erro/feedback acionável, sem fallback silencioso.
+    - Reforçar os testes de erro do formulário para todos os campos e para uma nova tentativa de envio.
   - Migration: nenhuma
   - Arquivos previstos:
-    - `apps/web/src/app/features/home-page/home-page.component.ts`
-    - `apps/web/src/app/features/home-page/home-page.component.html`
-    - `apps/web/src/app/shared/components/onboarding-modal/onboarding-modal.component.ts`
-    - `apps/web/src/app/shared/components/onboarding-modal/onboarding-modal.component.html`
-    - `apps/web/src/app/features/home-page/home-page.component.spec.ts`
+    - `apps/web/src/app/features/home-page/`
+    - `apps/web/src/app/shared/components/navbar/`
+    - `apps/web/src/app/shared/components/project-modal/`
+
+- [x] **Tarefa 6B — Unificar dados da Home e identidade da obra ativa**
+ - Depende de: Tarefa 6A
+ - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 6A
+ - Teste primeiro: ampliar os testes Angular com Karma/Jasmine para provar que todos os dados dependentes da obra ativa da Home acompanham a seleção global e que a persistência usa somente um identificador autenticado válido, sem compartilhar a chave entre sessões inválidas.
+ - Correções obrigatórias:
+   - Remover a fonte paralela `ObraMockService.activeObra` da Home ou associá-la explicitamente ao `ActiveProjectService.activeProject().id`, sem misturar dados de obras.
+   - Testar a integração dos dados dependentes da obra ativa, além do nome no cabeçalho.
+   - Centralizar a resolução do identificador autenticado em uma abstração de identidade existente ou dedicada.
+   - Impedir fallback global como `current-user` para persistência por usuário quando o token não fornecer identificador válido.
+ - Migration: nenhuma
+ - Arquivos previstos:
+   - `apps/web/src/app/features/home-page/`
+   - `apps/web/src/app/core/services/`
+   - `apps/web/src/app/shared/components/navbar/`
+   - `apps/web/src/app/shared/components/project-modal/`
+
+- [x] **Tarefa 6C — Integrar dashboard com obras reais e fechar isolamento de sessão**
+  - Depende de: Tarefa 6B
+  - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 6B
+  - Teste primeiro: ampliar os testes Angular com Karma/Jasmine para provar o dashboard com um `Project` real de UUID, sem depender de IDs artificiais do mock; validar token inválido no guard e limpar a obra ativa ao fazer logout/trocar de sessão.
+  - Correções obrigatórias:
+    - Substituir o dashboard mockado por serviços/contratos tipados compatíveis com `Project` real, ou criar adaptação explícita que carregue dados pelo UUID real sem estado financeiro de outra obra.
+    - Fazer `Auth.isAuthenticated()` e o guard rejeitarem tokens ausentes, malformados ou expirados conforme a política existente.
+    - Limpar o Signal da obra ativa e o contexto derivado ao encerrar a sessão, evitando vazamento visual entre usuários.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/features/home-page/`
+    - `apps/web/src/app/core/services/`
+    - `apps/web/src/app/core/guards/`
+    - `apps/web/src/app/core/services/auth.ts`
+
+- [x] **Tarefa 7 — Implementar fluxo de onboarding para zero obras e estado sem orçamentos na Home**
+  - Cobre: CA5, CA8
+  - Teste primeiro: Teste no Karma/Jasmine em `apps/web` (`home-page.spec.ts` e `ConfirmModalComponent`) provando: (1) exibição do estado de onboarding quando o usuário possui zero obras cadastradas; (2) exibição do card/banner com CTA para `/orcamentos` quando a obra ativa não possui orçamentos; (3) cancelamento não-destrutivo ao fechar modal de exclusão via botão, fechamento ou tecla `Escape`.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/features/home-page/home-page.ts`
+    - `apps/web/src/app/features/home-page/home-page.html`
+    - `apps/web/src/app/shared/components/project-modal/project-modal.component.ts`
+    - `apps/web/src/app/shared/components/project-modal/project-modal.component.html`
+    - `apps/web/src/app/shared/components/confirm-modal/confirm-modal.component.html`
+    - `apps/web/src/app/features/home-page/home-page.spec.ts`
+
+- [ ] **Tarefa 7A — Corrigir estado de orçamentos, exclusão e modal**
+  - Depende de: Tarefa 7
+  - Cobre: fechamento dos apontamentos aceitos na revisão da Tarefa 7
+  - Teste primeiro: ampliar os testes Angular com Karma/Jasmine para distinguir lista de obras vazia de ausência de obra ativa, distinguir obra com/sem orçamento por fonte/estado explícito, tratar erro de `DELETE` com feedback, bloquear clique externo no `ConfirmModal` e usar seletores semânticos nos testes.
+  - Correções obrigatórias:
+    - Não exibir o card de “sem orçamentos” para toda obra por default; usar dado real ou estado explicitamente modelado, sem inventar orçamento.
+    - Exibir erro acionável quando `deleteProject()` falhar, mantendo o estado coerente.
+    - Impedir que o backdrop confirme/cancele por clique externo acidental; manter cancelamento explícito por botão, fechamento e Escape.
+    - Cobrir a resposta vazia de obras no onboarding e remover testes acoplados à ordem dos botões.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/features/home-page/`
+    - `apps/web/src/app/shared/components/confirm-modal/`
+    - testes Angular relacionados
 
 ---
 

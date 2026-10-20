@@ -1,7 +1,7 @@
 @if (isOpen()) {
   <div
     class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-opacity animate-fade-in"
-    (click)="onCancel()"
+    data-testid="confirm-modal-backdrop"
   >
     <div
       class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 animate-scale-up"
@@ -19,6 +19,8 @@
         </div>
         <button
           type="button"
+          data-testid="close-confirmation"
+          aria-label="Fechar confirmação"
           (click)="onCancel()"
           class="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
         >
@@ -33,6 +35,7 @@
       <div class="flex items-center justify-end gap-2.5 pt-2">
         <button
           type="button"
+          data-testid="cancel-confirmation"
           (click)="onCancel()"
           class="btn btn-ghost text-slate-600 hover:bg-slate-100 font-medium rounded-md px-4 h-10 min-h-0 text-sm cursor-pointer"
         >
@@ -40,6 +43,8 @@
         </button>
         <button
           type="button"
+          data-testid="confirm-confirmation"
+          [attr.aria-label]="confirmText()"
           (click)="onConfirm()"
           class="btn border-0 font-medium rounded-md px-5 h-10 min-h-0 text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
           [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686d] text-white'"
