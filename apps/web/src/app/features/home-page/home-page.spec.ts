@@ -210,6 +210,36 @@ describe('HomePage', () => {
 
       expect(page().textContent).not.toContain('Vamos começar sua obra');
     });
+
+    it('leaves onboarding when a project becomes active without reloading the local list', () => {
+      projectService.getProjects.and.returnValue(of([]));
+      activeProjectState.set(null);
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      expect(page().textContent).toContain('Vamos começar sua obra');
+
+      const firstProject: Project = {
+        id: '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a',
+        name: 'Obra cadastrada pela Navbar',
+        type: ProjectType.NEW_CONSTRUCTION,
+        location: 'Rua da Navbar',
+        status: ProjectStatus.IN_PROGRESS,
+        createdAt: '',
+        updatedAt: '',
+      };
+      const callsBeforeActivation = projectService.getProjects.calls.count();
+
+      // Simulates the Navbar modal's setActiveProject: only the global state changes.
+      activeProjectState.set(firstProject);
+      fixture.detectChanges();
+
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+      expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
+      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
+      expect(component.projects()).toEqual([]);
+      expect(projectService.getProjects.calls.count()).toBe(callsBeforeActivation);
+    });
   });
 
   describe('project selection state', () => {

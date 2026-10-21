@@ -216,7 +216,7 @@
     - `apps/web/src/app/shared/components/confirm-modal/`
     - testes Angular relacionados
 
-- [ ] **Tarefa 8 — Sair do onboarding quando a primeira obra é criada pela Navbar**
+- [x] **Tarefa 8 — Sair do onboarding quando a primeira obra é criada pela Navbar**
   - Depende de: Tarefa 7A
   - Cobre: fechamento do apontamento aceito na rodada 2 da Tarefa 7A (CA1 e CA5)
   - Teste primeiro: teste no Karma/Jasmine provando que a Home sai do onboarding e exibe o dashboard quando uma obra passa a ser a ativa sem que a lista local da Home tenha sido recarregada (cadastro feito pelo modal da Navbar), mantendo o onboarding apenas quando a resposta de obras é comprovadamente vazia.

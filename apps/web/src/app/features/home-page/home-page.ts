@@ -84,7 +84,11 @@ export class HomePage {
     return `${target} Deseja continuar?`;
   });
   readonly showOnboarding = computed(
-    () => !this.projectsLoading() && !this.projectsLoadError() && this.projects().length === 0,
+    () =>
+      !this.projectsLoading() &&
+      !this.projectsLoadError() &&
+      this.projects().length === 0 &&
+      !this.activeProject(),
   );
   readonly riskCategories = computed(() => {
     const obra = this.activeObra();
