@@ -6,6 +6,12 @@ export const ProjectType = {
 
 export type ProjectType = (typeof ProjectType)[keyof typeof ProjectType];
 
+export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+  [ProjectType.NEW_CONSTRUCTION]: 'Construção Nova',
+  [ProjectType.RENOVATION]: 'Reforma',
+  [ProjectType.EXPANSION]: 'Ampliação',
+};
+
 export const ProjectStatus = {
   IN_PROGRESS: 'IN_PROGRESS',
   PAUSED: 'PAUSED',

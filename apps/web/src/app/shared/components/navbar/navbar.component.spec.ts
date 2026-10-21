@@ -74,6 +74,12 @@ describe('NavbarComponent', () => {
     );
   });
 
+  it('shows the active project type as a human-readable label', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+    expect(text).toContain('Construção Nova');
+    expect(text).not.toContain('NEW_CONSTRUCTION');
+  });
+
   it('opens the edit modal with the current project', () => {
     component.openProjectModal(projects[0]);
     expect(component.projectModalOpen()).toBeTrue();

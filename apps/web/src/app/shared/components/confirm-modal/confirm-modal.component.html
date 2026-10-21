@@ -38,7 +38,7 @@
           type="button"
           data-testid="cancel-confirmation"
           (click)="onCancel()"
-          class="btn btn-ghost text-slate-600 hover:bg-slate-100 font-medium rounded-md px-4 h-10 min-h-0 text-sm cursor-pointer"
+          class="btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium px-4 py-2 cursor-pointer"
         >
           {{ cancelText() }}
         </button>
@@ -47,8 +47,8 @@
           data-testid="confirm-confirmation"
           [attr.aria-label]="confirmText()"
           (click)="onConfirm()"
-          class="btn border-0 font-medium rounded-md px-5 h-10 min-h-0 text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
-          [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686d] text-white'"
+          class="btn border-0 font-medium rounded-md px-4 py-2 shadow-sm transition-all active:scale-98 cursor-pointer"
+          [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686D] text-white'"
         >
           {{ confirmText() }}
         </button>

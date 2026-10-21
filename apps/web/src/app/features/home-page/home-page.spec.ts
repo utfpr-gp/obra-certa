@@ -143,6 +143,25 @@ describe('HomePage', () => {
       expect(component.activeObra()?.orcamentoTotal).toBe(0);
       expect(query('define-project-budgets')).toBeNull();
     });
+
+    it('swaps the expense CTA for a budget CTA when the active project has no budgets', () => {
+      component.budgetAvailability.set('none');
+      fixture.detectChanges();
+
+      const cta = query<HTMLAnchorElement>('generate-budget');
+      expect(cta).not.toBeNull();
+      expect(cta!.textContent).toContain('Gerar Orçamento');
+      expect(cta!.getAttribute('href')).toBe('/orcamentos');
+      expect(page().textContent).not.toContain('Lançar Nova Despesa');
+    });
+
+    it('keeps the expense CTA when the active project has budgets', () => {
+      component.budgetAvailability.set('available');
+      fixture.detectChanges();
+
+      expect(query('generate-budget')).toBeNull();
+      expect(page().textContent).toContain('Lançar Nova Despesa');
+    });
   });
 
   describe('onboarding', () => {

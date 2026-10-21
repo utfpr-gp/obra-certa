@@ -31,7 +31,7 @@
       <button
         type="button"
         data-testid="onboarding-create-project"
-        class="btn mt-6 bg-[#007A80] hover:bg-[#00686d] border-0 text-white"
+        class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
         (click)="openProjectModal()"
       >
         Cadastrar primeira obra
@@ -90,7 +90,7 @@
               <a
                 data-testid="define-project-budgets"
                 routerLink="/orcamentos"
-                class="btn mt-3 bg-[#007A80] hover:bg-[#00686d] border-0 text-white"
+                class="btn mt-3 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
               >
                 Definir Orçamentos da Obra
               </a>
@@ -99,17 +99,28 @@
         </div>
 
         <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
-        >
-          <svg lucidePlusCircle [size]="18" />
-          <span>Lançar Nova Despesa</span>
-        </button>
+        @if (hasNoBudgets()) {
+          <a
+            routerLink="/orcamentos"
+            data-testid="generate-budget"
+            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Gerar Orçamento</span>
+          </a>
+        } @else {
+          <button
+            type="button"
+            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Lançar Nova Despesa</span>
+          </button>
+        }
         <button
           type="button"
           data-testid="open-delete-project"
-          class="btn btn-ghost text-rose-600"
+          class="btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium px-4 py-2"
           (click)="openDeleteModal()"
         >
           Excluir obra
@@ -309,6 +320,7 @@
   title="Excluir obra?"
   [description]="deleteConfirmationMessage()"
   confirmText="Excluir"
+  [isDestructive]="true"
   (cancel)="closeDeleteModal()"
   (confirm)="confirmDeleteProject()"
 />

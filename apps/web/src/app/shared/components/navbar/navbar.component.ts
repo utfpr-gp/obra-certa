@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, output, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LucideCheck, LucideChevronDown, LucideHome, LucideLogOut, LucideMenu, LucidePlus } from '@lucide/angular';
-import { Project } from '../../../core/models/project.model';
+import { Project, PROJECT_TYPE_LABELS } from '../../../core/models/project.model';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
 import { Auth } from '../../../core/services/auth';
@@ -27,6 +27,10 @@ export class NavbarComponent {
   readonly projects = signal<Project[]>([]);
   readonly projectsLoadError = signal('');
   readonly activeProject = this.activeProjectService.activeProject;
+  readonly activeProjectTypeLabel = computed(() => {
+    const project = this.activeProject();
+    return project ? PROJECT_TYPE_LABELS[project.type] : 'Nenhuma obra ativa';
+  });
   readonly deskDropdownOpen = signal(false);
   readonly mobileSheetOpen = signal(false);
   readonly userMenuOpen = signal(false);
