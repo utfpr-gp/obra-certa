@@ -230,6 +230,48 @@
     - `apps/web/src/app/shared/components/navbar/` (somente se indispensável para o teste do caminho)
     - testes Angular relacionados
 
+- [ ] **Tarefa 9 — Selecionar a próxima obra ativa após a exclusão**
+  - Depende de: Tarefa 8
+  - Cobre: CA4 (seleção automática da próxima obra ativa) e a coerência da lista da Navbar (CA2)
+  - Teste primeiro: em `home-page.spec.ts`, com duas obras e a primeira ativa, excluir a ativa e provar que a remanescente vira ativa, o dashboard exibe o nome dela e o `localStorage` guarda o id; com uma única obra, provar onboarding e limpeza da obra ativa. Provar que a obra excluída deixa de ser oferecida pela Navbar.
+  - Correções obrigatórias:
+    - Após o `DELETE`, selecionar a próxima obra ativa da lista e persistir a escolha no `localStorage`.
+    - Se não sobrar nenhuma obra, limpar a obra ativa e exibir o onboarding.
+    - Manter a lista da Navbar coerente após a exclusão, sem introduzir store compartilhado novo (recarregar sob demanda ao abrir o seletor ou usar um sinal de refresh no serviço existente).
+    - Não regredir CA2, CA3 e CA8.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/features/home-page/`
+    - `apps/web/src/app/shared/components/navbar/` (somente se indispensável)
+    - `apps/web/src/app/core/services/active-project.service.ts` (somente se indispensável)
+    - testes Angular relacionados
+
+- [ ] **Tarefa 10 — Corrigir o contexto e o contrato do `ProjectControllerTest`**
+  - Depende de: Tarefa 2A e Tarefa 3
+  - Cobre: CA7 (prova de 404 uniforme) e a saúde do pipeline backend
+  - Teste primeiro: fazer o `ProjectControllerTest` carregar o contexto do `@WebMvcTest` (mockar `TokenService`/dependências do `SecurityFilter` ou recortar a configuração) e afirmar o contrato real da API para obra alheia/inexistente. Decidir e registrar um único idioma para a mensagem de 404, alinhando teste e `ResourceNotFoundException`/`GlobalExceptionHandler`.
+  - Correções obrigatórias:
+    - `mvnw.cmd test` completo verde, não apenas o teste direcionado.
+    - Não usar `@Disabled` nem excluir a classe do Surefire para mascarar a falha.
+    - Cobrir GET, PUT e DELETE de obra alheia com 404, se o teste atual cobrir apenas GET.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/api/src/test/java/com/obracerta/controller/ProjectControllerTest.java`
+    - `apps/api/src/main/java/com/obracerta/exception/` (somente se o contrato mudar)
+    - testes de integração relacionados
+
+- [ ] **Tarefa 11 — Fechar as lacunas de prova do CA6**
+  - Depende de: Tarefa 6 e Tarefa 6A
+  - Cobre: CA6 (validação de campos obrigatórios)
+  - Teste primeiro:
+    - `project-modal.component.spec.ts`: submit com nome vazio/curto e sem tipo deve manter o formulário inválido, não chamar `createProject`/`updateProject` e exibir a mensagem de validação.
+    - Backend: PUT com nome inválido ou tipo ausente deve retornar 400 sem persistir.
+  - Correções obrigatórias: nenhuma de produção se o comportamento já estiver correto; se o teste revelar falha, corrigir.
+  - Migration: nenhuma
+  - Arquivos previstos:
+    - `apps/web/src/app/shared/components/project-modal/project-modal.component.spec.ts`
+    - testes backend de validação de projeto
+
 ---
 
 ## Critérios sem tarefa
