@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { NavbarComponent } from './navbar.component';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
@@ -103,6 +103,50 @@ describe('NavbarComponent', () => {
 
     expect(failedComponent.projectsLoadError()).toContain('Não foi possível');
     expect(failedFixture.nativeElement.textContent).toContain('Tentar novamente');
+  });
+
+  it('reloads the project list when the selector opens and stops offering a deleted project', () => {
+    projectService.getProjects.and.returnValue(of([projects[1]]));
+    const callsBeforeOpen = projectService.getProjects.calls.count();
+
+    component.toggleDeskDropdown();
+
+    expect(projectService.getProjects.calls.count()).toBe(callsBeforeOpen + 1);
+    expect(component.projects().map((project) => project.id)).toEqual(['two']);
+
+    fixture.detectChanges();
+    const offered = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).map((button) => button.textContent?.trim() ?? '');
+    expect(offered).toContain('Reforma cozinha');
+    expect(offered).not.toContain('Casa principal');
+  });
+
+  it('ignores a stale project response that arrives after a newer one', () => {
+    const first$ = new Subject<Project[]>();
+    const second$ = new Subject<Project[]>();
+    projectService.getProjects.and.returnValues(first$, second$);
+    activeProjectService.initialize.calls.reset();
+
+    const staleFixture = TestBed.createComponent(NavbarComponent);
+    const staleComponent = staleFixture.componentInstance;
+    staleFixture.detectChanges();
+
+    staleComponent.toggleDeskDropdown();
+    const newest = [projects[1]];
+    second$.next(newest);
+    first$.next(projects);
+
+    expect(staleComponent.projects()).toEqual(newest);
+    expect(activeProjectService.initialize).toHaveBeenCalledTimes(1);
+    expect(activeProjectService.initialize).toHaveBeenCalledWith(
+      newest,
+      jasmine.any(String),
+    );
+    expect(activeProjectService.initialize).not.toHaveBeenCalledWith(
+      projects,
+      jasmine.any(String),
+    );
   });
 
   it('retries the initial project load after an error', () => {

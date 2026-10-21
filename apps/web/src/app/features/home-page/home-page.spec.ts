@@ -2,7 +2,6 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HomePage } from './home-page';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { Project, ProjectStatus, ProjectType } from '../../core/models/project.model';
-import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -15,8 +14,10 @@ import { of, throwError } from 'rxjs';
 describe('HomePage', () => {
   let component: HomePage;
   let fixture: ComponentFixture<HomePage>;
-  let activeProjectState: ReturnType<typeof signal<Project | null>>;
-  let clearActiveProject: jasmine.Spy;
+  let activeProjectService: ActiveProjectService;
+  let activeProjectState: (() => Project | null) & {
+    set: (project: Project | null) => void;
+  };
   let projectService: jasmine.SpyObj<ProjectService>;
 
   const activeProject: Project = {
@@ -54,26 +55,16 @@ describe('HomePage', () => {
   }
 
   beforeEach(async () => {
-    activeProjectState = signal<Project | null>(activeProject);
-    clearActiveProject = jasmine
-      .createSpy('clear')
-      .and.callFake(() => activeProjectState.set(null));
+    localStorage.clear();
     projectService = jasmine.createSpyObj<ProjectService>('ProjectService', [
       'getProjects',
       'deleteProject',
     ]);
     projectService.getProjects.and.returnValue(of([activeProject]));
-    projectService.deleteProject.and.returnValue(of(void 0));
+    projectService.deleteProject.and.returnValue(of(undefined));
     await TestBed.configureTestingModule({
       imports: [HomePage],
       providers: [
-        {
-          provide: ActiveProjectService,
-          useValue: {
-            activeProject: activeProjectState,
-            clear: clearActiveProject,
-          },
-        },
         { provide: ProjectService, useValue: projectService },
         {
           provide: AuthenticatedIdentityService,
@@ -85,6 +76,15 @@ describe('HomePage', () => {
       ],
     }).compileComponents();
 
+    activeProjectService = TestBed.inject(ActiveProjectService);
+    activeProjectService.setActiveProject(activeProject, 'user-1');
+    activeProjectState = Object.assign(
+      () => activeProjectService.activeProject(),
+      {
+        set: (project: Project | null) =>
+          activeProjectService.setActiveProject(project, 'user-1'),
+      },
+    );
     fixture = TestBed.createComponent(HomePage);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -329,7 +329,6 @@ describe('HomePage', () => {
         activeProject.id,
         anotherProject.id,
       ]);
-      expect(clearActiveProject).not.toHaveBeenCalled();
       expect(query('confirm-confirmation')).toBeNull();
       expect(query('delete-project-error')).not.toBeNull();
       expect(page().textContent).toContain('Não foi possível excluir a obra');
@@ -398,22 +397,80 @@ describe('HomePage', () => {
       expect(query('confirm-modal-content')!.textContent).toContain(activeProject.name);
 
       projectService.deleteProject.and.returnValue(of(void 0));
+      projectService.getProjects.and.returnValue(of([anotherProject]));
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
       expect(projectService.deleteProject).not.toHaveBeenCalledWith(anotherProject.id);
     });
 
-    it('clears the active project and removes it from the list only after a successful deletion', () => {
+    it('activates and persists the remaining project returned by the server after deletion', () => {
+      projectService.getProjects.and.returnValue(of([anotherProject]));
+
       click('open-delete-project');
       click('confirm-confirmation');
 
-      expect(clearActiveProject).toHaveBeenCalled();
+      expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
       expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
-      expect(activeProjectState()).toBeNull();
+      expect(activeProjectState()).toBe(anotherProject);
+      expect(page().querySelector('h1')?.textContent).toContain(anotherProject.name);
+      expect(page().textContent).not.toContain(activeProject.name);
+      expect(localStorage.getItem('active-project:user-1')).toBe(anotherProject.id);
       expect(query('confirm-confirmation')).toBeNull();
       expect(query('delete-project-error')).toBeNull();
-      expect(query('select-project-empty-state')).not.toBeNull();
+      expect(query('select-project-empty-state')).toBeNull();
+    });
+
+    it('decides the active project from the refreshed server list when the local list is stale', () => {
+      // The Navbar created anotherProject, so the Home list is stale and does not know it exists.
+      component.projects.set([]);
+      fixture.detectChanges();
+      expect(component.showOnboarding()).toBeFalse();
+
+      projectService.getProjects.and.returnValue(of([anotherProject]));
+
+      click('open-delete-project');
+      click('confirm-confirmation');
+
+      expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
+      expect(activeProjectState()).toBe(anotherProject);
+      expect(page().querySelector('h1')?.textContent).toContain(anotherProject.name);
+      expect(localStorage.getItem('active-project:user-1')).toBe(anotherProject.id);
+      expect(page().textContent).not.toContain('Vamos começar sua obra');
+      expect(query('select-project-empty-state')).toBeNull();
+    });
+
+    it('falls back to the local optimistic list when the refresh after deletion fails', () => {
+      projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
+
+      click('open-delete-project');
+      click('confirm-confirmation');
+
+      expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
+      expect(activeProjectState()).toBe(anotherProject);
+      expect(page().querySelector('h1')?.textContent).toContain(anotherProject.name);
+      expect(localStorage.getItem('active-project:user-1')).toBe(anotherProject.id);
+      expect(query('projects-load-error')).toBeNull();
+      expect(page().textContent).not.toContain('Não foi possível carregar suas obras');
+    });
+
+    it('returns to onboarding and clears the active project when the only project is deleted', () => {
+      projectService.getProjects.and.returnValue(of([activeProject]));
+      component.reloadProjects();
+      fixture.detectChanges();
+
+      projectService.getProjects.and.returnValue(of([]));
+
+      click('open-delete-project');
+      click('confirm-confirmation');
+
+      expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
+      expect(activeProjectState()).toBeNull();
+      expect(component.projects()).toEqual([]);
+      expect(localStorage.getItem('active-project:user-1')).toBeNull();
+      expect(page().textContent).toContain('Vamos começar sua obra');
+      expect(page().textContent).toContain('Cadastrar primeira obra');
+      expect(query('confirm-confirmation')).toBeNull();
     });
 
     it('does not delete or change the active project when exclusion is cancelled by button', () => {

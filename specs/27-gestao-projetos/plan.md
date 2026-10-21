@@ -230,9 +230,10 @@
     - `apps/web/src/app/shared/components/navbar/` (somente se indispensável para o teste do caminho)
     - testes Angular relacionados
 
-- [ ] **Tarefa 9 — Selecionar a próxima obra ativa após a exclusão**
+- [x] **Tarefa 9 — Selecionar a próxima obra ativa após a exclusão**
   - Depende de: Tarefa 8
   - Cobre: CA4 (seleção automática da próxima obra ativa) e a coerência da lista da Navbar (CA2)
+  - Fechamento: aceita na rodada 2; achados baixos registrados em `reviews/tarefa-09-decisoes-r2.md` como dívida aceita.
   - Teste primeiro: em `home-page.spec.ts`, com duas obras e a primeira ativa, excluir a ativa e provar que a remanescente vira ativa, o dashboard exibe o nome dela e o `localStorage` guarda o id; com uma única obra, provar onboarding e limpeza da obra ativa. Provar que a obra excluída deixa de ser oferecida pela Navbar.
   - Correções obrigatórias:
     - Após o `DELETE`, selecionar a próxima obra ativa da lista e persistir a escolha no `localStorage`.

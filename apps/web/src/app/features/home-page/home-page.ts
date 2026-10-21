@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
 import { ActiveProjectService } from '../../core/services/active-project.service';
+import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../core/services/project.service';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
@@ -45,6 +46,7 @@ import {
 export class HomePage {
   private activeProjectService = inject(ActiveProjectService);
   private projectService = inject(ProjectService);
+  private userId = inject(AuthenticatedIdentityService).getUserId();
 
   readonly activeProject = this.activeProjectService.activeProject;
   readonly projects = signal<Project[]>([]);
@@ -160,14 +162,33 @@ export class HomePage {
 
     this.projectService.deleteProject(project.id).subscribe({
       next: () => {
-        this.activeProjectService.clear();
-        this.projects.update((projects) => projects.filter((item) => item.id !== project.id));
+        const remaining = this.projects().filter((item) => item.id !== project.id);
+        this.projects.set(remaining);
         this.deleteFailure.set(null);
         this.closeDeleteModal();
+        this.refreshActiveProject(remaining);
       },
       error: () => {
         this.closeDeleteModal();
         this.deleteFailure.set({ id: project.id, name: project.name });
+      },
+    });
+  }
+
+  /**
+   * The local list can be stale (a project created by the Navbar is not known
+   * here), so the active project is decided from the server list. On failure,
+   * the optimistic list already applied is the best local knowledge; the
+   * deletion succeeded, so this must not surface the global load error.
+   */
+  private refreshActiveProject(fallback: Project[]): void {
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects.set(projects);
+        this.activeProjectService.initialize(projects, this.userId);
+      },
+      error: () => {
+        this.activeProjectService.initialize(fallback, this.userId);
       },
     });
   }

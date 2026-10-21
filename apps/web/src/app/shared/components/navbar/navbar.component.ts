@@ -48,7 +48,9 @@ export class NavbarComponent {
 
   toggleDeskDropdown(event?: Event): void {
     event?.stopPropagation();
-    this.deskDropdownOpen.update((open) => !open);
+    const willOpen = !this.deskDropdownOpen();
+    this.deskDropdownOpen.set(willOpen);
+    if (willOpen) this.loadProjects();
     this.userMenuOpen.set(false);
   }
 
@@ -103,14 +105,19 @@ export class NavbarComponent {
   onMenuClick(): void { this.toggleSidebar.emit(); }
   onLogout(): void { this.authService.logout(); }
 
+  private loadRequestId = 0;
+
   private loadProjects(): void {
+    const requestId = ++this.loadRequestId;
     this.projectsLoadError.set('');
     this.projectService.getProjects().subscribe({
       next: (projects) => {
+        if (requestId !== this.loadRequestId) return;
         this.projects.set(projects);
         this.activeProjectService.initialize(projects, this.userId);
       },
       error: () => {
+        if (requestId !== this.loadRequestId) return;
         this.projectsLoadError.set(
           'Não foi possível carregar suas obras. Verifique sua conexão e tente novamente.',
         );
