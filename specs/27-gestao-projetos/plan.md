@@ -247,9 +247,10 @@
     - `apps/web/src/app/core/services/active-project.service.ts` (somente se indispensável)
     - testes Angular relacionados
 
-- [ ] **Tarefa 10 — Corrigir o contexto e o contrato do `ProjectControllerTest`**
+- [x] **Tarefa 10 — Corrigir o contexto e o contrato do `ProjectControllerTest`**
   - Depende de: Tarefa 2A e Tarefa 3
   - Cobre: CA7 (prova de 404 uniforme) e a saúde do pipeline backend
+  - Fechamento: aceita na rodada 2; conformidade APROVADO, código sem bloqueadores; suíte backend 20/20. Baixos registrados em `reviews/tarefa-10-decisoes-r2.md`.
   - Teste primeiro: fazer o `ProjectControllerTest` carregar o contexto do `@WebMvcTest` (mockar `TokenService`/dependências do `SecurityFilter` ou recortar a configuração) e afirmar o contrato real da API para obra alheia/inexistente. Decidir e registrar um único idioma para a mensagem de 404, alinhando teste e `ResourceNotFoundException`/`GlobalExceptionHandler`.
   - Correções obrigatórias:
     - `mvnw.cmd test` completo verde, não apenas o teste direcionado.
