@@ -35,7 +35,7 @@ obra-certa/
 │   │   │   │   │       └── supplier.service.ts
 │   │   │   │   ├── shared/                # Componentes puros, pipes e utilitários globais
 │   │   │   │   │   ├── components/        # Navbar, Sidebar, KpiCard, RadialGauge, CategoryProgressCard,
-│   │   │   │   │   │                      # AlertBanner, StatusBadge, ConfirmModal, EmptyState
+│   │   │   │   │   │                      # AlertBanner, StatusBadge, ConfirmModal, EmptyState, ProjectModal
 │   │   │   │   │   └── pipes/             # CurrencyBrlPipe, DateBrlPipe
 │   │   │   │   └── features/              # Módulos de telas organizados por domínio de negócio
 │   │   │   │       ├── auth/              # Login e Cadastro (Register)

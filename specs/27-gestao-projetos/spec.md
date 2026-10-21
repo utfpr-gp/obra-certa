@@ -1,6 +1,6 @@
 ---
 issue: 27
-status: aprovada
+status: implementada
 ---
 
 # US14 — Gestão e Seleção de Obras (Projetos)
