@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,6 +71,44 @@ class ProjectValidationTest {
                         "Name must contain between 3 and 255 characters"),
                 Arguments.of(
                         "{\"name\":\"Valid project\",\"location\":\"Rua A\"}",
+                        "type",
+                        "Type is required")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidProjectUpdateRequests")
+    void rejectsInvalidProjectUpdateWithDescriptiveFieldErrors(
+            String requestBody,
+            String expectedField,
+            String expectedMessage) throws Exception {
+        mockMvc.perform(put("/api/projects/project-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Validation failed"))
+                .andExpect(jsonPath("$.path").value("/api/projects/project-1"))
+                .andExpect(jsonPath("$.fieldErrors[*].field", hasItem(expectedField)))
+                .andExpect(jsonPath("$.fieldErrors[*].message", hasItem(expectedMessage)));
+
+        verifyNoInteractions(projectService);
+    }
+
+    private static Stream<Arguments> invalidProjectUpdateRequests() {
+        return Stream.of(
+                Arguments.of(
+                        "{\"name\":\"   \",\"type\":\"RENOVATION\",\"status\":\"IN_PROGRESS\"}",
+                        "name",
+                        "Name is required and cannot be blank"),
+                Arguments.of(
+                        "{\"name\":\"AB\",\"type\":\"RENOVATION\",\"status\":\"IN_PROGRESS\"}",
+                        "name",
+                        "Name must contain between 3 and 255 characters"),
+                Arguments.of(
+                        "{\"name\":\"Valid project\",\"status\":\"IN_PROGRESS\"}",
                         "type",
                         "Type is required")
         );

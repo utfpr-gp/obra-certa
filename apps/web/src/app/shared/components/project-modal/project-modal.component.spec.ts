@@ -139,6 +139,95 @@ describe('ProjectModalComponent', () => {
     );
   });
 
+  const invalidNameMessage = 'Informe um nome com ao menos 3 caracteres.';
+
+  function submitInvalidForm(): void {
+    component.save();
+    fixture.detectChanges();
+  }
+
+  function switchToCreateMode(): void {
+    fixture.componentRef.setInput('project', null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Cadastrar nova obra');
+  }
+
+  function setTypeToNull(): void {
+    // O select não oferece opção vazia e o controle é nonNullable, então o estado inválido
+    // é forçado em runtime para provar que save() bloqueia a submissão.
+    component.form.controls.type.setValue(null as unknown as ProjectType);
+  }
+
+  function expectNothingWasSaved(): void {
+    expect(projectService.updateProject).not.toHaveBeenCalled();
+    expect(projectService.createProject).not.toHaveBeenCalled();
+    expect(activeProjectService.setActiveProject).not.toHaveBeenCalled();
+  }
+
+  function expectInvalidNameBlockedSubmission(errorKey: 'required' | 'minlength'): void {
+    expect(component.form.invalid).toBeTrue();
+    expect(component.form.controls.name.touched).toBeTrue();
+    expect(component.form.controls.name.hasError(errorKey)).toBeTrue();
+    expectNothingWasSaved();
+    expect(fixture.nativeElement.textContent).toContain(invalidNameMessage);
+  }
+
+  it('blocks the update when the edited name is empty', () => {
+    component.form.controls.name.setValue('');
+
+    submitInvalidForm();
+
+    expectInvalidNameBlockedSubmission('required');
+  });
+
+  it('blocks the update when the edited name is shorter than three characters', () => {
+    component.form.controls.name.setValue('AB');
+
+    submitInvalidForm();
+
+    expectInvalidNameBlockedSubmission('minlength');
+  });
+
+  it('blocks the update when the type is missing', () => {
+    setTypeToNull();
+
+    submitInvalidForm();
+
+    expect(component.form.invalid).toBeTrue();
+    expect(component.form.controls.type.hasError('required')).toBeTrue();
+    expectNothingWasSaved();
+  });
+
+  it('blocks the creation when the name is empty', () => {
+    switchToCreateMode();
+    component.form.controls.name.setValue('');
+
+    submitInvalidForm();
+
+    expectInvalidNameBlockedSubmission('required');
+  });
+
+  it('blocks the creation when the name is shorter than three characters', () => {
+    switchToCreateMode();
+    component.form.controls.name.setValue('AB');
+
+    submitInvalidForm();
+
+    expectInvalidNameBlockedSubmission('minlength');
+  });
+
+  it('blocks the creation when the type is missing', () => {
+    switchToCreateMode();
+    component.form.controls.name.setValue('Nova obra');
+    setTypeToNull();
+
+    submitInvalidForm();
+
+    expect(component.form.invalid).toBeTrue();
+    expect(component.form.controls.type.hasError('required')).toBeTrue();
+    expectNothingWasSaved();
+  });
+
   it('shows the budgets shortcut and navigates to budgets', () => {
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate');

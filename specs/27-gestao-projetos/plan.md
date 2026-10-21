@@ -262,9 +262,10 @@
     - `apps/api/src/main/java/com/obracerta/exception/` (somente se o contrato mudar)
     - testes de integração relacionados
 
-- [ ] **Tarefa 11 — Fechar as lacunas de prova do CA6**
+- [x] **Tarefa 11 — Fechar as lacunas de prova do CA6**
   - Depende de: Tarefa 6 e Tarefa 6A
   - Cobre: CA6 (validação de campos obrigatórios)
+  - Fechamento: aceita na rodada 2; conformidade APROVADO, código APROVADO; frontend 106/106, backend 23/23. Baixos registrados em `reviews/tarefa-11-decisoes-r2.md`.
   - Teste primeiro:
     - `project-modal.component.spec.ts`: submit com nome vazio/curto e sem tipo deve manter o formulário inválido, não chamar `createProject`/`updateProject` e exibir a mensagem de validação.
     - Backend: PUT com nome inválido ou tipo ausente deve retornar 400 sem persistir.
