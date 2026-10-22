@@ -1,6 +1,6 @@
 ---
 issue: 9
-status: rascunho
+status: aprovada
 ---
 
 # US07 — Definição e Acompanhamento de Orçamento por Categoria
