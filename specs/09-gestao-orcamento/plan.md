@@ -88,7 +88,7 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Preparar schema de orçamento e categorias**
+- [x] **Tarefa 1 — Preparar schema de orçamento e categorias**
   - Cobre: nenhum CA (passo técnico que destrava CA1, CA3 e CA4)
   - Teste primeiro:
     - `BudgetSchemaMigrationTest` (JUnit, perfil `test`): falha antes das migrations porque `estimated_amount` aceita `NULL`/negativo, não há índice único parcial e as categorias não existem. Prova V6 e V7 aplicadas, `NOT NULL`, `CHECK >= 0`, deduplicação de orçamentos ativos, bloqueio de duplicata ativa, permissão de novo registro após soft delete e as 9 categorias presentes uma única vez.

@@ -34,7 +34,7 @@ public class Budget {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    @Column(name = "estimated_amount", precision = 15, scale = 2)
+    @Column(name = "estimated_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal estimatedAmount;
 
     @CreationTimestamp
