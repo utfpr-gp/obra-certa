@@ -107,7 +107,7 @@
     - `apps/api/src/test/java/com/obracerta/controller/ExpenseCategoryControllerTest.java`
     - `apps/api/src/test/java/com/obracerta/service/ExpenseCategoryServiceTest.java`
 
-- [ ] **Tarefa 2 — Semear dados de demonstração no perfil dev**
+- [x] **Tarefa 2 — Semear dados de demonstração no perfil dev**
   - Cobre: nenhum CA (habilita a demonstração manual de CA2, CA3 e CA4 sem a US03)
   - Teste primeiro:
     - `DemoDataSeederServiceTest` (JUnit, Mockito): falha antes do serviço existir. Prova que o seed cria usuário demo, obra, fornecedor, orçamentos (incluindo uma categoria zerada com despesa) e despesas com os totais esperados; prova também que uma segunda execução não duplica nada.
