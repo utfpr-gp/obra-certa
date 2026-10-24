@@ -119,7 +119,7 @@
     - `apps/api/src/main/resources/application-dev.properties` (`obracerta.seed.enabled`, `obracerta.seed.password`)
     - `apps/api/src/test/java/com/obracerta/service/DemoDataSeederServiceTest.java`
 
-- [ ] **Tarefa 3 — Ler o painel, calcular consumo e exibir estados vazios**
+- [x] **Tarefa 3 — Ler o painel, calcular consumo e exibir estados vazios**
   - Cobre: CA2 (progresso e alertas), CA8 (estados vazios) e a leitura do CA7 (Anti-IDOR)
   - Teste primeiro:
     - Backend: `BudgetServiceTest.getOverview` com repositórios mockados prova totais, saldo negativo, percentual global, os três limiares (89,99% / 90% / 100%) decididos pela razão exata, `percentage = null` sem teto e `NO_BUDGET`; `ExpenseRepositoryTest` prova que a agregação soma só despesas ativas e agrupa por categoria; `BudgetAntiIdorIntegrationTest` prova 404 para obra de outro usuário e para obra inexistente com o mesmo payload.

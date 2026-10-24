@@ -1,0 +1,151 @@
+package com.obracerta.repository;
+
+import com.obracerta.enums.ProjectStatus;
+import com.obracerta.enums.ProjectType;
+import com.obracerta.enums.UserRole;
+import com.obracerta.model.entity.Budget;
+import com.obracerta.model.entity.Expense;
+import com.obracerta.model.entity.ExpenseCategory;
+import com.obracerta.model.entity.Project;
+import com.obracerta.model.entity.Supplier;
+import com.obracerta.model.entity.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
+
+@DataJpaTest
+@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = NONE)
+class ExpenseRepositoryTest {
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private ExpenseCategoryRepository expenseCategoryRepository;
+
+    @Autowired
+    private SupplierRepository supplierRepository;
+
+    @Autowired
+    private BudgetRepository budgetRepository;
+
+    @Test
+    void sumsOnlyActiveExpensesGroupedByCategoryOfTheRequestedProject() {
+        User user = persistUser();
+        Project project = persistProject(user, "Obra do painel");
+        Project anotherProject = persistProject(user, "Outra obra");
+        Supplier supplier = persistSupplier();
+        ExpenseCategory alvenaria = persistCategory("Alvenaria de teste " + UUID.randomUUID());
+        ExpenseCategory eletrica = persistCategory("Elétrica de teste " + UUID.randomUUID());
+        Budget alvenariaBudget = persistBudget(user, project, alvenaria);
+        Budget eletricaBudget = persistBudget(user, project, eletrica);
+        Budget anotherProjectBudget = persistBudget(user, anotherProject, alvenaria);
+
+        persistExpense(user, project, alvenaria, alvenariaBudget, supplier, "100.00");
+        persistExpense(user, project, alvenaria, alvenariaBudget, supplier, "50.00");
+        persistExpense(user, project, eletrica, eletricaBudget, supplier, "75.00");
+        Expense softDeleted = persistExpense(user, project, alvenaria, alvenariaBudget, supplier, "999.00");
+        softDeleted.setDeletedAt(Instant.now());
+        expenseRepository.saveAndFlush(softDeleted);
+        persistExpense(user, anotherProject, alvenaria, anotherProjectBudget, supplier, "500.00");
+
+        List<ExpenseRepository.CategoryExpenseTotal> totals =
+                expenseRepository.sumActiveByCategory(project.getId());
+
+        assertThat(totals).hasSize(2);
+        assertThat(totalOf(totals, alvenaria.getId())).isEqualByComparingTo("150.00");
+        assertThat(totalOf(totals, eletrica.getId())).isEqualByComparingTo("75.00");
+    }
+
+    private static BigDecimal totalOf(
+            List<ExpenseRepository.CategoryExpenseTotal> totals, String categoryId) {
+        return totals.stream()
+                .filter(total -> total.getCategoryId().equals(categoryId))
+                .findFirst()
+                .orElseThrow()
+                .getTotal();
+    }
+
+    private User persistUser() {
+        return userRepository.saveAndFlush(User.builder()
+                .name("Usuário de repositório")
+                .email("expense-repository-" + UUID.randomUUID() + "@example.com")
+                .password("password")
+                .userRole(UserRole.USER)
+                .build());
+    }
+
+    private Project persistProject(User user, String name) {
+        return projectRepository.saveAndFlush(Project.builder()
+                .user(user)
+                .name(name)
+                .type(ProjectType.NEW_CONSTRUCTION)
+                .status(ProjectStatus.IN_PROGRESS)
+                .location("Local")
+                .build());
+    }
+
+    private Supplier persistSupplier() {
+        return supplierRepository.saveAndFlush(Supplier.builder()
+                .name("Fornecedor " + UUID.randomUUID())
+                .document(UUID.randomUUID().toString())
+                .build());
+    }
+
+    private ExpenseCategory persistCategory(String name) {
+        return expenseCategoryRepository.saveAndFlush(ExpenseCategory.builder()
+                .name(name)
+                .build());
+    }
+
+    private Budget persistBudget(User user, Project project, ExpenseCategory category) {
+        return budgetRepository.saveAndFlush(Budget.builder()
+                .user(user)
+                .project(project)
+                .category(category)
+                .estimatedAmount(new BigDecimal("1000.00"))
+                .build());
+    }
+
+    private Expense persistExpense(
+            User user,
+            Project project,
+            ExpenseCategory category,
+            Budget budget,
+            Supplier supplier,
+            String amount) {
+        BigDecimal total = new BigDecimal(amount);
+        return expenseRepository.saveAndFlush(Expense.builder()
+                .budget(budget)
+                .project(project)
+                .user(user)
+                .category(category)
+                .supplier(supplier)
+                .type("MATERIAL")
+                .description("Despesa de teste")
+                .quantity(BigDecimal.ONE)
+                .unit("un")
+                .unitPrice(total)
+                .totalPrice(total)
+                .purchaseDate(LocalDate.of(2026, 10, 1))
+                .build());
+    }
+}
