@@ -462,7 +462,7 @@ describe('BudgetsPageComponent', () => {
     expect(query('budget-row-cat-alvenaria')).not.toBeNull();
     expect(query('edit-budget-cat-alvenaria')).not.toBeNull();
     expect(query('zero-budget-cat-alvenaria')).toBeNull();
-    expect(query('define-ceiling-cat-alvenaria')).toBeNull();
+    expect(query('define-ceiling-cat-alvenaria')).not.toBeNull();
 
     expect(query('edit-budget-cat-eletrica')).not.toBeNull();
     expect(query('zero-budget-cat-eletrica')).not.toBeNull();
@@ -480,6 +480,60 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.zeroBudget).toHaveBeenCalledOnceWith(project.id, 'cat-alvenaria');
     expect(budgetService.getOverview.calls.count()).toBe(2);
     expect(query('confirm-confirmation')).toBeNull();
+  });
+
+  for (const hasBudget of [true, false]) {
+    it(`audits expenses without a ceiling and opens the category form (hasBudget=${hasBudget})`, () => {
+      const row = { ...zeroedCategory, hasBudget };
+      budgetService.getOverview.and.returnValue(of({ ...overview, categories: [row] }));
+      render(project);
+
+      const alert = query<HTMLElement>('budget-audit-cat-alvenaria');
+      expect(alert).not.toBeNull();
+      expect(alert?.textContent?.trim()).toBe(
+        'Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.',
+      );
+      expect(query('budget-row-cat-alvenaria')?.contains(alert!)).toBeTrue();
+      const reclassify = query<HTMLButtonElement>('reclassify-expense-cat-alvenaria');
+      expect(reclassify).not.toBeNull();
+      expect(reclassify?.textContent?.trim()).toBe('Reclassificar despesa');
+      expect(reclassify?.disabled).toBeTrue();
+      expect(reclassify?.title).toBe(
+        'Disponível após a implementação da tela de despesas (US04/US05)',
+      );
+
+      const define = query<HTMLButtonElement>('define-ceiling-cat-alvenaria');
+      expect(define).not.toBeNull();
+      expect(define?.disabled).toBeFalse();
+      define?.click();
+      fixture.detectChanges();
+
+      const select = query<HTMLSelectElement>('budget-form-category');
+      expect(select?.value).toBe('cat-alvenaria');
+      expect(select?.disabled).toBe(hasBudget);
+      setField('budget-form-amount', '1500');
+      query<HTMLButtonElement>('budget-form-submit')!.click();
+      fixture.detectChanges();
+      expect(budgetService.setBudget).toHaveBeenCalledOnceWith(
+        project.id, 'cat-alvenaria', { estimatedAmount: 1500 },
+      );
+    });
+  }
+
+  it('does not audit a zeroed category without expenses or expenses within a ceiling', () => {
+    budgetService.getOverview.and.returnValue(of({
+      ...overview,
+      categories: [
+        { ...zeroedCategory, spentAmount: 0, balanceAmount: 0 },
+        overview.categories[1],
+      ],
+    }));
+    render(project);
+
+    expect(query('budget-audit-cat-alvenaria')).toBeNull();
+    expect(query('reclassify-expense-cat-alvenaria')).toBeNull();
+    expect(query('budget-audit-cat-eletrica')).toBeNull();
+    expect(query('reclassify-expense-cat-eletrica')).toBeNull();
   });
 
   it('closes the zero confirmation without calling the API when the owner cancels', () => {

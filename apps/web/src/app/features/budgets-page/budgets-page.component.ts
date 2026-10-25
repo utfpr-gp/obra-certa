@@ -175,6 +175,10 @@ export class BudgetsPageComponent {
     }).format(value ?? 0);
   }
 
+  hasUnbudgetedExpenses(category: BudgetCategory): boolean {
+    return category.state === 'NO_BUDGET' && category.spentAmount > 0;
+  }
+
   formatPercentage(value: number | null | undefined): string {
     if (value === null || value === undefined) {
       return '—';

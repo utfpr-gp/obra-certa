@@ -121,7 +121,16 @@
             <tbody>
               @for (category of data.categories; track category.categoryId) {
                 <tr [attr.data-testid]="'budget-row-' + category.categoryId">
-                  <td class="font-medium text-slate-900">{{ category.categoryName }}</td>
+                  <td class="font-medium text-slate-900">
+                    {{ category.categoryName }}
+                    @if (hasUnbudgetedExpenses(category)) {
+                      <p
+                        [attr.data-testid]="'budget-audit-' + category.categoryId"
+                        role="note"
+                        class="mt-2 min-w-48 max-w-xs whitespace-normal text-sm font-normal text-rose-700"
+                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.</p>
+                    }
+                  </td>
                   <td class="text-right tabular-nums">{{ formatBrl(category.plannedAmount) }}</td>
                   <td class="text-right tabular-nums">{{ formatBrl(category.spentAmount) }}</td>
                   <td
@@ -177,14 +186,26 @@
                           Zerar
                         </button>
                       }
-                    } @else {
+                    }
+                    @if (!category.hasBudget || hasUnbudgetedExpenses(category)) {
                       <button
                         type="button"
                         [attr.data-testid]="'define-ceiling-' + category.categoryId"
                         (click)="openBudgetForm(category)"
-                        class="text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
+                        class="ml-3 text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
                       >
                         Definir teto
+                      </button>
+                    }
+                    @if (hasUnbudgetedExpenses(category)) {
+                      <button
+                        type="button"
+                        [attr.data-testid]="'reclassify-expense-' + category.categoryId"
+                        disabled
+                        title="Disponível após a implementação da tela de despesas (US04/US05)"
+                        class="mt-2 block ml-auto text-sm font-semibold text-slate-400 cursor-not-allowed"
+                      >
+                        Reclassificar despesa
                       </button>
                     }
                   </td>

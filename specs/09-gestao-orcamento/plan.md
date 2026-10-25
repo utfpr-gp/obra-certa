@@ -190,7 +190,7 @@
     - `apps/web/src/app/features/budgets-page/components/budget-form-modal/budget-form-modal.component.{ts,html,spec.ts}`
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,spec.ts}`
 
-- [ ] **Tarefa 7 — Alertar despesas em categoria sem teto**
+- [x] **Tarefa 7 — Alertar despesas em categoria sem teto**
   - Cobre: CA3
   - Teste primeiro:
     - Backend: `BudgetServiceTest` prova `NO_BUDGET` e `hasBudget` para categoria zerada com despesa ativa e para categoria com despesa sem registro; `ExpenseRepositoryTest` garante que a despesa soft-deleted não gera alerta.

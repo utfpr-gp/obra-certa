@@ -153,6 +153,7 @@ class BudgetServiceTest {
 
         BudgetCategoryDTO zeroed = byId.get("cat-alvenaria");
         assertThat(zeroed.plannedAmount()).isEqualByComparingTo("0.00");
+        assertThat(zeroed.spentAmount()).isEqualByComparingTo("1200.00");
         assertThat(zeroed.balanceAmount()).isEqualByComparingTo("-1200.00");
         assertThat(zeroed.percentage()).isNull();
         assertThat(zeroed.state()).isEqualTo(BudgetState.NO_BUDGET);

@@ -75,6 +75,36 @@ class ExpenseRepositoryTest {
         assertThat(totalOf(totals, eletrica.getId())).isEqualByComparingTo("75.00");
     }
 
+    @Test
+    void softDeletedExpensesDoNotProduceAuditTotalsForCategoriesWithoutACeiling() {
+        User user = persistUser();
+        Project project = persistProject(user, "Obra sem teto");
+        Supplier supplier = persistSupplier();
+        ExpenseCategory zeroed = persistCategory("Zerada " + UUID.randomUUID());
+        ExpenseCategory withoutActiveBudget = persistCategory("Sem registro ativo " + UUID.randomUUID());
+        Budget zeroedBudget = persistBudget(user, project, zeroed);
+        zeroedBudget.setEstimatedAmount(BigDecimal.ZERO);
+        budgetRepository.saveAndFlush(zeroedBudget);
+        Budget deletedBudget = persistBudget(user, project, withoutActiveBudget);
+        deletedBudget.setDeletedAt(Instant.now());
+        budgetRepository.saveAndFlush(deletedBudget);
+        Expense zeroedExpense = persistExpense(user, project, zeroed, zeroedBudget, supplier, "100.00");
+        Expense unbudgetedExpense = persistExpense(
+                user, project, withoutActiveBudget, deletedBudget, supplier, "200.00");
+
+        List<ExpenseRepository.CategoryExpenseTotal> activeTotals =
+                expenseRepository.sumActiveByCategory(project.getId());
+        assertThat(activeTotals).hasSize(2);
+        assertThat(totalOf(activeTotals, zeroed.getId())).isEqualByComparingTo("100.00");
+        assertThat(totalOf(activeTotals, withoutActiveBudget.getId())).isEqualByComparingTo("200.00");
+
+        zeroedExpense.setDeletedAt(Instant.now());
+        unbudgetedExpense.setDeletedAt(Instant.now());
+        expenseRepository.saveAllAndFlush(List.of(zeroedExpense, unbudgetedExpense));
+
+        assertThat(expenseRepository.sumActiveByCategory(project.getId())).isEmpty();
+    }
+
     private static BigDecimal totalOf(
             List<ExpenseRepository.CategoryExpenseTotal> totals, String categoryId) {
         return totals.stream()
