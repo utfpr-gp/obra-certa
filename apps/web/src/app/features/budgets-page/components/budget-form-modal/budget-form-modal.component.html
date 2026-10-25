@@ -73,6 +73,17 @@
             {{ errorMessage() }}
           </p>
         }
+        @if (belowSpentConflict()) {
+          <button
+            type="button"
+            data-testid="budget-form-view-expenses"
+            disabled
+            title="Disponível após a implementação da tela de despesas (US05)"
+            class="text-sm font-semibold text-slate-500 cursor-not-allowed"
+          >
+            Ver despesas desta categoria
+          </button>
+        }
 
         <div class="flex justify-end gap-2 pt-3">
           <button

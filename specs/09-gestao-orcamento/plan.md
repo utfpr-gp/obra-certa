@@ -173,7 +173,7 @@
     - `apps/api/src/test/java/com/obracerta/controller/BudgetControllerTest.java`
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,spec.ts}`
 
-- [ ] **Tarefa 6 — Validar valor e bloquear redução abaixo do gasto (RN02)**
+- [x] **Tarefa 6 — Validar valor e bloquear redução abaixo do gasto (RN02)**
   - Cobre: CA5 e CA6
   - Teste primeiro:
     - Backend: `BudgetControllerTest` prova 400 para valor nulo, zero, negativo e com 3 casas; `BudgetServiceTest` prova 409 quando `0 < novo < gasto`, mensagem com o total formatado, e aceite quando `novo == gasto`, sem persistir no bloqueio.

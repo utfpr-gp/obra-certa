@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, output, signal } from '@angular/core';
 import {
   AbstractControl,
@@ -40,6 +41,7 @@ export class BudgetFormModalComponent {
 
   readonly saving = signal(false);
   readonly errorMessage = signal('');
+  readonly belowSpentConflict = signal(false);
 
   readonly form = this.formBuilder.nonNullable.group({
     categoryId: ['', Validators.required],
@@ -56,6 +58,7 @@ export class BudgetFormModalComponent {
       }
       const editing = this.editingCategory();
       this.errorMessage.set('');
+      this.belowSpentConflict.set(false);
       this.saving.set(false);
       this.form.reset({
         categoryId: editing?.categoryId ?? this.preselectedCategoryId() ?? '',
@@ -96,6 +99,7 @@ export class BudgetFormModalComponent {
     const value = this.form.getRawValue();
     this.saving.set(true);
     this.errorMessage.set('');
+    this.belowSpentConflict.set(false);
     this.budgetService
       .setBudget(projectId, value.categoryId, {
         estimatedAmount: value.estimatedAmount as number,
@@ -105,8 +109,14 @@ export class BudgetFormModalComponent {
           this.saving.set(false);
           this.saved.emit(category);
         },
-        error: () => {
+        error: (error: unknown) => {
           this.saving.set(false);
+          if (error instanceof HttpErrorResponse && error.status === 409
+              && typeof error.error?.message === 'string') {
+            this.belowSpentConflict.set(true);
+            this.errorMessage.set(error.error.message);
+            return;
+          }
           this.errorMessage.set('Não foi possível salvar o orçamento. Tente novamente.');
         },
       });

@@ -3,6 +3,7 @@ package com.obracerta.service;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
+import com.obracerta.exception.BudgetBelowSpentException;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
@@ -120,6 +121,12 @@ public class BudgetService {
         ExpenseCategory category = expenseCategoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Categoria não encontrada"));
 
+        BigDecimal spent = spentOfCategory(project.getId(), category.getId());
+        if (request.estimatedAmount().compareTo(BigDecimal.ZERO) > 0
+                && request.estimatedAmount().compareTo(spent) < 0) {
+            throw new BudgetBelowSpentException(spent);
+        }
+
         Budget budget = budgetRepository
                 .findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), category.getId())
                 .orElseGet(() -> Budget.builder()
@@ -132,7 +139,7 @@ public class BudgetService {
 
         CategoryRow row = new CategoryRow(category.getId(), category.getName());
         row.plannedAmount = request.estimatedAmount();
-        row.spentAmount = spentOfCategory(project.getId(), category.getId());
+        row.spentAmount = spent;
         row.hasBudget = true;
         return toCategory(row);
     }

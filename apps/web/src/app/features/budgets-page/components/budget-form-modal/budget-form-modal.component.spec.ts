@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { BudgetCategory } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
@@ -128,6 +129,40 @@ describe('BudgetFormModalComponent', () => {
 
     expect(component.closed.emit).toHaveBeenCalled();
     expect(budgetService.setBudget).not.toHaveBeenCalled();
+  });
+
+  for (const amount of [null, 0, -1, 1.234]) {
+    it(`blocks invalid amount ${amount} with the validation message`, () => {
+      open({ preselectedCategoryId: 'cat-hidraulica' });
+      component.form.controls.estimatedAmount.setValue(amount);
+      component.save();
+      fixture.detectChanges();
+
+      expect(budgetService.setBudget).not.toHaveBeenCalled();
+      expect(query('budget-form-amount-error')!.textContent)
+        .toContain('Informe um valor positivo com até duas casas decimais.');
+    });
+  }
+
+  it('shows the API conflict message and keeps the form open with the typed amount', () => {
+    const message = 'O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 1.234,56';
+    budgetService.setBudget.and.returnValue(throwError(() => new HttpErrorResponse({
+      status: 409, error: { message },
+    })));
+    spyOn(component.saved, 'emit');
+    spyOn(component.closed, 'emit');
+    open({ editingCategory: existing });
+    component.form.controls.estimatedAmount.setValue(1200);
+
+    component.save();
+    fixture.detectChanges();
+
+    expect(query('budget-form-error')!.textContent).toContain(message);
+    expect(query('budget-form-modal')).not.toBeNull();
+    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1200');
+    expect(component.saved.emit).not.toHaveBeenCalled();
+    expect(component.closed.emit).not.toHaveBeenCalled();
+    expect(query<HTMLButtonElement>('budget-form-submit')!.disabled).toBeFalse();
   });
 
   it('blocks the submission when the amount is empty without calling the API', () => {

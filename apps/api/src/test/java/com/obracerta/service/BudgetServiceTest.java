@@ -3,6 +3,7 @@ package com.obracerta.service;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
+import com.obracerta.exception.BudgetBelowSpentException;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
@@ -361,6 +362,52 @@ class BudgetServiceTest {
                 .hasMessage("Projeto não encontrado");
 
         verifyNoInteractions(budgetRepository, expenseRepository);
+    }
+
+    @Test
+    void rejectsBudgetBelowSpentWithoutMutatingOrSavingTheExistingRecord() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        Budget existing = budget("cat-alvenaria", "Alvenaria", "2000.00");
+        when(expenseCategoryRepository.findById("cat-alvenaria"))
+                .thenReturn(Optional.of(existing.getCategory()));
+        org.mockito.Mockito.lenient().when(budgetRepository
+                .findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.of(existing));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "1234.56")));
+
+        assertThatThrownBy(() -> budgetService.setBudget(
+                "project-1", "cat-alvenaria", new BudgetSetDTO(new BigDecimal("1234.55"))))
+                .isInstanceOf(BudgetBelowSpentException.class)
+                .hasMessage("O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 1.234,56");
+
+        assertThat(existing.getEstimatedAmount()).isEqualByComparingTo("2000.00");
+        verify(budgetRepository, never()).save(any(Budget.class));
+    }
+
+    @Test
+    void acceptsBudgetExactlyEqualToSpentRegardlessOfDecimalScale() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        Budget existing = budget("cat-alvenaria", "Alvenaria", "2000.00");
+        when(expenseCategoryRepository.findById("cat-alvenaria"))
+                .thenReturn(Optional.of(existing.getCategory()));
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.of(existing));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "1234.50")));
+
+        BudgetCategoryDTO result = budgetService.setBudget(
+                "project-1", "cat-alvenaria", new BudgetSetDTO(new BigDecimal("1234.5")));
+
+        assertThat(result.balanceAmount()).isEqualByComparingTo("0.00");
+        assertThat(result.percentage()).isEqualByComparingTo("100.0");
+        verify(budgetRepository).save(existing);
     }
 
     private static BudgetCategoryDTO category(BudgetOverviewDTO overview, String categoryId) {

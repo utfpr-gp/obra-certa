@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
@@ -505,6 +506,30 @@ describe('BudgetsPageComponent', () => {
 
     expect(query('confirm-confirmation')).toBeNull();
     expect(budgetService.zeroBudget).not.toHaveBeenCalled();
+    expect(budgetService.getOverview.calls.count()).toBe(1);
+  });
+
+  it('offers the disabled expense shortcut with the US05 title after a conflict', () => {
+    const message = 'O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 1.125,00';
+    budgetService.setBudget.and.returnValue(throwError(() => new HttpErrorResponse({
+      status: 409, error: { message },
+    })));
+    render(project);
+    query<HTMLButtonElement>('edit-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+    expect(query('budget-form-view-expenses')).toBeNull();
+    setField('budget-form-amount', '1100');
+    query<HTMLButtonElement>('budget-form-submit')!.click();
+    fixture.detectChanges();
+
+    const shortcut = query<HTMLButtonElement>('budget-form-view-expenses');
+    expect(shortcut).not.toBeNull();
+    expect(shortcut!.disabled).toBeTrue();
+    expect(shortcut!.textContent).toContain('Ver despesas desta categoria');
+    expect(shortcut!.title).toBe('Disponível após a implementação da tela de despesas (US05)');
+    expect(text('budget-form-error')).toContain(message);
+    expect(query('budget-form-modal')).not.toBeNull();
+    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1100');
     expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 

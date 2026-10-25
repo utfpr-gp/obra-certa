@@ -3,6 +3,9 @@ package com.obracerta.controller;
 import com.obracerta.configuration.security.TokenService;
 import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
+import com.obracerta.exception.BudgetBelowSpentException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.repository.UserRepository;
@@ -22,6 +25,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -130,6 +134,36 @@ class BudgetControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_BODY)),
                 "Categoria não encontrada");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "0", "-1", "1.234"})
+    void rejectsInvalidAmountsBeforeCallingService(String amount) throws Exception {
+        mockMvc.perform(put(BUDGET_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estimatedAmount\":" + amount + "}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("estimatedAmount"))
+                .andExpect(jsonPath("$.fieldErrors[0].message")
+                        .value("Informe um valor positivo com até duas casas decimais."));
+        verifyNoInteractions(budgetService);
+    }
+
+    @Test
+    void returnsConflictWithFormattedSpentTotalInStandardPayload() throws Exception {
+        when(budgetService.setBudget(eq(PROJECT_ID), eq(CATEGORY_ID), any(BudgetSetDTO.class)))
+                .thenThrow(new BudgetBelowSpentException(new BigDecimal("2345.67")));
+
+        mockMvc.perform(put(BUDGET_PATH).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value(
+                        "O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 2.345,67"))
+                .andExpect(jsonPath("$.path").value(BUDGET_PATH))
+                .andExpect(jsonPath("$.fieldErrors").isEmpty());
     }
 
     private void assertNotFoundPayload(ResultActions result, String message) throws Exception {
