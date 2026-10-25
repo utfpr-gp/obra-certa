@@ -137,6 +137,15 @@ class BudgetControllerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"Categoria não encontrada", "Orçamento não encontrado", "Projeto não encontrado"})
+    void returnsNotFoundInStandardPayloadOnZero(String message) throws Exception {
+        when(budgetService.zeroBudget(PROJECT_ID, CATEGORY_ID))
+                .thenThrow(new ResourceNotFoundException(message));
+
+        assertNotFoundPayload(mockMvc.perform(post(BUDGET_PATH + "/zero")), message, BUDGET_PATH + "/zero");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"null", "0", "-1", "1.234"})
     void rejectsInvalidAmountsBeforeCallingService(String amount) throws Exception {
         mockMvc.perform(put(BUDGET_PATH)
@@ -167,12 +176,16 @@ class BudgetControllerTest {
     }
 
     private void assertNotFoundPayload(ResultActions result, String message) throws Exception {
+        assertNotFoundPayload(result, message, BUDGET_PATH);
+    }
+
+    private void assertNotFoundPayload(ResultActions result, String message, String path) throws Exception {
         result.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").value(message))
-                .andExpect(jsonPath("$.path").value(BUDGET_PATH))
+                .andExpect(jsonPath("$.path").value(path))
                 .andExpect(jsonPath("$.fieldErrors").isEmpty())
                 .andExpect(jsonPath("$.categoryId").doesNotExist())
                 .andExpect(jsonPath("$.plannedAmount").doesNotExist())

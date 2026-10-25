@@ -149,14 +149,15 @@ public class BudgetService {
         User user = userContextHelper.getAuthenticatedUser();
         Project project = projectRepository.findByIdAndUserIdAndDeletedAtIsNull(projectId, user.getId())
                 .orElseThrow(ResourceNotFoundException::new);
+        ExpenseCategory category = expenseCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Categoria não encontrada"));
         Budget budget = budgetRepository
-                .findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), categoryId)
+                .findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), category.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Orçamento não encontrado"));
 
         budget.setEstimatedAmount(ZERO);
         budgetRepository.save(budget);
 
-        ExpenseCategory category = budget.getCategory();
         CategoryRow row = new CategoryRow(category.getId(), category.getName());
         row.plannedAmount = ZERO;
         row.spentAmount = spentOfCategory(project.getId(), category.getId());

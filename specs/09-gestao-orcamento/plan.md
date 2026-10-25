@@ -229,7 +229,7 @@
 
 ---
 
-- [ ] **Tarefa 10 — Resolver pendências das segundas rodadas de revisão**
+- [x] **Tarefa 10 — Resolver pendências das segundas rodadas de revisão**
   - Cobre: CA7 (categoria inexistente no zeramento) e os critérios das Tarefas 6 a 9 associados aos apontamentos pendentes, conforme triagem do autor.
   - Decisão do autor em 25/10/2026: concentrar nesta tarefa a correção pendente da Tarefa 5 e os apontamentos das Tarefas 6 a 9 que não forem ajustados até a segunda rodada. O adiamento não equivale a critério atendido nem a aprovação do código pendente.
   - Entrada e rastreabilidade:
@@ -238,7 +238,7 @@
     - Antes de implementar a Tarefa 10, consolidar seu escopo e arquivos a partir dessa lista. Executar TDD e revisão própria da Tarefa 10, mantendo os registros das tarefas de origem. Não ampliar a spec nem incluir melhorias fora da US07.
   - Pendências registradas:
     - **T5 / conformidade r2 / apontamento 1 — Categoria inexistente no zeramento (CA7):** em obra própria, `POST /api/budgets/{projectId}/categories/{categoryId}/zero` deve responder `404 Categoria não encontrada` para categoria inexistente. Hoje a busca direta por orçamento devolve `404 Orçamento não encontrado`. Origem: `reviews/tarefa-05-conformidade-r2.md`; adiamento: `reviews/tarefa-05-decisoes-r2.md`.
-    - T6 a T9: aguardam implementação, revisão e triagem; nenhuma pendência presumida.
+    - Escopo consolidado após T6 a T9: todas foram aprovadas pelos dois revisores na rodada 1, sem apontamentos bloqueantes; não há pendência adicional dessas tarefas. A sugestão não bloqueante da T9 não foi promovida pelo autor e não integra a Tarefa 10. Resta somente o apontamento da T5 descrito acima, nos três arquivos backend previstos abaixo.
   - Teste primeiro (pendência T5):
     - Backend: `BudgetServiceTest.zeroBudget` prova categoria inexistente → `404 Categoria não encontrada`, sem persistência; categoria existente sem orçamento ativo → `404 Orçamento não encontrado`; obra alheia/inexistente → `404 Projeto não encontrado` antes de consultar categoria ou orçamento.
     - `BudgetControllerTest` prova o POST com categoria inexistente retornando 404 e a mensagem no payload padrão.

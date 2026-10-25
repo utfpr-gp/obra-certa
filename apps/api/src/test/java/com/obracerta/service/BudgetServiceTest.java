@@ -17,6 +17,8 @@ import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -298,6 +300,22 @@ class BudgetServiceTest {
     }
 
     @Test
+    void throwsCategoryNotFoundBeforeLookingUpABudgetToZero() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        when(expenseCategoryRepository.findById("cat-inexistente")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> budgetService.zeroBudget("project-1", "cat-inexistente"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Categoria não encontrada");
+
+        verify(expenseCategoryRepository).findById("cat-inexistente");
+        verifyNoInteractions(budgetRepository, expenseRepository);
+    }
+
+    @Test
     void zeroesTheExistingBudgetPreservingTheRecordAndRecalculatingTheCategory() {
         User user = authenticatedUser();
         when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
@@ -305,6 +323,8 @@ class BudgetServiceTest {
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(Optional.of(project));
         Budget existing = budget("cat-alvenaria", "Alvenaria", "1200.00");
+        when(expenseCategoryRepository.findById("cat-alvenaria"))
+                .thenReturn(Optional.of(existing.getCategory()));
         existing.setId("budget-1");
         existing.setUser(user);
         existing.setProject(project);
@@ -341,6 +361,9 @@ class BudgetServiceTest {
         when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(Optional.of(project("project-1", user)));
+        when(expenseCategoryRepository.findById("cat-hidraulica"))
+                .thenReturn(Optional.of(ExpenseCategory.builder()
+                        .id("cat-hidraulica").name("Hidráulica").build()));
         when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-hidraulica"))
                 .thenReturn(Optional.empty());
 
@@ -348,21 +371,24 @@ class BudgetServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Orçamento não encontrado");
 
+        verify(expenseCategoryRepository).findById("cat-hidraulica");
+        verify(budgetRepository).findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-hidraulica");
         verify(budgetRepository, never()).save(any(Budget.class));
         verifyNoInteractions(expenseRepository);
     }
 
-    @Test
-    void throwsNotFoundWhenZeroingAnotherUsersProject() {
+    @ParameterizedTest
+    @ValueSource(strings = {"project-of-another-user", "nonexistent-project"})
+    void throwsNotFoundWhenZeroingAnInaccessibleProject(String projectId) {
         when(userContextHelper.getAuthenticatedUser()).thenReturn(authenticatedUser());
-        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-of-another-user", "user-1"))
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(projectId, "user-1"))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> budgetService.zeroBudget("project-of-another-user", "cat-alvenaria"))
+        assertThatThrownBy(() -> budgetService.zeroBudget(projectId, "cat-inexistente"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Projeto não encontrado");
 
-        verifyNoInteractions(budgetRepository, expenseRepository);
+        verifyNoInteractions(expenseCategoryRepository, budgetRepository, expenseRepository);
     }
 
     @Test
@@ -453,6 +479,8 @@ class BudgetServiceTest {
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(Optional.of(project("project-1", user)));
         Budget existing = budget("cat-alvenaria", "Alvenaria", "1500.00");
+        when(expenseCategoryRepository.findById("cat-alvenaria"))
+                .thenReturn(Optional.of(existing.getCategory()));
         String originalId = existing.getId();
         when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
                 .thenReturn(Optional.of(existing));
