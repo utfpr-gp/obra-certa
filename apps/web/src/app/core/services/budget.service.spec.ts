@@ -1,9 +1,10 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BudgetCategory, BudgetOverview } from '../models/budget.model';
 import { BudgetService } from './budget.service';
@@ -54,6 +55,28 @@ describe('BudgetService', () => {
   });
 
   afterEach(() => httpTesting.verify());
+
+  for (const operation of ['read', 'save', 'zero'] as const) {
+    for (const failure of ['error', 'timeout', 'server'] as const) {
+      it(`preserves the ${failure} status and payload from ${operation}`, () => {
+        const source: Observable<BudgetCategory | BudgetOverview> = operation === 'read' ? service.getOverview('project-1')
+          : operation === 'save'
+            ? service.setBudget('project-1', 'cat-alvenaria', { estimatedAmount: 1500 })
+            : service.zeroBudget('project-1', 'cat-alvenaria');
+        let received: HttpErrorResponse | undefined;
+        source.subscribe({ next: () => fail('Expected an error'), error: (error) => received = error });
+        const request = httpTesting.expectOne(() => true);
+        const payload = failure === 'server'
+          ? { status: 503, message: 'Unavailable', fieldErrors: [] }
+          : new ProgressEvent(failure);
+        if (payload instanceof ProgressEvent) request.error(payload);
+        else request.flush(payload, { status: 503, statusText: 'Service Unavailable' });
+        expect(received instanceof HttpErrorResponse).toBeTrue();
+        expect(received?.status).toBe(failure === 'server' ? 503 : 0);
+        expect(received?.error).toBe(payload);
+      });
+    }
+  }
 
   it('reads the overview with projectId as a query parameter', () => {
     service.getOverview('project-1').subscribe((response) => {

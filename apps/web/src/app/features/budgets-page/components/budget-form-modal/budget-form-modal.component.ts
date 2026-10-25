@@ -128,7 +128,7 @@ export class BudgetFormModalComponent {
             this.errorMessage.set(error.error.message);
             return;
           }
-          this.errorMessage.set('Não foi possível salvar o orçamento. Tente novamente.');
+          this.errorMessage.set('Não foi possível salvar o orçamento. Verifique sua conexão e tente novamente.');
         },
       });
   }

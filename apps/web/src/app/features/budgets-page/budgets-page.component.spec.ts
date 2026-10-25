@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpErrorResponse } from '@angular/common/http';
-import { provideRouter } from '@angular/router';
+import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
+import { provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
@@ -9,6 +10,8 @@ import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { Project, ProjectStatus, ProjectType } from '../../core/models/project.model';
 import { BudgetsPageComponent } from './budgets-page.component';
+import { authInterceptor } from '../../core/interceptors/auth-interceptor';
+import { Auth } from '../../core/services/auth';
 
 describe('BudgetsPageComponent', () => {
   let fixture: ComponentFixture<BudgetsPageComponent>;
@@ -699,4 +702,150 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.setBudget).not.toHaveBeenCalled();
     expect(budgetService.getOverview.calls.count()).toBe(1);
   });
+});
+
+describe('BudgetsPageComponent connection recovery through HTTP', () => {
+  let fixture: ComponentFixture<BudgetsPageComponent>;
+  let http: HttpTestingController;
+  const project: Project = {
+    id: 'project-connection', name: 'Obra', type: ProjectType.RENOVATION,
+    status: ProjectStatus.IN_PROGRESS, location: '', createdAt: '', updatedAt: '',
+  };
+  const category: BudgetCategory = {
+    categoryId: 'category-connection', categoryName: 'Alvenaria', plannedAmount: 1000,
+    spentAmount: 200, balanceAmount: 800, percentage: 20, state: 'ON_TRACK', hasBudget: true,
+  };
+  const overview: BudgetOverview = {
+    projectId: project.id, totalPlanned: 1000, totalSpent: 200, available: 800,
+    globalPercentage: 20, exceededCategories: 0, budgetedCategories: 1, categories: [category],
+  };
+  function query<T extends HTMLElement>(id: string): T | null {
+    return (fixture.nativeElement as HTMLElement).querySelector<T>(`[data-testid="${id}"]`);
+  }
+  function loadSuccessfully(): void {
+    http.expectOne(request => request.url.endsWith('/api/budgets')).flush(overview);
+    http.expectOne(request => request.url.endsWith('/api/expense-categories'))
+      .flush([{ id: category.categoryId, name: category.categoryName }]);
+    fixture.detectChanges();
+  }
+  function failRequest(request: TestRequest, failure: string): void {
+    if (failure === 'server') request.flush({ message: 'Unavailable' }, { status: 503, statusText: 'Unavailable' });
+    else request.error(new ProgressEvent(failure));
+    fixture.detectChanges();
+  }
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [BudgetsPageComponent],
+      providers: [provideRouter([]), provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+    TestBed.inject(ActiveProjectService).setActiveProject(project, 'user-connection');
+    fixture = TestBed.createComponent(BudgetsPageComponent);
+    fixture.detectChanges();
+  });
+  afterEach(() => {
+    http.verify();
+    localStorage.clear();
+  });
+
+  for (const failure of ['error', 'timeout', 'server']) {
+    it(`shows the load AlertBanner and recovers after ${failure}`, () => {
+      const read = http.expectOne(request => request.url.endsWith('/api/budgets'));
+      http.expectOne(request => request.url.endsWith('/api/expense-categories')).flush([]);
+      failRequest(read, failure);
+      const alert = query('budgets-load-error')!;
+      expect(alert.querySelector('app-alert-banner')).not.toBeNull();
+      expect(alert.textContent).toContain('Verifique sua conexão');
+      alert.querySelector<HTMLButtonElement>('button')!.click();
+      fixture.detectChanges();
+      loadSuccessfully();
+      expect(query('budgets-load-error')).toBeNull();
+      expect(fixture.componentInstance.overview()).toEqual(overview);
+    });
+
+    it(`preserves the form and typed value, then retries after save ${failure}`, () => {
+      loadSuccessfully();
+      query<HTMLButtonElement>('edit-budget-' + category.categoryId)!.click();
+      fixture.detectChanges();
+      const input = query<HTMLInputElement>('budget-form-amount')!;
+      input.value = '1800';
+      input.dispatchEvent(new Event('input'));
+      query<HTMLButtonElement>('budget-form-submit')!.click();
+      failRequest(http.expectOne(request => request.method === 'PUT'), failure);
+      expect(query('budget-form-modal')).not.toBeNull();
+      expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1800');
+      expect(query<HTMLSelectElement>('budget-form-category')!.value).toBe(category.categoryId);
+      expect(query('budget-form-error')!.textContent).toContain('Verifique sua conexão');
+      expect(query<HTMLButtonElement>('budget-form-submit')!.disabled).toBeFalse();
+      expect(fixture.componentInstance.overview()).toEqual(overview);
+      query<HTMLButtonElement>('budget-form-submit')!.click();
+      const retry = http.expectOne(request => request.method === 'PUT');
+      expect(retry.request.body).toEqual({ estimatedAmount: 1800 });
+      fixture.detectChanges();
+      expect(query('budget-form-error')).toBeNull();
+      retry.flush({ ...category, plannedAmount: 1800 });
+      loadSuccessfully();
+      expect(query('budget-form-modal')).toBeNull();
+    });
+
+    it(`keeps the zero dialog with visible feedback and retries after ${failure}`, () => {
+      loadSuccessfully();
+      query<HTMLButtonElement>('zero-budget-' + category.categoryId)!.click();
+      fixture.detectChanges();
+      query<HTMLButtonElement>('confirm-confirmation')!.click();
+      failRequest(http.expectOne(request => request.method === 'POST'), failure);
+      expect(query('confirm-modal-content')).not.toBeNull();
+      expect(query<HTMLButtonElement>('confirm-confirmation')!.disabled).toBeFalse();
+      expect(fixture.componentInstance.overview()).toEqual(overview);
+      const alert = query('budget-zero-error');
+      expect(alert).not.toBeNull();
+      expect(alert?.textContent).toContain('Verifique sua conexão');
+      expect(alert?.classList).toContain('z-[60]');
+      alert?.querySelector<HTMLButtonElement>('button')!.click();
+      const retry = http.expectOne(request => request.method === 'POST');
+      fixture.detectChanges();
+      expect(query('budget-zero-error')).toBeNull();
+      retry.flush({ ...category, plannedAmount: 0 });
+      loadSuccessfully();
+      expect(query('confirm-modal-content')).toBeNull();
+      expect(query('budget-zero-error')).toBeNull();
+    });
+  }
+
+  for (const operation of ['read', 'save', 'zero']) {
+    it(`clears the real session and navigates to /login after ${operation} returns 401`, () => {
+      const auth = TestBed.inject(Auth);
+      const token = `${btoa('{"alg":"HS256"}')}.${btoa(JSON.stringify({ sub: 'user-connection', exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`;
+      auth.saveToken(token);
+      expect(auth.isAuthenticated()).toBeTrue();
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      let request: TestRequest;
+      if (operation === 'read') {
+        // The initial requests predate login in this fixture. Retry through the interceptor with the stored token.
+        loadSuccessfully();
+        fixture.componentInstance.retry();
+        http.expectOne(candidate => candidate.url.endsWith('/api/expense-categories')).flush([]);
+        request = http.expectOne(candidate => candidate.url.endsWith('/api/budgets'));
+      } else {
+        loadSuccessfully();
+        if (operation === 'save') fixture.componentInstance.openBudgetForm(category);
+        else fixture.componentInstance.openZeroConfirm(category);
+        fixture.detectChanges();
+        query<HTMLButtonElement>(operation === 'save' ? 'budget-form-submit' : 'confirm-confirmation')!.click();
+        request = http.expectOne(candidate => candidate.method === (operation === 'save' ? 'PUT' : 'POST'));
+      }
+      expect(request.request.headers.get('Authorization')).toBe(`Bearer ${token}`);
+      request.flush({ message: 'Session expired' }, { status: 401, statusText: 'Unauthorized' });
+      fixture.detectChanges();
+      expect(auth.getToken()).toBeNull();
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(auth.isAuthenticated()).toBeFalse();
+      expect(TestBed.inject(ActiveProjectService).activeProject()).toBeNull();
+      expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+      expect(query('budget-form-modal')).toBeNull();
+      expect(query('confirm-modal-content')).toBeNull();
+      expect(fixture.componentInstance.overview()).toBeNull();
+    });
+  }
 });

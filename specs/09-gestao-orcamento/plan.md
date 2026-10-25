@@ -215,8 +215,9 @@
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,spec.ts}`
     - `apps/api/src/test/java/com/obracerta/service/BudgetServiceTest.java`
 
-- [ ] **Tarefa 9 — Tratar falha de rede e sessão expirada**
+- [x] **Tarefa 9 — Tratar falha de rede e sessão expirada**
   - Cobre: CA10
+  - Complemento autorizado pelo autor em 25/10/2026: incluir `apps/web/src/app/core/services/auth.{ts,spec.ts}` e `apps/web/src/app/app.routes.{ts,spec.ts}` para manter o login em `/`, adicionar `/login` para a mesma tela e direcionar `Auth.logout()` para `/login`, com testes. O interceptor existente continua sendo exercitado pela página; a spec permanece inalterada.
   - Teste primeiro:
     - Frontend: `budgets-page.component.spec.ts` prova que erro de rede/5xx no carregamento mostra `AlertBanner` com retry; erro no salvamento mantém o modal e os valores digitados; erro no zeramento mantém o diálogo; 401 limpa a sessão e navega para `/login` (comportamento do `authInterceptor` já existente, exercitado pela página).
     - `budget.service.spec.ts` prova que os três métodos propagam o erro sem transformar o payload.

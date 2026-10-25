@@ -37,6 +37,8 @@ describe('Auth', () => {
   });
 
   it('clears the active project when logging out', () => {
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    service.saveToken(jwt({ sub: 'user-1', exp: Math.floor(Date.now() / 1000) + 3600 }));
     const activeProjectService = TestBed.inject(ActiveProjectService);
     activeProjectService.selectProject({
       id: 'project-uuid',
@@ -51,6 +53,8 @@ describe('Auth', () => {
     service.logout();
 
     expect(activeProjectService.activeProject()).toBeNull();
+    expect(service.getToken()).toBeNull();
+    expect(navigate).toHaveBeenCalledOnceWith(['/login']);
   });
 });
 

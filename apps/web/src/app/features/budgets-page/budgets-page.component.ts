@@ -45,6 +45,7 @@ export class BudgetsPageComponent {
 
   readonly zeroModalOpen = signal(false);
   readonly zeroSaving = signal(false);
+  readonly zeroError = signal('');
   private zeroContextId = 0;
   readonly zeroTarget = signal<BudgetCategory | null>(null);
   readonly zeroProjectId = signal<string | null>(null);
@@ -143,6 +144,7 @@ export class BudgetsPageComponent {
     }
     this.zeroContextId++;
     this.zeroSaving.set(false);
+    this.zeroError.set('');
     this.zeroProjectId.set(project.id);
     this.zeroTarget.set(category);
     this.zeroModalOpen.set(true);
@@ -151,6 +153,7 @@ export class BudgetsPageComponent {
   closeZeroConfirm(): void {
     this.zeroContextId++;
     this.zeroSaving.set(false);
+    this.zeroError.set('');
     this.zeroModalOpen.set(false);
     this.zeroTarget.set(null);
     this.zeroProjectId.set(null);
@@ -166,6 +169,7 @@ export class BudgetsPageComponent {
     }
     const context = this.zeroContextId;
     this.zeroSaving.set(true);
+    this.zeroError.set('');
     this.budgetService.zeroBudget(projectId, target.categoryId).subscribe({
       next: () => {
         if (context !== this.zeroContextId || this.activeProject()?.id !== projectId) return;
@@ -178,7 +182,7 @@ export class BudgetsPageComponent {
       error: () => {
         if (context !== this.zeroContextId || this.activeProject()?.id !== projectId) return;
         this.zeroSaving.set(false);
-        // A Tarefa 9 trata rede/401; aqui o dialogo permanece aberto.
+        this.zeroError.set('Não foi possível zerar o orçamento. Verifique sua conexão e tente novamente.');
       },
     });
   }

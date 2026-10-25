@@ -37,7 +37,7 @@ export class Auth {
   logout(): void {
     this.removeToken();
     this.activeProjectService.clear();
-    this.router.navigate(['/']);
+    this.router.navigate(['/login']);
   }
 
   isAuthenticated(): boolean {
