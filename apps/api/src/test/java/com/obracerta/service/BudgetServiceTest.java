@@ -5,11 +5,13 @@ import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
+import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.model.entity.Budget;
 import com.obracerta.model.entity.ExpenseCategory;
 import com.obracerta.model.entity.Project;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
+import com.obracerta.repository.ExpenseCategoryRepository;
 import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,10 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -42,6 +48,9 @@ class BudgetServiceTest {
 
     @Mock
     private BudgetRepository budgetRepository;
+
+    @Mock
+    private ExpenseCategoryRepository expenseCategoryRepository;
 
     @Mock
     private ExpenseRepository expenseRepository;
@@ -182,6 +191,107 @@ class BudgetServiceTest {
                 .hasMessage("Projeto não encontrado");
 
         verify(projectRepository).findByIdAndUserIdAndDeletedAtIsNull("project-of-another-user", "user-1");
+        verifyNoInteractions(budgetRepository, expenseRepository);
+    }
+
+    @Test
+    void createsBudgetForOwnedProjectAndReturnsRecalculatedCategory() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        Project project = project("project-1", user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project));
+        ExpenseCategory category = ExpenseCategory.builder()
+                .id("cat-alvenaria")
+                .name("Alvenaria")
+                .build();
+        when(expenseCategoryRepository.findById("cat-alvenaria")).thenReturn(Optional.of(category));
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.empty());
+        when(budgetRepository.save(any(Budget.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "200.00")));
+
+        BudgetCategoryDTO result = budgetService.setBudget(
+                "project-1", "cat-alvenaria", new BudgetSetDTO(new BigDecimal("1000.00")));
+
+        assertThat(result.categoryId()).isEqualTo("cat-alvenaria");
+        assertThat(result.categoryName()).isEqualTo("Alvenaria");
+        assertThat(result.plannedAmount()).isEqualByComparingTo("1000.00");
+        assertThat(result.spentAmount()).isEqualByComparingTo("200.00");
+        assertThat(result.balanceAmount()).isEqualByComparingTo("800.00");
+        assertThat(result.percentage()).isEqualByComparingTo("20.0");
+        assertThat(result.state()).isEqualTo(BudgetState.ON_TRACK);
+        assertThat(result.hasBudget()).isTrue();
+
+        verify(budgetRepository).save(argThat(budget ->
+                budget.getUser() == user
+                        && budget.getProject() == project
+                        && budget.getCategory() == category
+                        && budget.getEstimatedAmount().compareTo(new BigDecimal("1000.00")) == 0
+                        && budget.getDeletedAt() == null));
+    }
+
+    @Test
+    void updatesTheExistingActiveBudgetWithoutCreatingAnotherRow() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        Project project = project("project-1", user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project));
+        ExpenseCategory category = ExpenseCategory.builder()
+                .id("cat-alvenaria")
+                .name("Alvenaria")
+                .build();
+        when(expenseCategoryRepository.findById("cat-alvenaria")).thenReturn(Optional.of(category));
+        Budget existing = budget("cat-alvenaria", "Alvenaria", "500.00");
+        existing.setId("budget-1");
+        existing.setUser(user);
+        existing.setProject(project);
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.of(existing));
+        when(budgetRepository.save(any(Budget.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of());
+
+        BudgetCategoryDTO result = budgetService.setBudget(
+                "project-1", "cat-alvenaria", new BudgetSetDTO(new BigDecimal("1500.00")));
+
+        assertThat(existing.getId()).isEqualTo("budget-1");
+        assertThat(existing.getEstimatedAmount()).isEqualByComparingTo("1500.00");
+        assertThat(result.plannedAmount()).isEqualByComparingTo("1500.00");
+        assertThat(result.spentAmount()).isEqualByComparingTo("0.00");
+        assertThat(result.hasBudget()).isTrue();
+        verify(budgetRepository, times(1)).save(any(Budget.class));
+        verify(budgetRepository).save(existing);
+    }
+
+    @Test
+    void throwsNotFoundWhenSettingABudgetForAnotherUsersProject() {
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(authenticatedUser());
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-of-another-user", "user-1"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> budgetService.setBudget(
+                "project-of-another-user", "cat-alvenaria", new BudgetSetDTO(new BigDecimal("1000.00"))))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Projeto não encontrado");
+
+        verifyNoInteractions(expenseCategoryRepository, budgetRepository, expenseRepository);
+    }
+
+    @Test
+    void throwsNotFoundWhenTheCategoryDoesNotExist() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        when(expenseCategoryRepository.findById("cat-inexistente")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> budgetService.setBudget(
+                "project-1", "cat-inexistente", new BudgetSetDTO(new BigDecimal("1000.00"))))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Categoria não encontrada");
+
         verifyNoInteractions(budgetRepository, expenseRepository);
     }
 

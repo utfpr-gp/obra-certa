@@ -143,7 +143,7 @@
     - `apps/web/src/app/core/services/budget.service.spec.ts`
     - `apps/web/src/app/core/services/category.service.spec.ts`
 
-- [ ] **Tarefa 4 — Criar e editar orçamento (uma linha por categoria)**
+- [x] **Tarefa 4 - Criar e editar orçamento (uma linha por categoria)**
   - Cobre: CA1 e a escrita do CA7 (Anti-IDOR)
   - Teste primeiro:
     - Backend: `BudgetServiceTest.setBudget` prova criação, atualização do registro existente sem duplicar, vínculo com o dono da obra e 404 para obra alheia/categoria inexistente; `BudgetControllerTest` prova `PUT` 200 e 404 no payload padrão.

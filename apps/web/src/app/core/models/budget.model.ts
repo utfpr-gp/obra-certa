@@ -25,6 +25,10 @@ export interface BudgetCategory {
   hasBudget: boolean;
 }
 
+export interface BudgetSetDTO {
+  estimatedAmount: number;
+}
+
 export interface BudgetOverview {
   projectId: string;
   totalPlanned: number;

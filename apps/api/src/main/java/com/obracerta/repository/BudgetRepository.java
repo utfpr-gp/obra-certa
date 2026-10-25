@@ -9,11 +9,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface BudgetRepository extends JpaRepository<Budget, String> {
 
     @EntityGraph(attributePaths = "category")
     List<Budget> findByProjectIdAndDeletedAtIsNull(String projectId);
+
+    Optional<Budget> findByProjectIdAndCategoryIdAndDeletedAtIsNull(String projectId, String categoryId);
 
     @Modifying
     @Query("update Budget b set b.deletedAt = :deletedAt where b.project.id = :projectId")

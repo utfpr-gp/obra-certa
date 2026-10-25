@@ -119,11 +119,35 @@ describe('BudgetsPageComponent', () => {
     fixture.detectChanges();
   }
 
+  /** Preenche um campo nativo como o usuario faria, disparando os value accessors. */
+  function setField(testId: string, value: string): void {
+    const element = query<HTMLInputElement | HTMLSelectElement>(testId);
+    expect(element).withContext(`elemento [data-testid="${testId}"]`).not.toBeNull();
+    element!.value = value;
+    element!.dispatchEvent(new Event('input'));
+    element!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
     localStorage.clear();
-    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getOverview']);
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', [
+      'getOverview',
+      'setBudget',
+    ]);
     categoryService = jasmine.createSpyObj<CategoryService>('CategoryService', ['getCategories']);
     budgetService.getOverview.and.returnValue(of(overview));
+    budgetService.setBudget.and.returnValue(of(
+      category({
+        categoryId: 'cat-hidraulica',
+        categoryName: 'Hidráulica',
+        plannedAmount: 900,
+        spentAmount: 300,
+        balanceAmount: 600,
+        percentage: 33.3,
+        state: 'ON_TRACK',
+      }),
+    ));
     categoryService.getCategories.and.returnValue(of(categories));
 
     await TestBed.configureTestingModule({
@@ -273,5 +297,113 @@ describe('BudgetsPageComponent', () => {
     expect(query('budgets-load-error')).toBeNull();
     expect(text('kpi-total-planned')).toContain('R$ 15.000,00');
     expect(component.overview()?.projectId).toBe(project.id);
+  });
+
+  it('creates a budget from "Adicionar orçamento" and reloads the panel after saving', () => {
+    render(project);
+    expect(query('budget-form-modal')).toBeNull();
+
+    query<HTMLButtonElement>('add-budget')!.click();
+    fixture.detectChanges();
+
+    expect(query('budget-form-modal')).not.toBeNull();
+    expect(query<HTMLSelectElement>('budget-form-category')!.value).toBe('');
+
+    setField('budget-form-category', 'cat-hidraulica');
+    setField('budget-form-amount', '900');
+    query<HTMLButtonElement>('budget-form-submit')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.setBudget).toHaveBeenCalledOnceWith(
+      project.id,
+      'cat-hidraulica',
+      { estimatedAmount: 900 },
+    );
+    expect(budgetService.getOverview.calls.count()).toBe(2);
+    expect(query('budget-form-modal')).toBeNull();
+  });
+
+  it('opens the edit form with the row category locked and the current amount', () => {
+    render(project);
+
+    query<HTMLButtonElement>('edit-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+
+    expect(query('budget-form-modal')).not.toBeNull();
+    const select = query<HTMLSelectElement>('budget-form-category');
+    expect(select).not.toBeNull();
+    expect(select!.disabled).toBeTrue();
+    expect(select!.value).toBe('cat-alvenaria');
+    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1000');
+
+    setField('budget-form-amount', '1800');
+    query<HTMLButtonElement>('budget-form-submit')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.setBudget).toHaveBeenCalledOnceWith(
+      project.id,
+      'cat-alvenaria',
+      { estimatedAmount: 1800 },
+    );
+    expect(budgetService.getOverview.calls.count()).toBe(2);
+    expect(query('budget-form-modal')).toBeNull();
+  });
+
+  it('opens the form already on the category when the row offers "Definir teto"', () => {
+    render(project);
+
+    query<HTMLButtonElement>('define-ceiling-cat-hidraulica')!.click();
+    fixture.detectChanges();
+
+    const select = query<HTMLSelectElement>('budget-form-category');
+    expect(select).not.toBeNull();
+    expect(select!.disabled).toBeFalse();
+    expect(select!.value).toBe('cat-hidraulica');
+
+    setField('budget-form-amount', '900');
+    query<HTMLButtonElement>('budget-form-submit')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.setBudget).toHaveBeenCalledOnceWith(
+      project.id,
+      'cat-hidraulica',
+      { estimatedAmount: 900 },
+    );
+    expect(budgetService.getOverview.calls.count()).toBe(2);
+    expect(query('budget-form-modal')).toBeNull();
+  });
+
+  it('opens the form from the onboarding CTA', () => {
+    budgetService.getOverview.and.returnValue(of({
+      projectId: project.id,
+      totalPlanned: 0,
+      totalSpent: 0,
+      available: 0,
+      globalPercentage: null,
+      exceededCategories: 0,
+      budgetedCategories: 0,
+      categories: [],
+    }));
+    render(project);
+
+    query<HTMLButtonElement>('define-first-budget')!.click();
+    fixture.detectChanges();
+
+    expect(query('budget-form-modal')).not.toBeNull();
+    const options = query<HTMLSelectElement>('budget-form-category')!.options;
+    expect(options.length).toBe(categories.length + 1);
+  });
+
+  it('closes the form without calling the API when the owner cancels', () => {
+    render(project);
+
+    query<HTMLButtonElement>('add-budget')!.click();
+    fixture.detectChanges();
+    query<HTMLButtonElement>('budget-form-cancel')!.click();
+    fixture.detectChanges();
+
+    expect(query('budget-form-modal')).toBeNull();
+    expect(budgetService.setBudget).not.toHaveBeenCalled();
+    expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 });

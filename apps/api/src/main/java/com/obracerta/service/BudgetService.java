@@ -5,11 +5,13 @@ import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
+import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.model.entity.Budget;
 import com.obracerta.model.entity.ExpenseCategory;
 import com.obracerta.model.entity.Project;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
+import com.obracerta.repository.ExpenseCategoryRepository;
 import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
 import org.springframework.stereotype.Service;
@@ -34,16 +36,19 @@ public class BudgetService {
     private final ProjectRepository projectRepository;
     private final UserContextHelper userContextHelper;
     private final BudgetRepository budgetRepository;
+    private final ExpenseCategoryRepository expenseCategoryRepository;
     private final ExpenseRepository expenseRepository;
 
     public BudgetService(
             ProjectRepository projectRepository,
             UserContextHelper userContextHelper,
             BudgetRepository budgetRepository,
+            ExpenseCategoryRepository expenseCategoryRepository,
             ExpenseRepository expenseRepository) {
         this.projectRepository = projectRepository;
         this.userContextHelper = userContextHelper;
         this.budgetRepository = budgetRepository;
+        this.expenseCategoryRepository = expenseCategoryRepository;
         this.expenseRepository = expenseRepository;
     }
 
@@ -105,6 +110,39 @@ public class BudgetService {
                 exceededCategories,
                 budgetedCategories,
                 categories);
+    }
+
+    @Transactional
+    public BudgetCategoryDTO setBudget(String projectId, String categoryId, BudgetSetDTO request) {
+        User user = userContextHelper.getAuthenticatedUser();
+        Project project = projectRepository.findByIdAndUserIdAndDeletedAtIsNull(projectId, user.getId())
+                .orElseThrow(ResourceNotFoundException::new);
+        ExpenseCategory category = expenseCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Categoria não encontrada"));
+
+        Budget budget = budgetRepository
+                .findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), category.getId())
+                .orElseGet(() -> Budget.builder()
+                        .user(user)
+                        .project(project)
+                        .category(category)
+                        .build());
+        budget.setEstimatedAmount(request.estimatedAmount());
+        budgetRepository.save(budget);
+
+        CategoryRow row = new CategoryRow(category.getId(), category.getName());
+        row.plannedAmount = request.estimatedAmount();
+        row.spentAmount = spentOfCategory(project.getId(), category.getId());
+        row.hasBudget = true;
+        return toCategory(row);
+    }
+
+    private BigDecimal spentOfCategory(String projectId, String categoryId) {
+        return expenseRepository.sumActiveByCategory(projectId).stream()
+                .filter(total -> total.getCategoryId().equals(categoryId))
+                .map(ExpenseRepository.CategoryExpenseTotal::getTotal)
+                .findFirst()
+                .orElse(ZERO);
     }
 
     private BudgetCategoryDTO toCategory(CategoryRow row) {

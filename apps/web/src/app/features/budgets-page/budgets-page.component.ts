@@ -5,15 +5,22 @@ import { forkJoin } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
 import { CategoryService } from '../../core/services/category.service';
-import { BudgetOverview, BudgetState } from '../../core/models/budget.model';
+import { BudgetCategory, BudgetOverview, BudgetState } from '../../core/models/budget.model';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
+import { BudgetFormModalComponent } from './components/budget-form-modal/budget-form-modal.component';
 
 @Component({
   selector: 'app-budgets-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertBannerComponent, KpiCardComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    AlertBannerComponent,
+    KpiCardComponent,
+    BudgetFormModalComponent,
+  ],
   templateUrl: './budgets-page.component.html',
   styleUrl: './budgets-page.component.css'
 })
@@ -28,6 +35,29 @@ export class BudgetsPageComponent {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly isEmpty = computed(() => this.overview()?.categories.length === 0);
+
+  readonly modalOpen = signal(false);
+  readonly modalProjectId = signal<string | null>(null);
+  readonly modalEditingCategory = signal<BudgetCategory | null>(null);
+  readonly modalPreselectedCategoryId = signal<string | null>(null);
+
+  /** Categorias que ainda nao tem registro ativo e podem receber um novo teto. */
+  readonly budgetableCategories = computed<ExpenseCategory[]>(() => {
+    const rows = this.overview()?.categories ?? [];
+    const withBudget = new Set(
+      rows.filter((row) => row.hasBudget).map((row) => row.categoryId),
+    );
+    return this.categories().filter((category) => !withBudget.has(category.id));
+  });
+
+  /** Na edicao o seletor mostra apenas a categoria travada. */
+  readonly modalCategories = computed<ExpenseCategory[]>(() => {
+    const editing = this.modalEditingCategory();
+    if (editing) {
+      return [{ id: editing.categoryId, name: editing.categoryName }];
+    }
+    return this.budgetableCategories();
+  });
 
   /** Descarta a resposta de uma obra que deixou de ser a ativa durante a requisicao. */
   private requestId = 0;
@@ -51,6 +81,39 @@ export class BudgetsPageComponent {
     const project = this.activeProject();
     if (project) {
       this.load(project.id);
+    }
+  }
+
+  /**
+   * Abre o formulario. Sem categoria e criacao livre; com categoria sem registro ativo
+   * e "Definir teto"; com categoria que ja tem orcamento e edicao com a categoria travada.
+   */
+  openBudgetForm(category: BudgetCategory | null = null): void {
+    const project = this.activeProject();
+    if (!project) {
+      return;
+    }
+    this.modalProjectId.set(project.id);
+    this.modalEditingCategory.set(category?.hasBudget ? category : null);
+    this.modalPreselectedCategoryId.set(
+      category && !category.hasBudget ? category.categoryId : null,
+    );
+    this.modalOpen.set(true);
+  }
+
+  closeBudgetForm(): void {
+    this.modalOpen.set(false);
+    this.modalEditingCategory.set(null);
+    this.modalPreselectedCategoryId.set(null);
+  }
+
+  /** Recarrega o painel do servidor; nada e atualizado de forma otimista. */
+  onBudgetSaved(): void {
+    const projectId = this.modalProjectId();
+    const activeProject = this.activeProject();
+    this.closeBudgetForm();
+    if (projectId && activeProject?.id === projectId) {
+      this.load(projectId);
     }
   }
 
