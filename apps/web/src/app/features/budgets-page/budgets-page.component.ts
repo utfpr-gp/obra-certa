@@ -44,6 +44,8 @@ export class BudgetsPageComponent {
   readonly modalPreselectedCategoryId = signal<string | null>(null);
 
   readonly zeroModalOpen = signal(false);
+  readonly zeroSaving = signal(false);
+  private zeroContextId = 0;
   readonly zeroTarget = signal<BudgetCategory | null>(null);
   readonly zeroProjectId = signal<string | null>(null);
   readonly zeroConfirmationMessage = computed(() => {
@@ -78,6 +80,8 @@ export class BudgetsPageComponent {
   constructor() {
     effect(() => {
       const project = this.activeProject();
+      this.closeBudgetForm();
+      this.closeZeroConfirm();
       if (!project) {
         this.requestId++;
         this.overview.set(null);
@@ -116,6 +120,7 @@ export class BudgetsPageComponent {
 
   closeBudgetForm(): void {
     this.modalOpen.set(false);
+    this.modalProjectId.set(null);
     this.modalEditingCategory.set(null);
     this.modalPreselectedCategoryId.set(null);
   }
@@ -136,12 +141,16 @@ export class BudgetsPageComponent {
     if (!project) {
       return;
     }
+    this.zeroContextId++;
+    this.zeroSaving.set(false);
     this.zeroProjectId.set(project.id);
     this.zeroTarget.set(category);
     this.zeroModalOpen.set(true);
   }
 
   closeZeroConfirm(): void {
+    this.zeroContextId++;
+    this.zeroSaving.set(false);
     this.zeroModalOpen.set(false);
     this.zeroTarget.set(null);
     this.zeroProjectId.set(null);
@@ -151,11 +160,15 @@ export class BudgetsPageComponent {
   confirmZero(): void {
     const projectId = this.zeroProjectId();
     const target = this.zeroTarget();
-    if (!projectId || !target) {
+    if (!projectId || !target || !this.zeroModalOpen() || this.zeroSaving()
+        || this.activeProject()?.id !== projectId) {
       return;
     }
+    const context = this.zeroContextId;
+    this.zeroSaving.set(true);
     this.budgetService.zeroBudget(projectId, target.categoryId).subscribe({
       next: () => {
+        if (context !== this.zeroContextId || this.activeProject()?.id !== projectId) return;
         const activeProject = this.activeProject();
         this.closeZeroConfirm();
         if (activeProject?.id === projectId) {
@@ -163,6 +176,8 @@ export class BudgetsPageComponent {
         }
       },
       error: () => {
+        if (context !== this.zeroContextId || this.activeProject()?.id !== projectId) return;
+        this.zeroSaving.set(false);
         // A Tarefa 9 trata rede/401; aqui o dialogo permanece aberto.
       },
     });

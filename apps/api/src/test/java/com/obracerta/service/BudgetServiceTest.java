@@ -411,6 +411,66 @@ class BudgetServiceTest {
         verify(budgetRepository).save(existing);
     }
 
+    @Test
+    void repeatedSetWithSameAmountKeepsOneActiveBudgetAndTheSameTotals() {
+        User user = authenticatedUser();
+        Project project = project("project-1", user);
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project));
+        ExpenseCategory category = ExpenseCategory.builder().id("cat-alvenaria").name("Alvenaria").build();
+        when(expenseCategoryRepository.findById("cat-alvenaria")).thenReturn(Optional.of(category));
+        java.util.concurrent.atomic.AtomicReference<Budget> stored = new java.util.concurrent.atomic.AtomicReference<>();
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenAnswer(invocation -> Optional.ofNullable(stored.get()));
+        when(budgetRepository.save(any(Budget.class))).thenAnswer(invocation -> {
+            Budget budget = invocation.getArgument(0);
+            if (stored.get() == null) budget.setId("budget-1");
+            stored.set(budget);
+            return budget;
+        });
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "300.00")));
+
+        BudgetSetDTO request = new BudgetSetDTO(new BigDecimal("1500.00"));
+        BudgetCategoryDTO first = budgetService.setBudget("project-1", "cat-alvenaria", request);
+        Budget firstRecord = stored.get();
+        BudgetCategoryDTO repeated = budgetService.setBudget("project-1", "cat-alvenaria", request);
+
+        assertThat(repeated).isEqualTo(first);
+        assertThat(stored.get()).isSameAs(firstRecord);
+        assertThat(stored.get().getId()).isEqualTo("budget-1");
+        assertThat(stored.get().getEstimatedAmount()).isEqualByComparingTo("1500.00");
+        assertThat(stored.get().getDeletedAt()).isNull();
+        verify(budgetRepository, times(2)).save(firstRecord);
+        verify(budgetRepository, never()).delete(any(Budget.class));
+    }
+
+    @Test
+    void repeatedZeroKeepsTheRecordAtZeroAndTheSameTotals() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        Budget existing = budget("cat-alvenaria", "Alvenaria", "1500.00");
+        String originalId = existing.getId();
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.of(existing));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "300.00")));
+
+        BudgetCategoryDTO first = budgetService.zeroBudget("project-1", "cat-alvenaria");
+        BudgetCategoryDTO repeated = budgetService.zeroBudget("project-1", "cat-alvenaria");
+
+        assertThat(repeated).isEqualTo(first);
+        assertThat(existing.getId()).isEqualTo(originalId);
+        assertThat(existing.getEstimatedAmount()).isEqualByComparingTo("0.00");
+        assertThat(existing.getDeletedAt()).isNull();
+        verify(budgetRepository, times(2)).save(existing);
+        verify(budgetRepository, never()).delete(any(Budget.class));
+        verify(budgetRepository, never()).deleteById(any(String.class));
+    }
+
     private static BudgetCategoryDTO category(BudgetOverviewDTO overview, String categoryId) {
         return overview.categories().stream()
                 .filter(category -> category.categoryId().equals(categoryId))

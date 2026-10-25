@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
 import { CategoryService } from '../../core/services/category.service';
@@ -176,6 +176,106 @@ describe('BudgetsPageComponent', () => {
     fixture = TestBed.createComponent(BudgetsPageComponent);
     component = fixture.componentInstance;
   });
+
+  for (const dialog of ['form', 'zero']) {
+    it(`closes the ${dialog} on project switch and discards unsent data`, () => {
+      render(project);
+      if (dialog === 'form') {
+        component.openBudgetForm();
+        fixture.detectChanges();
+        setField('budget-form-amount', '1900');
+      } else component.openZeroConfirm(overview.categories[0]);
+      fixture.detectChanges();
+      const nextProject = { ...project, id: 'project-2' };
+      budgetService.getOverview.and.returnValue(of({ ...overview, projectId: nextProject.id }));
+      render(nextProject);
+      expect(query('budget-form-modal')).toBeNull();
+      expect(query('confirm-confirmation')).toBeNull();
+      expect(budgetService.getOverview).toHaveBeenCalledWith(nextProject.id);
+      expect(component.overview()?.projectId).toBe(nextProject.id);
+      expect(budgetService.setBudget).not.toHaveBeenCalled();
+      expect(budgetService.zeroBudget).not.toHaveBeenCalled();
+      component.openBudgetForm();
+      fixture.detectChanges();
+      expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('');
+    });
+  }
+
+  it('ignores a late overview after changing project', () => {
+    const pending = new Subject<BudgetOverview>();
+    budgetService.getOverview.and.returnValue(pending);
+    render(project);
+    const nextProject = { ...project, id: 'project-2' };
+    budgetService.getOverview.and.returnValue(of({ ...overview, projectId: nextProject.id }));
+    render(nextProject);
+    pending.next(overview);
+    pending.complete();
+    expect(component.overview()?.projectId).toBe(nextProject.id);
+  });
+
+  for (const operation of ['save', 'zero']) {
+    for (const response of ['success', 'error']) {
+      it(`ignores late ${operation} ${response} after A to B to A without closing a new dialog`, () => {
+        const pending = new Subject<BudgetCategory>();
+        render(project);
+        if (operation === 'save') {
+          budgetService.setBudget.and.returnValue(pending);
+          component.openBudgetForm(overview.categories[0]);
+          fixture.detectChanges();
+          query<HTMLButtonElement>('budget-form-submit')!.click();
+        } else {
+          budgetService.zeroBudget.and.returnValue(pending);
+          component.openZeroConfirm(overview.categories[0]);
+          fixture.detectChanges();
+          query<HTMLButtonElement>('confirm-confirmation')!.click();
+        }
+        fixture.detectChanges();
+        render({ ...project, id: 'project-2' });
+        render(project);
+        if (operation === 'save') component.openBudgetForm(overview.categories[1]);
+        else component.openZeroConfirm(overview.categories[1]);
+        fixture.detectChanges();
+        const reads = budgetService.getOverview.calls.count();
+        if (response === 'success') pending.next(zeroedCategory);
+        else pending.error(new HttpErrorResponse({ status: 409, error: { message: 'old error' } }));
+        fixture.detectChanges();
+        expect(budgetService.getOverview.calls.count()).toBe(reads);
+        if (operation === 'save') {
+          expect(query('budget-form-modal')).not.toBeNull();
+          expect(query<HTMLSelectElement>('budget-form-category')!.value).toBe('cat-eletrica');
+          expect(query('budget-form-error')).toBeNull();
+        } else {
+          expect(query('confirm-confirmation')).not.toBeNull();
+          expect(component.zeroTarget()?.categoryId).toBe('cat-eletrica');
+        }
+      });
+    }
+  }
+
+  for (const operation of ['save', 'zero']) {
+    it(`disables ${operation} during the request and makes only one call`, () => {
+      render(project);
+      const pending = new Subject<BudgetCategory>();
+      if (operation === 'save') {
+        budgetService.setBudget.and.returnValue(pending);
+        component.openBudgetForm(overview.categories[0]);
+      } else {
+        budgetService.zeroBudget.and.returnValue(pending);
+        component.openZeroConfirm(overview.categories[0]);
+      }
+      fixture.detectChanges();
+      const button = query<HTMLButtonElement>(operation === 'save' ? 'budget-form-submit' : 'confirm-confirmation')!;
+      button.click();
+      fixture.detectChanges();
+      expect(button.disabled).toBeTrue();
+      button.click();
+      if (operation === 'zero') component.confirmZero();
+      expect(operation === 'save' ? budgetService.setBudget : budgetService.zeroBudget).toHaveBeenCalledTimes(1);
+      pending.next(zeroedCategory);
+      fixture.detectChanges();
+      expect(query(operation === 'save' ? 'budget-form-modal' : 'confirm-confirmation')).toBeNull();
+    });
+  }
 
   it('shows formatted KPIs including the global percentage', () => {
     render(project);

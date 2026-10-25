@@ -26,6 +26,28 @@ describe('ConfirmModalComponent', () => {
     fixture.detectChanges();
   });
 
+  it('disables confirmation while saving and guards direct repeated confirmation', () => {
+    spyOn(component.confirm, 'emit');
+    fixture.componentRef.setInput('saving', true);
+    fixture.detectChanges();
+    expect(query<HTMLButtonElement>('confirm-confirmation')!.disabled).toBeTrue();
+    query<HTMLButtonElement>('confirm-confirmation')!.click();
+    component.onConfirm();
+    expect(component.confirm.emit).not.toHaveBeenCalled();
+    fixture.componentRef.setInput('saving', false);
+    fixture.detectChanges();
+    query<HTMLButtonElement>('confirm-confirmation')!.click();
+    expect(component.confirm.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('still allows cancellation during saving', () => {
+    spyOn(component.cancel, 'emit');
+    fixture.componentRef.setInput('saving', true);
+    fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(component.cancel.emit).toHaveBeenCalledTimes(1);
+  });
+
   it('should create the modal', () => {
     expect(component).toBeTruthy();
   });

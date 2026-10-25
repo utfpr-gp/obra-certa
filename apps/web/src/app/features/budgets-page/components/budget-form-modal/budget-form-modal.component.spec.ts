@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { BudgetCategory } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
@@ -130,6 +130,65 @@ describe('BudgetFormModalComponent', () => {
     expect(component.closed.emit).toHaveBeenCalled();
     expect(budgetService.setBudget).not.toHaveBeenCalled();
   });
+
+  for (const action of ['budget-form-cancel', 'budget-form-close', 'Escape']) {
+    it(`abandons through ${action} without saving`, () => {
+      spyOn(component.closed, 'emit');
+      spyOn(component.saved, 'emit');
+      open({ editingCategory: existing });
+      component.form.controls.estimatedAmount.setValue(1800);
+      if (action === 'Escape') {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      } else {
+        query<HTMLButtonElement>(action)!.click();
+      }
+      expect(component.closed.emit).toHaveBeenCalledTimes(1);
+      expect(component.saved.emit).not.toHaveBeenCalled();
+      expect(budgetService.setBudget).not.toHaveBeenCalled();
+    });
+  }
+
+  it('preserves the typed amount on backdrop click', () => {
+    spyOn(component.closed, 'emit');
+    open({ editingCategory: existing });
+    component.form.controls.estimatedAmount.setValue(1800);
+    (query('budget-form-modal')!.parentElement as HTMLElement).click();
+    expect(component.closed.emit).not.toHaveBeenCalled();
+    expect(component.form.controls.estimatedAmount.value).toBe(1800);
+    expect(budgetService.setBudget).not.toHaveBeenCalled();
+  });
+
+  it('blocks repeated submission while the request is pending', () => {
+    budgetService.setBudget.and.returnValue(new Subject<BudgetCategory>());
+    open({ editingCategory: existing });
+    component.save();
+    fixture.detectChanges();
+    expect(query<HTMLButtonElement>('budget-form-submit')!.disabled).toBeTrue();
+    component.save();
+    expect(budgetService.setBudget).toHaveBeenCalledTimes(1);
+  });
+
+  for (const response of ['success', 'error']) {
+    it(`ignores a late ${response} after closing and reopening the same project`, () => {
+      const pending = new Subject<BudgetCategory>();
+      budgetService.setBudget.and.returnValues(pending, new Subject<BudgetCategory>());
+      spyOn(component.saved, 'emit');
+      open({ editingCategory: existing });
+      component.save();
+      component.close();
+      fixture.componentRef.setInput('isOpen', false);
+      fixture.detectChanges();
+      open({ editingCategory: existing });
+      component.form.controls.estimatedAmount.setValue(1900);
+      component.save();
+      if (response === 'success') pending.next(recalculated);
+      else pending.error(new HttpErrorResponse({ status: 409, error: { message: 'old error' } }));
+      expect(component.saved.emit).not.toHaveBeenCalled();
+      expect(component.form.controls.estimatedAmount.value).toBe(1900);
+      expect(component.errorMessage()).toBe('');
+      expect(component.saving()).toBeTrue();
+    });
+  }
 
   for (const amount of [null, 0, -1, 1.234]) {
     it(`blocks invalid amount ${amount} with the validation message`, () => {

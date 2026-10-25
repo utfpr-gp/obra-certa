@@ -203,8 +203,9 @@
     - `apps/api/src/test/java/com/obracerta/repository/ExpenseRepositoryTest.java`
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,css,spec.ts}`
 
-- [ ] **Tarefa 8 — Fechar os caminhos de abandono**
+- [x] **Tarefa 8 — Fechar os caminhos de abandono**
   - Cobre: CA9
+  - Complemento autorizado pelo autor em 25/10/2026: incluir `apps/web/src/app/shared/components/confirm-modal/confirm-modal.component.{ts,html,spec.ts}` para oferecer estado de envio, bloquear confirmação repetida durante o zeramento e testar o comportamento, preservando os consumidores existentes.
   - Teste primeiro:
     - Frontend: `budget-form-modal.component.spec.ts` prova `Escape`, botão Cancelar e X sem emissão de `submit` e sem perda por clique no backdrop; `budgets-page.component.spec.ts` prova que trocar a obra ativa fecha os diálogos, descarta o formulário, ignora a resposta atrasada da obra anterior e recarrega a nova; prova também que o botão fica desabilitado durante o envio (sem segunda chamada).
     - Backend: `BudgetServiceTest` prova que `setBudget` repetido com o mesmo valor e `zeroBudget` repetido continuam idempotentes.

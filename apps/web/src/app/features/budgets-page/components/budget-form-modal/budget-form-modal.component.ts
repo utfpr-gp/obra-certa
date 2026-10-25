@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, HostListener, inject, input, output, signal } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -27,6 +27,8 @@ import { BudgetService } from '../../../../core/services/budget.service';
 export class BudgetFormModalComponent {
   private readonly budgetService = inject(BudgetService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
+  private contextId = 0;
 
   readonly isOpen = input(false);
   readonly projectId = input<string | null>(null);
@@ -53,7 +55,10 @@ export class BudgetFormModalComponent {
 
   constructor() {
     effect(() => {
+      this.contextId++;
       if (!this.isOpen()) {
+        this.saving.set(false);
+        this.form.reset();
         return;
       }
       const editing = this.editingCategory();
@@ -87,6 +92,9 @@ export class BudgetFormModalComponent {
   }
 
   save(): void {
+    if (!this.isOpen() || this.saving()) {
+      return;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -97,6 +105,7 @@ export class BudgetFormModalComponent {
     }
 
     const value = this.form.getRawValue();
+    const context = this.contextId;
     this.saving.set(true);
     this.errorMessage.set('');
     this.belowSpentConflict.set(false);
@@ -106,10 +115,12 @@ export class BudgetFormModalComponent {
       })
       .subscribe({
         next: (category) => {
+          if (!this.isCurrentContext(context, projectId)) return;
           this.saving.set(false);
           this.saved.emit(category);
         },
         error: (error: unknown) => {
+          if (!this.isCurrentContext(context, projectId)) return;
           this.saving.set(false);
           if (error instanceof HttpErrorResponse && error.status === 409
               && typeof error.error?.message === 'string') {
@@ -123,7 +134,18 @@ export class BudgetFormModalComponent {
   }
 
   close(): void {
+    this.contextId++;
     this.closed.emit();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen()) this.close();
+  }
+
+  private isCurrentContext(context: number, projectId: string): boolean {
+    return !this.destroyRef.destroyed && this.isOpen()
+      && this.contextId === context && this.projectId() === projectId;
   }
 }
 
