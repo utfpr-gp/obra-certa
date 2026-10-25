@@ -34,6 +34,17 @@ describe('BudgetService', () => {
     hasBudget: true,
   };
 
+  const zeroedCategory: BudgetCategory = {
+    categoryId: 'cat-alvenaria',
+    categoryName: 'Alvenaria',
+    plannedAmount: 0,
+    spentAmount: 200,
+    balanceAmount: -200,
+    percentage: null,
+    state: 'NO_BUDGET',
+    hasBudget: true,
+  };
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -72,5 +83,19 @@ describe('BudgetService', () => {
     expect(request.request.body).toEqual({ estimatedAmount: 1500 });
     expect(request.request.params.keys()).toEqual([]);
     request.flush(updatedCategory);
+  });
+
+  it('zeroes the category budget with a POST to the /zero action and returns the recalculated category', () => {
+    service.zeroBudget('project-1', 'cat-alvenaria').subscribe((response) => {
+      expect(response).toEqual(zeroedCategory);
+    });
+
+    const request = httpTesting.expectOne(
+      `${environment.apiUrl}/api/budgets/project-1/categories/cat-alvenaria/zero`,
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush(zeroedCategory);
   });
 });

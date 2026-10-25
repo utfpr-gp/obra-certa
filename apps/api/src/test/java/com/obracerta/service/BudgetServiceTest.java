@@ -295,6 +295,74 @@ class BudgetServiceTest {
         verifyNoInteractions(budgetRepository, expenseRepository);
     }
 
+    @Test
+    void zeroesTheExistingBudgetPreservingTheRecordAndRecalculatingTheCategory() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        Project project = project("project-1", user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project));
+        Budget existing = budget("cat-alvenaria", "Alvenaria", "1200.00");
+        existing.setId("budget-1");
+        existing.setUser(user);
+        existing.setProject(project);
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-alvenaria"))
+                .thenReturn(Optional.of(existing));
+        when(budgetRepository.save(any(Budget.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(expenseRepository.sumActiveByCategory("project-1")).thenReturn(List.of(
+                expenseTotal("cat-alvenaria", "Alvenaria", "300.00")));
+
+        BudgetCategoryDTO result = budgetService.zeroBudget("project-1", "cat-alvenaria");
+
+        assertThat(result.categoryId()).isEqualTo("cat-alvenaria");
+        assertThat(result.categoryName()).isEqualTo("Alvenaria");
+        assertThat(result.plannedAmount()).isEqualByComparingTo("0.00");
+        assertThat(result.spentAmount()).isEqualByComparingTo("300.00");
+        assertThat(result.balanceAmount()).isEqualByComparingTo("-300.00");
+        assertThat(result.percentage()).isNull();
+        assertThat(result.state()).isEqualTo(BudgetState.NO_BUDGET);
+        assertThat(result.hasBudget()).isTrue();
+
+        assertThat(existing.getId())
+                .as("zera o mesmo registro, sem apagar e recriar")
+                .isEqualTo("budget-1");
+        assertThat(existing.getDeletedAt()).isNull();
+        assertThat(existing.getEstimatedAmount()).isEqualByComparingTo("0.00");
+        verify(budgetRepository, times(1)).save(existing);
+        verify(budgetRepository, never()).delete(any(Budget.class));
+        verify(budgetRepository, never()).deleteById(any(String.class));
+    }
+
+    @Test
+    void throwsNotFoundWhenThereIsNoActiveBudgetToZero() {
+        User user = authenticatedUser();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(project("project-1", user)));
+        when(budgetRepository.findByProjectIdAndCategoryIdAndDeletedAtIsNull("project-1", "cat-hidraulica"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> budgetService.zeroBudget("project-1", "cat-hidraulica"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Orçamento não encontrado");
+
+        verify(budgetRepository, never()).save(any(Budget.class));
+        verifyNoInteractions(expenseRepository);
+    }
+
+    @Test
+    void throwsNotFoundWhenZeroingAnotherUsersProject() {
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(authenticatedUser());
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-of-another-user", "user-1"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> budgetService.zeroBudget("project-of-another-user", "cat-alvenaria"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Projeto não encontrado");
+
+        verifyNoInteractions(budgetRepository, expenseRepository);
+    }
+
     private static BudgetCategoryDTO category(BudgetOverviewDTO overview, String categoryId) {
         return overview.categories().stream()
                 .filter(category -> category.categoryId().equals(categoryId))

@@ -18,9 +18,11 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.math.BigDecimal;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -78,6 +80,31 @@ class BudgetControllerTest {
                 .andExpect(jsonPath("$.balanceAmount").value(1300.00))
                 .andExpect(jsonPath("$.percentage").value(13.3))
                 .andExpect(jsonPath("$.state").value("ON_TRACK"))
+                .andExpect(jsonPath("$.hasBudget").value(true));
+    }
+
+    @Test
+    void returnsTheZeroedCategoryOnPost() throws Exception {
+        when(budgetService.zeroBudget(PROJECT_ID, CATEGORY_ID))
+                .thenReturn(new BudgetCategoryDTO(
+                        CATEGORY_ID,
+                        "Alvenaria",
+                        new BigDecimal("0.00"),
+                        new BigDecimal("200.00"),
+                        new BigDecimal("-200.00"),
+                        null,
+                        BudgetState.NO_BUDGET,
+                        true));
+
+        mockMvc.perform(post(BUDGET_PATH + "/zero"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryId").value(CATEGORY_ID))
+                .andExpect(jsonPath("$.categoryName").value("Alvenaria"))
+                .andExpect(jsonPath("$.plannedAmount").value(0.00))
+                .andExpect(jsonPath("$.spentAmount").value(200.00))
+                .andExpect(jsonPath("$.balanceAmount").value(-200.00))
+                .andExpect(jsonPath("$.percentage").value(nullValue()))
+                .andExpect(jsonPath("$.state").value("NO_BUDGET"))
                 .andExpect(jsonPath("$.hasBudget").value(true));
     }
 

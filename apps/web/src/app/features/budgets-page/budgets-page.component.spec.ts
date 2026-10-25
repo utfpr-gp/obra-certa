@@ -82,6 +82,16 @@ describe('BudgetsPageComponent', () => {
     ],
   };
 
+  const zeroedCategory: BudgetCategory = category({
+    categoryId: 'cat-alvenaria',
+    categoryName: 'Alvenaria',
+    plannedAmount: 0,
+    spentAmount: 1125,
+    balanceAmount: -1125,
+    percentage: null,
+    state: 'NO_BUDGET',
+  });
+
   function category(overrides: Partial<BudgetCategory>): BudgetCategory {
     return {
       categoryId: 'cat',
@@ -134,6 +144,7 @@ describe('BudgetsPageComponent', () => {
     budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', [
       'getOverview',
       'setBudget',
+      'zeroBudget',
     ]);
     categoryService = jasmine.createSpyObj<CategoryService>('CategoryService', ['getCategories']);
     budgetService.getOverview.and.returnValue(of(overview));
@@ -149,6 +160,7 @@ describe('BudgetsPageComponent', () => {
       }),
     ));
     categoryService.getCategories.and.returnValue(of(categories));
+    budgetService.zeroBudget.and.returnValue(of(zeroedCategory));
 
     await TestBed.configureTestingModule({
       imports: [BudgetsPageComponent],
@@ -392,6 +404,108 @@ describe('BudgetsPageComponent', () => {
     expect(query('budget-form-modal')).not.toBeNull();
     const options = query<HTMLSelectElement>('budget-form-category')!.options;
     expect(options.length).toBe(categories.length + 1);
+  });
+
+  it('offers "Zerar" only for budgeted categories with a positive amount and opens the confirmation', () => {
+    render(project);
+
+    expect(query('zero-budget-cat-alvenaria')).not.toBeNull();
+    expect(query('zero-budget-cat-eletrica')).not.toBeNull();
+    expect(query('zero-budget-cat-mao-de-obra')).not.toBeNull();
+    expect(query('zero-budget-cat-hidraulica')).toBeNull();
+    expect(query('confirm-confirmation')).toBeNull();
+
+    query<HTMLButtonElement>('zero-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+
+    expect(query('confirm-confirmation')).not.toBeNull();
+    expect(text('confirm-modal-content')).toContain('Alvenaria');
+    expect(budgetService.zeroBudget).not.toHaveBeenCalled();
+  });
+
+  it('hides "Zerar" but keeps "Editar" for a zeroed category that still has a record', () => {
+    budgetService.getOverview.and.returnValue(of({
+      projectId: project.id,
+      totalPlanned: 1000,
+      totalSpent: 1425,
+      available: -425,
+      globalPercentage: null,
+      exceededCategories: 0,
+      budgetedCategories: 1,
+      categories: [
+        category({
+          categoryId: 'cat-alvenaria',
+          categoryName: 'Alvenaria',
+          plannedAmount: 0,
+          spentAmount: 1125,
+          balanceAmount: -1125,
+          percentage: null,
+          state: 'NO_BUDGET',
+          hasBudget: true,
+        }),
+        category({
+          categoryId: 'cat-eletrica',
+          categoryName: 'Elétrica',
+          plannedAmount: 1000,
+          spentAmount: 300,
+          balanceAmount: 700,
+          percentage: 30,
+          state: 'ON_TRACK',
+          hasBudget: true,
+        }),
+      ],
+    }));
+
+    render(project);
+
+    expect(query('budget-row-cat-alvenaria')).not.toBeNull();
+    expect(query('edit-budget-cat-alvenaria')).not.toBeNull();
+    expect(query('zero-budget-cat-alvenaria')).toBeNull();
+    expect(query('define-ceiling-cat-alvenaria')).toBeNull();
+
+    expect(query('edit-budget-cat-eletrica')).not.toBeNull();
+    expect(query('zero-budget-cat-eletrica')).not.toBeNull();
+    expect(query('define-ceiling-cat-eletrica')).toBeNull();
+  });
+
+  it('zeroes the budget after confirmation and reloads the panel', () => {
+    render(project);
+
+    query<HTMLButtonElement>('zero-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+    query<HTMLButtonElement>('confirm-confirmation')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.zeroBudget).toHaveBeenCalledOnceWith(project.id, 'cat-alvenaria');
+    expect(budgetService.getOverview.calls.count()).toBe(2);
+    expect(query('confirm-confirmation')).toBeNull();
+  });
+
+  it('closes the zero confirmation without calling the API when the owner cancels', () => {
+    render(project);
+
+    query<HTMLButtonElement>('zero-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+    query<HTMLButtonElement>('cancel-confirmation')!.click();
+    fixture.detectChanges();
+
+    expect(query('confirm-confirmation')).toBeNull();
+    expect(budgetService.zeroBudget).not.toHaveBeenCalled();
+    expect(budgetService.getOverview.calls.count()).toBe(1);
+  });
+
+  it('closes the zero confirmation without calling the API on Escape', () => {
+    render(project);
+
+    query<HTMLButtonElement>('zero-budget-cat-alvenaria')!.click();
+    fixture.detectChanges();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+
+    expect(query('confirm-confirmation')).toBeNull();
+    expect(budgetService.zeroBudget).not.toHaveBeenCalled();
+    expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 
   it('closes the form without calling the API when the owner cancels', () => {

@@ -26,4 +26,11 @@ export class BudgetService {
       dto,
     );
   }
+
+  zeroBudget(projectId: string, categoryId: string): Observable<BudgetCategory> {
+    return this.http.post<BudgetCategory>(
+      `${this.endpoint}/${projectId}/categories/${categoryId}/zero`,
+      null,
+    );
+  }
 }

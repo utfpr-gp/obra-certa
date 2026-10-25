@@ -167,6 +167,16 @@
                       >
                         Editar
                       </button>
+                      @if (category.plannedAmount > 0) {
+                        <button
+                          type="button"
+                          [attr.data-testid]="'zero-budget-' + category.categoryId"
+                          (click)="openZeroConfirm(category)"
+                          class="ml-3 text-sm font-semibold text-rose-600 hover:text-rose-700 hover:underline"
+                        >
+                          Zerar
+                        </button>
+                      }
                     } @else {
                       <button
                         type="button"
@@ -194,6 +204,16 @@
       [categories]="modalCategories()"
       (closed)="closeBudgetForm()"
       (saved)="onBudgetSaved()"
+    />
+
+    <app-confirm-modal
+      [isOpen]="zeroModalOpen()"
+      title="Zerar orçamento?"
+      [description]="zeroConfirmationMessage()"
+      confirmText="Zerar"
+      [isDestructive]="true"
+      (cancel)="closeZeroConfirm()"
+      (confirm)="confirmZero()"
     />
   </main>
 }

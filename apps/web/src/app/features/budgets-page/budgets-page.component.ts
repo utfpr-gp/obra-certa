@@ -8,6 +8,7 @@ import { CategoryService } from '../../core/services/category.service';
 import { BudgetCategory, BudgetOverview, BudgetState } from '../../core/models/budget.model';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
+import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { BudgetFormModalComponent } from './components/budget-form-modal/budget-form-modal.component';
 
@@ -20,6 +21,7 @@ import { BudgetFormModalComponent } from './components/budget-form-modal/budget-
     AlertBannerComponent,
     KpiCardComponent,
     BudgetFormModalComponent,
+    ConfirmModalComponent,
   ],
   templateUrl: './budgets-page.component.html',
   styleUrl: './budgets-page.component.css'
@@ -40,6 +42,17 @@ export class BudgetsPageComponent {
   readonly modalProjectId = signal<string | null>(null);
   readonly modalEditingCategory = signal<BudgetCategory | null>(null);
   readonly modalPreselectedCategoryId = signal<string | null>(null);
+
+  readonly zeroModalOpen = signal(false);
+  readonly zeroTarget = signal<BudgetCategory | null>(null);
+  readonly zeroProjectId = signal<string | null>(null);
+  readonly zeroConfirmationMessage = computed(() => {
+    const target = this.zeroTarget();
+    if (!target) {
+      return '';
+    }
+    return `O orçamento de ${target.categoryName} será definido como R$ 0,00. O registro é mantido para as despesas já lançadas.`;
+  });
 
   /** Categorias que ainda nao tem registro ativo e podem receber um novo teto. */
   readonly budgetableCategories = computed<ExpenseCategory[]>(() => {
@@ -115,6 +128,44 @@ export class BudgetsPageComponent {
     if (projectId && activeProject?.id === projectId) {
       this.load(projectId);
     }
+  }
+
+  /** Abre a confirmacao guardando a obra ativa no momento do clique. */
+  openZeroConfirm(category: BudgetCategory): void {
+    const project = this.activeProject();
+    if (!project) {
+      return;
+    }
+    this.zeroProjectId.set(project.id);
+    this.zeroTarget.set(category);
+    this.zeroModalOpen.set(true);
+  }
+
+  closeZeroConfirm(): void {
+    this.zeroModalOpen.set(false);
+    this.zeroTarget.set(null);
+    this.zeroProjectId.set(null);
+  }
+
+  /** So a confirmacao chama a API; cancelar, X e Escape fecham sem requisicao. */
+  confirmZero(): void {
+    const projectId = this.zeroProjectId();
+    const target = this.zeroTarget();
+    if (!projectId || !target) {
+      return;
+    }
+    this.budgetService.zeroBudget(projectId, target.categoryId).subscribe({
+      next: () => {
+        const activeProject = this.activeProject();
+        this.closeZeroConfirm();
+        if (activeProject?.id === projectId) {
+          this.load(projectId);
+        }
+      },
+      error: () => {
+        // A Tarefa 9 trata rede/401; aqui o dialogo permanece aberto.
+      },
+    });
   }
 
   formatBrl(value: number | null | undefined): string {

@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,5 +36,12 @@ public class BudgetController {
             @PathVariable String categoryId,
             @Valid @RequestBody BudgetSetDTO request) {
         return ResponseEntity.ok(budgetService.setBudget(projectId, categoryId, request));
+    }
+
+    @PostMapping("/{projectId}/categories/{categoryId}/zero")
+    public ResponseEntity<BudgetCategoryDTO> zeroBudget(
+            @PathVariable String projectId,
+            @PathVariable String categoryId) {
+        return ResponseEntity.ok(budgetService.zeroBudget(projectId, categoryId));
     }
 }

@@ -137,6 +137,26 @@ public class BudgetService {
         return toCategory(row);
     }
 
+    @Transactional
+    public BudgetCategoryDTO zeroBudget(String projectId, String categoryId) {
+        User user = userContextHelper.getAuthenticatedUser();
+        Project project = projectRepository.findByIdAndUserIdAndDeletedAtIsNull(projectId, user.getId())
+                .orElseThrow(ResourceNotFoundException::new);
+        Budget budget = budgetRepository
+                .findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Orçamento não encontrado"));
+
+        budget.setEstimatedAmount(ZERO);
+        budgetRepository.save(budget);
+
+        ExpenseCategory category = budget.getCategory();
+        CategoryRow row = new CategoryRow(category.getId(), category.getName());
+        row.plannedAmount = ZERO;
+        row.spentAmount = spentOfCategory(project.getId(), category.getId());
+        row.hasBudget = true;
+        return toCategory(row);
+    }
+
     private BigDecimal spentOfCategory(String projectId, String categoryId) {
         return expenseRepository.sumActiveByCategory(projectId).stream()
                 .filter(total -> total.getCategoryId().equals(categoryId))

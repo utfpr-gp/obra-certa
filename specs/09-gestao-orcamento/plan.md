@@ -159,7 +159,8 @@
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,spec.ts}`
     - `apps/web/src/app/core/services/budget.service.ts`
 
-- [ ] **Tarefa 5 — Zerar orçamento preservando o registro**
+- [x] **Tarefa 5 — Zerar orçamento preservando o registro**
+  - Encerramento autorizado pelo autor em 25/10/2026, com o apontamento de conformidade da rodada 2 adiado para a Tarefa 10; CA7 permanece pendente nesse caso até a correção.
   - Cobre: CA4 e a escrita do CA7 (Anti-IDOR)
   - Teste primeiro:
     - Backend: `BudgetServiceTest.zeroBudget` prova `estimated_amount = 0`, registro preservado, totais recalculados, 404 quando não há registro e 404 para obra alheia; `BudgetControllerTest` prova `POST .../zero` 200.
@@ -223,6 +224,29 @@
     - `apps/web/src/app/features/budgets-page/budgets-page.component.{ts,html,spec.ts}`
     - `apps/web/src/app/features/budgets-page/components/budget-form-modal/budget-form-modal.component.{ts,html,spec.ts}`
     - `apps/web/src/app/core/services/budget.service.spec.ts`
+
+---
+
+- [ ] **Tarefa 10 — Resolver pendências das segundas rodadas de revisão**
+  - Cobre: CA7 (categoria inexistente no zeramento) e os critérios das Tarefas 6 a 9 associados aos apontamentos pendentes, conforme triagem do autor.
+  - Decisão do autor em 25/10/2026: concentrar nesta tarefa a correção pendente da Tarefa 5 e os apontamentos das Tarefas 6 a 9 que não forem ajustados até a segunda rodada. O adiamento não equivale a critério atendido nem a aprovação do código pendente.
+  - Entrada e rastreabilidade:
+    - Não executar uma terceira rodada nas tarefas de origem; preservar os pareceres e registrar cada adiamento no respectivo `reviews/tarefa-<NN>-decisoes-r2.md`.
+    - Ao final de cada Tarefa 6 a 9, após a triagem do autor, acrescentar à lista abaixo os apontamentos aceitos e ainda não corrigidos, com critério de aceite, evidência, teste esperado e arquivos afetados. Apontamentos recusados com justificativa não entram; sugestões só entram se promovidas pelo autor.
+    - Antes de implementar a Tarefa 10, consolidar seu escopo e arquivos a partir dessa lista. Executar TDD e revisão própria da Tarefa 10, mantendo os registros das tarefas de origem. Não ampliar a spec nem incluir melhorias fora da US07.
+  - Pendências registradas:
+    - **T5 / conformidade r2 / apontamento 1 — Categoria inexistente no zeramento (CA7):** em obra própria, `POST /api/budgets/{projectId}/categories/{categoryId}/zero` deve responder `404 Categoria não encontrada` para categoria inexistente. Hoje a busca direta por orçamento devolve `404 Orçamento não encontrado`. Origem: `reviews/tarefa-05-conformidade-r2.md`; adiamento: `reviews/tarefa-05-decisoes-r2.md`.
+    - T6 a T9: aguardam implementação, revisão e triagem; nenhuma pendência presumida.
+  - Teste primeiro (pendência T5):
+    - Backend: `BudgetServiceTest.zeroBudget` prova categoria inexistente → `404 Categoria não encontrada`, sem persistência; categoria existente sem orçamento ativo → `404 Orçamento não encontrado`; obra alheia/inexistente → `404 Projeto não encontrado` antes de consultar categoria ou orçamento.
+    - `BudgetControllerTest` prova o POST com categoria inexistente retornando 404 e a mensagem no payload padrão.
+    - Acrescentar testes específicos das pendências de T6 a T9 quando registradas; rodar as suítes backend/frontend e o build ao consolidar as correções.
+  - Migration: nenhuma para a pendência atual; reavaliar somente se alguma pendência futura aprovada exigir mudança de schema.
+  - Arquivos previstos para a pendência atual:
+    - `apps/api/src/main/java/com/obracerta/service/BudgetService.java`
+    - `apps/api/src/test/java/com/obracerta/service/BudgetServiceTest.java`
+    - `apps/api/src/test/java/com/obracerta/controller/BudgetControllerTest.java`
+  - Fechamento: a auditoria final e o PR só seguem após resolver as pendências aceitas e concluir esta tarefa.
 
 ---
 
