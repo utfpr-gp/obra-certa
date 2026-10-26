@@ -297,12 +297,13 @@
 
 ---
 
-### ⚪ US07 — Definição e Acompanhamento de Orçamento por Categoria
+### 🟢 US07 — Definição e Acompanhamento de Orçamento por Categoria
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** ⚪ Draft  
-- **Dependências:** US14 (Obra ativa selecionada); Categorias pré-definidas  
+- **Status:** 🟢 Live
+- **Dependências:** US14 (Obra ativa selecionada); categorias pré-definidas entregues pela US07
+- **Rastreabilidade:** Issue #9; [spec e plano](../specs/09-gestao-orcamento/); implementação e revisões por tarefa concluídas na branch da história. Auditoria final e integração por PR ainda pendentes; este status não indica implantação em produção.
 - **História:** Como proprietário com uma obra selecionada, quero definir o orçamento previsto por categoria, acompanhar o consumo individual e global com alertas visuais e zerar tetos quando necessário, para manter a previsibilidade financeira e auditar despesas não orçadas.
 - **Regras de Negócio Associadas:** RN01, RN02, RN08
 
@@ -336,7 +337,7 @@
 7. **Caminho Triste (Bloqueio de redução abaixo do total já gasto — RN02 com atalho de auditoria):**
    - **Dado** que uma categoria possui despesas ativas que somam um determinado valor X (ex: R$ 5.000),
    - **Quando** o proprietário tenta editar o orçamento para um valor positivo inferior a X (ex: R$ 4.000),
-   - **Então** o sistema bloqueia o salvamento e exibe mensagem de erro explicativa ("O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ X") acompanhada de link/atalho direto ("Ver despesas desta categoria") que abre a listagem de despesas filtrada pela respectiva categoria para auditoria imediata.
+   - **Então** o sistema bloqueia o salvamento e exibe mensagem de erro explicativa ("O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ X") acompanhada do atalho "Ver despesas desta categoria". Nesta entrega, o atalho permanece visível e desabilitado, com a indicação "Disponível após a implementação da tela de despesas (US05)"; a navegação filtrada depende da US05, conforme a spec aprovada da Issue #9.
 8. **Caminho Triste (Valor negativo ou zerado no formulário):**
    - **Dado** que o usuário tenta salvar um orçamento com valor menor ou igual a zero pelo formulário de edição/criação,
    - **Quando** submete o formulário,

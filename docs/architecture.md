@@ -3,7 +3,7 @@
 **Projeto:** ObraCerta (Gestão Financeira de Obras Residenciais)  
 **Status do Documento:** 🟢 Definido (Fase 0 - SDD)  
 **Versão:** 2.0.0 (Normatizada para o Método UTF-SDD)  
-**Última Atualização:** 2026-10-15
+**Última Atualização:** 2026-10-26 (fechamento da implementação da US07)
 
 ---
 
@@ -15,18 +15,18 @@ O projeto adota a arquitetura de **Monorepo**, centralizando a aplicação clien
 obra-certa/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                         # Pipeline de CI (build, linters, testes com Testcontainers)
+│       └── ci.yml                         # CI atual: testes backend com PostgreSQL de serviço e build frontend
 │
 ├── apps/
-│   ├── web/                               # Frontend SPA em Angular 21 LTS (CSR estático)
+│   ├── web/                               # Frontend em Angular 21.2.x
 │   │   ├── src/
 │   │   │   ├── app/
 │   │   │   │   ├── core/                  # Serviços singleton, infraestrutura e segurança
 │   │   │   │   │   ├── guards/            # authGuard (proteção de rotas privadas)
-│   │   │   │   │   ├── interceptors/      # authInterceptor (anexação de JWT e reautenticação inline)
+│   │   │   │   │   ├── interceptors/      # authInterceptor (JWT; logout e redirecionamento em 401)
 │   │   │   │   │   ├── models/            # Interfaces e types TypeScript (espelho dos DTOs)
 │   │   │   │   │   └── services/          # Camada única de comunicação HTTP com a API
-│   │   │   │   │       ├── auth.service.ts
+│   │   │   │   │       ├── auth.ts
 │   │   │   │   │       ├── active-project.service.ts  # Signal reativo com persistência em localStorage
 │   │   │   │   │       ├── project.service.ts
 │   │   │   │   │       ├── expense.service.ts
@@ -42,16 +42,16 @@ obra-certa/
 │   │   │   │       ├── projects/          # Criação, Edição e Gestão de Obras (US14)
 │   │   │   │       ├── dashboard/         # Home com KPIs, gráficos e painel de alertas
 │   │   │   │       ├── expenses/          # Listagem paginada, filtros, formulário e modal de NF-e
-│   │   │   │       ├── budgets/           # Gestão de orçamentos e acompanhamento de tetos
+│   │   │   │       ├── budgets-page/      # Painel de orçamentos e modal de criação/edição (US07)
 │   │   │   │       └── reports/           # Relatórios comparativos e exportação de PDF
 │   │   │   ├── assets/                    # Ícones SVG, manifest.webmanifest e imagens
 │   │   │   └── styles.css                 # Importação do Tailwind v4, DaisyUI v5 e tokens
 │   │   ├── Dockerfile                     # Build multi-stage gerando imagem estática Nginx
 │   │   ├── nginx.conf                     # Configuração do Nginx com fallback SPA e proxy /api
-│   │   ├── package.json                   # Dependências e scripts de teste (Vitest)
+│   │   ├── package.json                   # Dependências e scripts de teste (Jasmine/Karma)
 │   │   └── tsconfig.json                  # strict: true, strictTemplates: true
 │   │
-│   └── api/                               # Backend RESTful em Java 21 LTS / Spring Boot 4.1.x
+│   └── api/                               # Backend RESTful em Java 21 LTS / Spring Boot 3.5.4
 │       ├── src/
 │       │   ├── main/
 │       │   │   ├── java/com/obracerta/
@@ -62,20 +62,20 @@ obra-certa/
 │       │   │   │   ├── mapper/            # Conversão Entity ↔ DTO e envelopamento PageResponse<T>
 │       │   │   │   ├── model/
 │       │   │   │   │   ├── dto/           # Java Records imutáveis para entrada e saída de dados
-│       │   │   │   │   └── entity/        # Entidades JPA mapeadas com UUID e timestamptz nativos
+│       │   │   │   │   └── entity/        # Entidades JPA; tipos físicos definidos pelas migrations
 │       │   │   │   ├── security/          # TokenService (JWT), SecurityFilter e UserContextHelper
 │       │   │   │   ├── integration/       # Cliente de integração e parser de NF-e (XML / API)
 │       │   │   │   ├── exception/         # RestControllerAdvice e hierarquia de exceções de negócio
-│       │   │   │   └── enums/             # ProjectType, ProjectStatus, ExpenseType, PaymentStatus
+│       │   │   │   └── enums/             # ProjectType, ProjectStatus, BudgetState e enums de despesas
 │       │   │   └── resources/
 │       │   │       ├── db/migration/      # Migrations versionadas e imutáveis do Flyway (V1, V2...)
 │       │   │       ├── application.properties       # Propriedades gerais
 │       │   │       ├── application-dev.properties   # Perfil de desenvolvimento (Postgres Docker)
-│       │   │       ├── application-test.properties  # Perfil de testes (Testcontainers)
+│       │   │       ├── application-test.properties  # PostgreSQL fornecido por ambiente/serviço de CI
 │       │   │       └── application-prod.properties  # Perfil de produção (Neon Serverless)
-│       │   └── test/                      # Testes com JUnit 5, Mockito e Testcontainers Singleton
+│       │   └── test/                      # JUnit 5, Mockito e integração com PostgreSQL
 │       ├── Dockerfile                     # Empacotamento em container OCI da aplicação Spring Boot
-│       └── pom.xml                        # Gerenciador Maven, Flyway, Testcontainers e JaCoCo
+│       └── pom.xml                        # Maven, Spring Boot, Flyway e dependências de teste
 │
 ├── docs/                                  # Documentação Viva (Fase 0 - SDD)
 │   ├── prd.md                             # Requisitos, Histórias e Regras de Negócio
@@ -102,8 +102,8 @@ flowchart TD
 
     subgraph PlataformaObraCerta["🏗️ Plataforma ObraCerta"]
         direction TB
-        Frontend["💻 Frontend Web SPA<br/>(Angular 21 LTS + Tailwind v4 + DaisyUI v5)<br/>Servido via Nginx estático"]
-        Backend["⚙️ Backend API REST<br/>(Java 21 LTS + Spring Boot 4.1.x)<br/>Spring Security Stateless JWT"]
+        Frontend["💻 Frontend Web<br/>(Angular 21.2.x + Tailwind v4 + DaisyUI v5)<br/>Build estático"]
+        Backend["⚙️ Backend API REST<br/>(Java 21 LTS + Spring Boot 3.5.4)<br/>Spring Security Stateless JWT"]
         Database[("🗄️ PostgreSQL 16+<br/>(Dev: Docker / Prod: Neon Serverless)")]
         Storage[("📦 Object Storage S3-Compatible<br/>(Dev: MinIO / Prod: S3/Supabase Storage)")]
 
@@ -125,7 +125,7 @@ flowchart TD
 
 ## 🗄️ 3. Modelo de Dados (MER Consolidado)
 
-O schema do banco de dados PostgreSQL é estritamente versionado pelo **Flyway**. Todas as chaves primárias são do tipo nativo `uuid`, valores monetários utilizam `decimal(15,2)` e carimbos de tempo utilizam `timestamptz` (Instant UTC).
+O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema atual (V1–V7), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada.
 
 ```mermaid
 erDiagram
@@ -175,7 +175,7 @@ erDiagram
         uuid id PK
         uuid project_id FK "not null, FK -> projects(id)"
         uuid category_id FK "not null, FK -> expense_categories(id)"
-        decimal estimated_amount "decimal(15,2) not null, CHECK > 0"
+        decimal estimated_amount "decimal(15,2) not null, default 0.00, CHECK >= 0"
         timestamptz created_at "not null"
         timestamptz updated_at "not null"
         timestamptz deleted_at "soft delete"
@@ -223,7 +223,42 @@ erDiagram
     }
 ```
 
+### Persistência implementada na US07
+
+- A V6 normaliza valores nulos para `0.00`, define `NOT NULL`, `DEFAULT 0.00` e `CHECK (estimated_amount >= 0)`. Antes de criar o índice único ativo por obra/categoria, exclui logicamente duplicatas, preservando a mais recente e os vínculos das despesas.
+- A V7 insere as nove categorias pré-definidas somente quando seus nomes ainda não existem. A aplicação consulta essas categorias no banco.
+- `expenses.budget_id` continua obrigatório no schema legado. Despesas sem teto são representadas por orçamento zerado; a leitura também suporta despesa sem orçamento ativo, como quando o registro vinculado está excluído logicamente. A US07 não altera esse vínculo.
+- Neste recorte do MER, as colunas mostram os vínculos e valores usados pelo orçamento; os demais atributos permanecem definidos nas migrations.
+
+```mermaid
+erDiagram
+    users ||--o{ budgets : possui
+    projects ||--o{ budgets : contem
+    expense_categories ||--o{ budgets : classifica
+    budgets ||--o{ expenses : vincula
+    projects ||--o{ expenses : agrupa
+    expense_categories ||--o{ expenses : classifica
+
+    budgets {
+        varchar id PK "VARCHAR(36)"
+        varchar user_id FK "NOT NULL"
+        varchar project_id FK "NOT NULL"
+        varchar category_id FK "NOT NULL"
+        numeric estimated_amount "NUMERIC(15,2), NOT NULL, DEFAULT 0.00, CHECK >= 0"
+        timestamptz deleted_at "soft delete"
+    }
+    expenses {
+        varchar id PK "VARCHAR(36)"
+        varchar budget_id FK "NOT NULL, legado preservado"
+        varchar project_id FK "NOT NULL"
+        varchar category_id FK "NOT NULL"
+        numeric total_price "NUMERIC(15,2)"
+        timestamptz deleted_at "soft delete"
+    }
+```
+
 ### Constraints e Índices Especiais no PostgreSQL:
+O índice de orçamento do item 1 está implementado pela V6. Os demais itens descrevem a evolução do modelo; sua aplicação física deve ser conferida nas migrations da respectiva história.
 1. **Índice Único Parcial para Orçamento Único por Categoria:**
    `CREATE UNIQUE INDEX idx_budgets_project_category_active ON budgets (project_id, category_id) WHERE deleted_at IS NULL;`
 2. **Índice Único Parcial para Chave de NF-e na Obra:**
@@ -243,9 +278,9 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | **Usuário** | `User` / `UserDTO` | `users` | `/api/auth`, `/api/users` |
 | **Obra (Projeto)** | `Project` / `ProjectDTO` | `projects` | `/api/projects` |
-| **Categoria de Despesa** | `ExpenseCategory` / `CategoryDTO` | `expense_categories` | `/api/expense-categories` |
+| **Categoria de Despesa** | `ExpenseCategory` / `CategoryResponseDTO` | `expense_categories` | `/api/expense-categories` |
 | **Fornecedor** | `Supplier` / `SupplierDTO` | `suppliers` | `/api/suppliers` |
-| **Orçamento Previsto** | `Budget` / `BudgetDTO` | `budgets` | `/api/budgets` |
+| **Orçamento Previsto** | `Budget` / `BudgetSetDTO`, `BudgetCategoryDTO`, `BudgetOverviewDTO` | `budgets` | `/api/budgets` |
 | **Despesa (Gasto Real)** | `Expense` / `ExpenseDTO` | `expenses` | `/api/expenses` |
 | **Pagamento Pendente** | `PendingPayment` / `PaymentDTO` | `pending_payments` | `/api/pending-payments` |
 
@@ -253,7 +288,7 @@ erDiagram
 
 ## 🏛️ 5. Padrões Arquiteturais
 
-### 5.1 Frontend (Angular 21 LTS)
+### 5.1 Frontend (Angular 21.2.x)
 
 1. **Componentes Standalone:** Padrão moderno desprovido de `NgModule`.
 2. **Gerenciamento de Estado Reativo com Signals:** Utilização de `signal()`, `computed()` e `effect()` para gerenciar o estado reativo das telas e componentes.
@@ -265,9 +300,13 @@ erDiagram
    - Nenhum componente acessa o `HttpClient` diretamente;
    - Todas as requisições passam obrigatoriamente por serviços em `core/services/`;
    - Retornos fortemente tipados via `Observable<T>` (proibido uso de `any`);
-   - Erros genéricos (`401`, `500`) interceptados globalmente por `authInterceptor`; erros de domínio repassados aos componentes para feedback amigável na tela.
+   - `authInterceptor` anexa o JWT, encerra a sessão no `401` e propaga o erro. Falhas de rede/5xx e erros de domínio chegam aos componentes para feedback e nova tentativa, sem transformar falha em sucesso.
 
-### 5.2 Backend (Java 21 LTS / Spring Boot 4.1.x)
+8. **Painel de orçamento (US07):** a recarga automática observa o identificador da obra, não a referência do objeto. Atualizar a lista da navbar ou os metadados da mesma obra não recarrega orçamento/categorias nem descarta diálogos. Troca real de obra fecha os diálogos, limpa o contexto e ignora respostas antigas, inclusive no ciclo A → B → A.
+9. **Valor monetário no formulário:** máscara local BRL interpreta os dígitos como centavos (`123456` → `R$ 1.234,56`), mantendo o controle e o DTO numéricos em reais (`1234.56`). Valores existentes são formatados sem nova divisão por cem. Vazio e zero continuam inválidos no formulário; zerar exige a confirmação explícita.
+10. **Sessão e recuperação:** `/` e `/login` abrem o mesmo Login; `Auth.logout()` remove token e obra ativa antes de navegar para `/login`. Erros preservam formulário ou confirmação e reabilitam nova tentativa. Uma resposta perdida não prova que o servidor deixou de gravar.
+
+### 5.2 Backend (Java 21 LTS / Spring Boot 3.5.4)
 
 1. **Arquitetura em Camadas com Sentido Único:**
    - `Controller` ➔ `Service` ➔ `Repository` ➔ `Entity`.
@@ -275,6 +314,7 @@ erDiagram
    - **Services concentram 100% da lógica:** cálculos, validações de teto orçamentário, checagens de datas e validações de Anti-IDOR.
 2. **Fronteira com DTOs em Java Records:**
    - Entidades JPA nunca atravessam a camada de Controller. A conversão é feita na camada `mapper/` de forma explícita e tipada.
+   - No agregado financeiro da US07, o `BudgetService` compõe `BudgetCategoryDTO` e `BudgetOverviewDTO` a partir dos orçamentos e das projeções de despesas, junto aos cálculos. A API continua expondo somente records, nunca entidades JPA.
 3. **Formato Único de Erro (`@RestControllerAdvice`):**
    - Todas as falhas devolvem um payload estruturado e padronizado:
    ```json
@@ -282,8 +322,8 @@ erDiagram
      "timestamp": "2026-10-15T20:00:00Z",
      "status": 409,
      "error": "Conflict",
-     "message": "O orçamento não pode ser reduzido para um valor menor que as despesas já realizadas: R$ 5.000,00",
-     "path": "/api/budgets/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+     "message": "O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 5.000,00",
+     "path": "/api/budgets/3fa85f64-5717-4562-b3fc-2c963f66afa6/categories/categoria-id",
      "fieldErrors": []
    }
    ```
@@ -303,7 +343,7 @@ erDiagram
 1. **Prefixos e Verbos:**
    - Prefixo obrigatório: `/api/`;
    - Recursos no plural, em inglês e kebab-case (`/api/projects`, `/api/expenses`, `/api/expense-categories`, `/api/budgets`);
-   - Métodos semânticos: `POST` (retorna `201 Created` com header `Location`), `GET` (retorna `200 OK`), `PUT`/`PATCH` (retorna `200 OK`), `DELETE` (retorna `204 No Content` no primeiro e `404 Not Found` em repetições).
+   - Métodos semânticos: `POST` de criação retorna `201 Created` com header `Location`; `GET` retorna `200 OK`; `PUT`/`PATCH` retorna `200 OK`; `DELETE` retorna `204 No Content` no primeiro e `404 Not Found` em repetições. A ação `POST .../zero` da US07 retorna `200 OK` com o orçamento recalculado, pois atualiza um registro existente.
 2. **Padrão de Paginação com Summary Agregado (`PageResponse<T>`):**
    - Para consultas volumosas (despesas), utiliza-se o padrão com summary financeiro agregado:
    ```json
@@ -322,13 +362,29 @@ erDiagram
    }
    ```
    - Limite padrão configurado: `spring.data.web.pageable.max-page-size=100`.
-   - Listas pequenas (categorias, orçamentos da obra, alertas de 7 dias) retornam arrays simples `List<T>` com `200 OK`.
+   - Listas pequenas, como categorias, retornam `List<T>` com `200 OK`. O painel de orçamento retorna um objeto `BudgetOverviewDTO`, contendo totais e a lista `categories`.
 3. **Escopo por Obra:**
    - Consultas de coleções filtram via query parameter obrigatório: `?projectId=<uuid>`.
    - Leituras agregadas da obra residem sob: `GET /api/projects/{id}/reports/pdf`.
 4. **Documentação OpenAPI / Swagger:**
    - Habilitado em desenvolvimento sob `/swagger-ui.html` e `/v3/api-docs` com esquema de segurança `bearerAuth` configurado para permitir testes diretos no navegador;
    - Desabilitado no perfil de produção (`springdoc.swagger-ui.enabled=false`).
+
+### Contrato implementado da US07
+
+| Método e caminho | Retorno | Comportamento |
+| --- | --- | --- |
+| `GET /api/expense-categories` | `200`, `List<CategoryResponseDTO>` | Categorias do banco, ordenadas por nome em pt-BR. |
+| `GET /api/budgets?projectId={id}` | `200`, `BudgetOverviewDTO` | Totais da obra e categorias com orçamento ativo ou despesas ativas. |
+| `PUT /api/budgets/{projectId}/categories/{categoryId}` | `200`, `BudgetCategoryDTO` | Cria ou atualiza um único orçamento ativo; corpo `BudgetSetDTO` com `estimatedAmount`. |
+| `POST /api/budgets/{projectId}/categories/{categoryId}/zero` | `200`, `BudgetCategoryDTO` | Grava `0.00` no registro ativo existente, sem apagá-lo; chamadas repetidas preservam o resultado. |
+
+- Todas as operações de orçamento validam primeiro a obra do usuário autenticado. Obra inexistente ou alheia retorna `404 Projeto não encontrado`; nas escritas, categoria inexistente retorna `404 Categoria não encontrada`. Zeramento sem orçamento ativo retorna `404 Orçamento não encontrado`.
+- O PUT exige valor positivo com até duas casas decimais (`400` se inválido); valor positivo inferior ao gasto ativo da categoria gera `409` sem alterar o registro. Igualdade com o gasto é aceita.
+- Os cálculos somam apenas despesas com `deleted_at IS NULL`, incluindo pagas e pendentes. Saldo pode ser negativo; percentual é nulo quando o teto é zero, evitando divisão por zero.
+- `BudgetState`: `ON_TRACK` abaixo de 90%, `WARNING` de 90% até abaixo de 100%, `EXCEEDED` a partir de 100% e `NO_BUDGET` quando o teto é zero. O estado usa a razão exata; o percentual exibido é arredondado para uma casa decimal. `hasBudget` informa a existência do registro ativo, mesmo zerado.
+- `BudgetOverviewDTO` reúne `projectId`, `totalPlanned`, `totalSpent`, `available`, `globalPercentage`, `exceededCategories`, `budgetedCategories` e `categories`. Cada `BudgetCategoryDTO` informa categoria, planejado, gasto, saldo, percentual, estado e `hasBudget`.
+- O alerta de despesas sem teto oferece “Definir teto”. Os atalhos de despesas permanecem visíveis e desabilitados até US04/US05, com a dependência informada no tooltip.
 
 ---
 
@@ -352,11 +408,11 @@ erDiagram
 
 | Configuração | Desenvolvimento (`dev`) | Testes e CI (`test`) | Produção (`prod`) |
 | :--- | :--- | :--- | :--- |
-| **Banco de Dados** | PostgreSQL 16+ via Docker Compose | PostgreSQL 16+ via Testcontainers Singleton | Neon Serverless PostgreSQL |
-| **Conexão** | `localhost:5432` | Container dinâmico Testcontainers | Pooling (`-pooler`) com `prepareThreshold=0` |
+| **Banco de Dados** | PostgreSQL 16+ via Docker Compose | PostgreSQL 16 fornecido pelo ambiente ou serviço da CI | Neon Serverless PostgreSQL |
+| **Conexão** | `localhost:5432` | `SPRING_DATASOURCE_URL`, usuário e senha por ambiente | Pooling (`-pooler`) com `prepareThreshold=0` |
 | **Flyway** | Executado na subida (`validate`) | Executado na subida (`validate`) | String direta (sem pooler) para advisory locks |
 | **Comprovantes** | MinIO local (S3 API) | Mock / Temp Directory | AWS S3 / Supabase Storage S3 |
-| **Frontend** | Angular CLI (`localhost:4200`) | Vitest (emulação DOM jsdom) | Nginx estático (SPA puro, sem SSR) |
+| **Frontend** | Angular CLI (`localhost:4200`) | Jasmine/Karma com ChromeHeadless | Build estático; hospedagem conforme configuração de implantação |
 | **Backend** | Spring Boot CLI (`localhost:8080`) | JUnit 5 + SpringBootTest | Container Docker gerenciado sob HTTPS |
 
 - **Regra de Ouro das Migrações:**
@@ -365,22 +421,24 @@ erDiagram
   - Migrações commitadas são imutáveis; correções são feitas sempre para frente (`V<N+1>`);
   - As categorias de despesas pré-definidas são inseridas como dados mestres via migration do Flyway.
 
+- **Demonstração da US07:** `DemoDataSeederRunner` existe somente no perfil `dev` e com `SEED_ENABLED=true`; fica desligado por padrão. Ele delega ao seeder idempotente de usuário/obra/orçamentos/despesas, permitindo demonstrar o painel antes da entrega do cadastro de despesas. Dados e credenciais de demonstração não são configuração de produção.
+
 ---
 
 ## 🧪 9. Estratégia de Testes e Qualidade
 
 1. **Frontend (`apps/web`):**
-   - **Framework:** Vitest (execução rápida em processo Node com jsdom);
-   - **Comando de Testes:** `npm test`;
+   - **Framework atual:** Jasmine/Karma, configurado em `apps/web/angular.json`;
+   - **Comando de Testes:** `npx ng test --watch=false --browsers=ChromeHeadless` (`npx.cmd` no Windows);
    - **Comando de Verificação de Tipos e Build:** `npm run build` (com `strictTemplates: true`);
    - **Seletores:** Uso de atributos `data-testid` para testes resilientes a mudanças visuais de CSS.
 2. **Backend (`apps/api`):**
    - **Pirâmide de Testes:**
      - Testes unitários puros com Mockito em `service/`;
-     - Testes de repositório e constraints com `@DataJpaTest` e Testcontainers Singleton;
+     - Testes de repositório e constraints com `@DataJpaTest` e PostgreSQL real fornecido pelo ambiente, com Flyway e `ddl-auto=validate`;
      - Testes de controlador com `@WebMvcTest` validando `@Valid`, status HTTP e payload de erro;
      - Testes ponta a ponta com `@SpringBootTest` cobrindo o fluxo de login JWT e testes de Anti-IDOR (usuário B recebendo 404 em recurso do usuário A).
-   - **Comando Maven Oficial:** `./mvnw clean verify` (Linux/Mac) ou `.\mvnw.cmd clean verify` (Windows);
-   - **Cobertura:** JaCoCo integrado ao Maven gerando relatórios de cobertura sobre as regras de negócio.
+   - **Execução atual:** `./mvnw test` (Linux/Mac) ou `.\mvnw.cmd test` (Windows), com `SPRING_PROFILES_ACTIVE=test` e as variáveis de conexão do PostgreSQL configuradas. O ciclo Maven `verify` pode ser usado para validação completa;
+   - **Cobertura:** o `pom.xml` atual não configura JaCoCo; não há relatório ou limite automático de cobertura declarado como entregue nesta história.
 3. **CI (GitHub Actions):**
-   - Execução bloqueante no PR de: build e testes do frontend + `./mvnw clean verify` do backend.
+   - O workflow atual executa testes backend com PostgreSQL de serviço e build frontend nos PRs para `develop`/`main`. Ainda não executa `ng test` na CI; a suíte frontend é validada localmente pelo comando acima. Automatizar essa execução é melhoria separada, sem mudança do pipeline no fechamento documental.
