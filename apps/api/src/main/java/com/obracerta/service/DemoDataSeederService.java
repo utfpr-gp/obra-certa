@@ -31,6 +31,9 @@ import java.util.stream.Stream;
  * Semeia um cenário de demonstração completo (usuário, obra, fornecedor, orçamentos e
  * despesas) para o perfil dev, enquanto não existe cadastro nem listagem de despesas no
  * produto (US03/US05).
+ * TODO #5: substituir a fonte provisória de despesas pelo cadastro do produto (US03).
+ * TODO #7: integrar a listagem de despesas do produto (US05), encerrando a premissa
+ * de que o seeder é a única fonte de despesas desta história.
  *
  * <p>Idempotência: a raiz do grafo é a obra demo. Se o usuário demo já possui uma obra
  * com o nome demo, o método retorna antes de qualquer save. Se o usuário existe mas a

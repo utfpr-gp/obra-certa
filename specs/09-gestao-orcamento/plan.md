@@ -266,7 +266,7 @@ Autorizado pelo autor em 26/10/2026, após o parecer `reviews/auditoria-final-r1
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/configuration/security/SecurityConfigurations.java` e novo teste integrado de autenticação em `apps/api/src/test/java/com/obracerta/controller/`.
   - Migration: nenhuma. Revisão independente de conformidade e código, com limite de duas rodadas neste ciclo corretivo.
 
-- [ ] **Tarefa 12 — Vincular as premissas adiadas às Issues**
+- [x] **Tarefa 12 — Vincular as premissas adiadas às Issues**
   - Confirmar com o autor os números de US03/US04/US05 e adicionar TODOs nos comentários do seeder e dos atalhos desabilitados, sem mudar seu comportamento.
   - Arquivos previstos: `DemoDataSeederService.java`, `budgets-page.component.html` e `budget-form-modal.component.html` nos respectivos diretórios existentes.
   - Não consultar o GitHub, não inventar números e não afirmar o estado remoto das Issues.

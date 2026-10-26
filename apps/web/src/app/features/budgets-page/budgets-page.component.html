@@ -198,6 +198,8 @@
                       </button>
                     }
                     @if (hasUnbudgetedExpenses(category)) {
+                      <!-- TODO #6: habilitar a reclassificação de despesas após US04. -->
+                      <!-- TODO #7: integrar o atalho à listagem de despesas de US05. -->
                       <button
                         type="button"
                         [attr.data-testid]="'reclassify-expense-' + category.categoryId"
