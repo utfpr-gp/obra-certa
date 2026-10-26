@@ -329,7 +329,8 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
    ```
    - **Semântica de Códigos HTTP:**
      - `400 Bad Request`: falhas de validação de payload (`@Valid`), campos faltantes ou inválidos;
-     - `401 Unauthorized` / `403 Forbidden`: falhas de autenticação ou falta de permissão;
+     - `401 Unauthorized`: ausência de autenticação válida, incluindo JWT ausente, inválido ou expirado. A cadeia do Spring Security deve devolver 401 para acionar o encerramento de sessão no frontend;
+     - `403 Forbidden`: usuário autenticado sem a permissão exigida pela rota;
      - `404 Not Found`: recurso não localizado ou tentativa de acesso a dados de terceiros (Anti-IDOR);
      - `409 Conflict`: violação de regra de negócio de estado existente (RN02 de orçamento ou violações de unicidade de banco);
      - `500 Internal Server Error`: erro interno genérico não mapeado, omitindo stack traces do cliente.

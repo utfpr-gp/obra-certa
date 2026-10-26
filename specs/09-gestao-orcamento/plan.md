@@ -255,3 +255,18 @@
 ## Critérios sem tarefa
 
 *(Vazio — todos os critérios CA1 a CA10 estão cobertos pelo plano acima)*
+
+## Ciclo corretivo após auditoria final
+
+Autorizado pelo autor em 26/10/2026, após o parecer `reviews/auditoria-final-r1.md`; triagem registrada em `reviews/auditoria-final-decisoes-r1.md`. Preservam-se as dez tarefas concluídas e a spec aprovada. Estas tarefas corretivas seguem a previsão expressa do Passo 4 de `utf-issue` para pendências da auditoria; não ampliam o planejamento original da história.
+
+- [x] **Tarefa 11 — Completar o contrato de sessão expirada (CA10)**
+  - Garantir 401 em requisições sem autenticação válida, preservando 403 para usuário autenticado sem permissão e o acesso às rotas públicas de autenticação.
+  - Teste primeiro: usar a cadeia real do Spring Security e JWT realmente expirado para GET, PUT e POST de zeramento; comprovar ausência de escrita e manter cobertura de token válido, ausência de token, token inválido, autorização e login público.
+  - Arquivos previstos: `apps/api/src/main/java/com/obracerta/configuration/security/SecurityConfigurations.java` e novo teste integrado de autenticação em `apps/api/src/test/java/com/obracerta/controller/`.
+  - Migration: nenhuma. Revisão independente de conformidade e código, com limite de duas rodadas neste ciclo corretivo.
+
+- [ ] **Tarefa 12 — Vincular as premissas adiadas às Issues**
+  - Confirmar com o autor os números de US03/US04/US05 e adicionar TODOs nos comentários do seeder e dos atalhos desabilitados, sem mudar seu comportamento.
+  - Arquivos previstos: `DemoDataSeederService.java`, `budgets-page.component.html` e `budget-form-modal.component.html` nos respectivos diretórios existentes.
+  - Não consultar o GitHub, não inventar números e não afirmar o estado remoto das Issues.
