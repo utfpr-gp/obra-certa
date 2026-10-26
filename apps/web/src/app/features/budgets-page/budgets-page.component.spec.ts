@@ -12,6 +12,9 @@ import { Project, ProjectStatus, ProjectType } from '../../core/models/project.m
 import { BudgetsPageComponent } from './budgets-page.component';
 import { authInterceptor } from '../../core/interceptors/auth-interceptor';
 import { Auth } from '../../core/services/auth';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { ProjectService } from '../../core/services/project.service';
+import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 
 describe('BudgetsPageComponent', () => {
   let fixture: ComponentFixture<BudgetsPageComponent>;
@@ -19,6 +22,7 @@ describe('BudgetsPageComponent', () => {
   let activeProjectService: ActiveProjectService;
   let budgetService: jasmine.SpyObj<BudgetService>;
   let categoryService: jasmine.SpyObj<CategoryService>;
+  let projectService: jasmine.SpyObj<ProjectService>;
 
   const project: Project = {
     id: '550e8400-e29b-41d4-a716-446655440000',
@@ -137,7 +141,7 @@ describe('BudgetsPageComponent', () => {
   function setField(testId: string, value: string): void {
     const element = query<HTMLInputElement | HTMLSelectElement>(testId);
     expect(element).withContext(`elemento [data-testid="${testId}"]`).not.toBeNull();
-    element!.value = value;
+    element!.value = testId === 'budget-form-amount' ? value + '00' : value;
     element!.dispatchEvent(new Event('input'));
     element!.dispatchEvent(new Event('change'));
     fixture.detectChanges();
@@ -151,6 +155,8 @@ describe('BudgetsPageComponent', () => {
       'zeroBudget',
     ]);
     categoryService = jasmine.createSpyObj<CategoryService>('CategoryService', ['getCategories']);
+    projectService = jasmine.createSpyObj<ProjectService>('ProjectService', ['getProjects']);
+    projectService.getProjects.and.callFake(() => of([{ ...project }]));
     budgetService.getOverview.and.returnValue(of(overview));
     budgetService.setBudget.and.returnValue(of(
       category({
@@ -167,10 +173,13 @@ describe('BudgetsPageComponent', () => {
     budgetService.zeroBudget.and.returnValue(of(zeroedCategory));
 
     await TestBed.configureTestingModule({
-      imports: [BudgetsPageComponent],
+      imports: [BudgetsPageComponent, NavbarComponent],
       providers: [
         { provide: BudgetService, useValue: budgetService },
         { provide: CategoryService, useValue: categoryService },
+        { provide: ProjectService, useValue: projectService },
+        { provide: AuthenticatedIdentityService, useValue: { getUserId: () => 'user-1' } },
+        provideHttpClient(),
         provideRouter([]),
       ],
     }).compileComponents();
@@ -178,6 +187,74 @@ describe('BudgetsPageComponent', () => {
     activeProjectService = TestBed.inject(ActiveProjectService);
     fixture = TestBed.createComponent(BudgetsPageComponent);
     component = fixture.componentInstance;
+  });
+
+  for (const dialog of ['form', 'zero']) {
+    it(`keeps the panel and ${dialog} draft when the navbar refreshes or selects the same project`, () => {
+      const navbar = TestBed.createComponent(NavbarComponent);
+      navbar.detectChanges();
+      fixture.detectChanges();
+      if (dialog === 'form') {
+        component.openBudgetForm();
+        fixture.detectChanges();
+        setField('budget-form-amount', '1900');
+      } else component.openZeroConfirm(overview.categories[0]);
+      fixture.detectChanges();
+      const row = query('budget-row-cat-alvenaria');
+      // A spurious reload stays pending so the test also detects a loading flash.
+      budgetService.getOverview.and.returnValue(new Subject<BudgetOverview>());
+      const renamed = { ...project, name: 'Obra renomeada', status: ProjectStatus.PAUSED };
+      projectService.getProjects.and.callFake(() => of([{ ...renamed }]));
+
+      navbar.componentInstance.toggleDeskDropdown();
+      navbar.detectChanges();
+      fixture.detectChanges();
+      expect(projectService.getProjects.calls.count()).toBe(2);
+      expect(budgetService.getOverview).toHaveBeenCalledOnceWith(project.id);
+      expect(categoryService.getCategories).toHaveBeenCalledTimes(1);
+      expect(query('budgets-loading')).toBeNull();
+      expect(query('budget-row-cat-alvenaria')).toBe(row);
+      expect(page().textContent).toContain(renamed.name);
+      expect(activeProjectService.activeProject()?.status).toBe(ProjectStatus.PAUSED);
+      expect(query(dialog === 'form' ? 'budget-form-modal' : 'confirm-confirmation')).not.toBeNull();
+      if (dialog === 'form') expect(query<HTMLInputElement>('budget-form-amount')?.value.replace(/\s/g, ' ')).toBe('R$ 1.900,00');
+
+      navbar.componentInstance.selectProject({ ...renamed });
+      fixture.detectChanges();
+      expect(budgetService.getOverview).toHaveBeenCalledTimes(1);
+      expect(categoryService.getCategories).toHaveBeenCalledTimes(1);
+      expect(query(dialog === 'form' ? 'budget-form-modal' : 'confirm-confirmation')).not.toBeNull();
+      if (dialog === 'form') expect(query<HTMLInputElement>('budget-form-amount')?.value.replace(/\s/g, ' ')).toBe('R$ 1.900,00');
+    });
+  }
+
+  it('reloads once on a real navbar project switch and clears the panel when no projects remain', () => {
+    const navbar = TestBed.createComponent(NavbarComponent);
+    navbar.detectChanges();
+    fixture.detectChanges();
+    component.openBudgetForm();
+    component.openZeroConfirm(overview.categories[0]);
+    fixture.detectChanges();
+    const nextProject = { ...project, id: 'project-2' };
+    budgetService.getOverview.and.returnValue(of({ ...overview, projectId: nextProject.id }));
+
+    navbar.componentInstance.selectProject(nextProject);
+    fixture.detectChanges();
+    expect(budgetService.getOverview.calls.allArgs()).toEqual([[project.id], [nextProject.id]]);
+    expect(categoryService.getCategories).toHaveBeenCalledTimes(2);
+    expect(query('budget-form-modal')).toBeNull();
+    expect(query('confirm-confirmation')).toBeNull();
+    expect(component.overview()?.projectId).toBe(nextProject.id);
+
+    projectService.getProjects.and.returnValue(of([]));
+    navbar.componentInstance.toggleDeskDropdown();
+    fixture.detectChanges();
+    expect(query('budgets-no-project-empty-state')).not.toBeNull();
+    expect(component.overview()).toBeNull();
+    expect(component.categories()).toEqual([]);
+    expect(component.loading()).toBeFalse();
+    expect(budgetService.getOverview).toHaveBeenCalledTimes(2);
+    expect(categoryService.getCategories).toHaveBeenCalledTimes(2);
   });
 
   for (const dialog of ['form', 'zero']) {
@@ -450,7 +527,7 @@ describe('BudgetsPageComponent', () => {
     expect(select).not.toBeNull();
     expect(select!.disabled).toBeTrue();
     expect(select!.value).toBe('cat-alvenaria');
-    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1000');
+    expect(query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ')).toBe('R$ 1.000,00');
 
     setField('budget-form-amount', '1800');
     query<HTMLButtonElement>('budget-form-submit')!.click();
@@ -686,7 +763,7 @@ describe('BudgetsPageComponent', () => {
     expect(shortcut!.title).toBe('Disponível após a implementação da tela de despesas (US05)');
     expect(text('budget-form-error')).toContain(message);
     expect(query('budget-form-modal')).not.toBeNull();
-    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1100');
+    expect(query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ')).toBe('R$ 1.100,00');
     expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 
@@ -769,12 +846,12 @@ describe('BudgetsPageComponent connection recovery through HTTP', () => {
       query<HTMLButtonElement>('edit-budget-' + category.categoryId)!.click();
       fixture.detectChanges();
       const input = query<HTMLInputElement>('budget-form-amount')!;
-      input.value = '1800';
+      input.value = '180000';
       input.dispatchEvent(new Event('input'));
       query<HTMLButtonElement>('budget-form-submit')!.click();
       failRequest(http.expectOne(request => request.method === 'PUT'), failure);
       expect(query('budget-form-modal')).not.toBeNull();
-      expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1800');
+      expect(query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ')).toBe('R$ 1.800,00');
       expect(query<HTMLSelectElement>('budget-form-category')!.value).toBe(category.categoryId);
       expect(query('budget-form-error')!.textContent).toContain('Verifique sua conexão');
       expect(query<HTMLButtonElement>('budget-form-submit')!.disabled).toBeFalse();

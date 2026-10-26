@@ -29,6 +29,10 @@ export class BudgetFormModalComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private contextId = 0;
+  private readonly amountFormatter = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
 
   readonly isOpen = input(false);
   readonly projectId = input<string | null>(null);
@@ -89,6 +93,42 @@ export class BudgetFormModalComponent {
   showAmountError(): boolean {
     const control = this.form.controls.estimatedAmount;
     return control.touched && control.invalid;
+  }
+
+  amountDisplay(): string {
+    const amount = this.form.controls.estimatedAmount.value;
+    return amount === null ? '' : this.amountFormatter.format(amount);
+  }
+
+  onAmountInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '');
+    const digitsAfterCaret = input.value.slice(input.selectionStart ?? input.value.length)
+      .replace(/\D/g, '').length;
+    const control = this.form.controls.estimatedAmount;
+    const cents = Number(digits);
+
+    // Evita arredondar silenciosamente uma entrada além da precisão numérica.
+    if (!Number.isSafeInteger(cents)) {
+      input.value = this.amountDisplay();
+      return;
+    }
+
+    control.setValue(digits === '' ? null : cents / 100);
+    control.markAsDirty();
+    input.value = this.amountDisplay();
+
+    let caret = input.value.length;
+    let remaining = digitsAfterCaret;
+    while (caret > 0 && remaining > 0) {
+      caret--;
+      if (/\d/.test(input.value[caret])) remaining--;
+    }
+    input.setSelectionRange(caret, caret);
+  }
+
+  onAmountBlur(): void {
+    this.form.controls.estimatedAmount.markAsTouched();
   }
 
   save(): void {

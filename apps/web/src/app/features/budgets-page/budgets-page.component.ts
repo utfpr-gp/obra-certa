@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -32,6 +32,7 @@ export class BudgetsPageComponent {
   private readonly categoryService = inject(CategoryService);
 
   readonly activeProject = this.activeProjectService.activeProject;
+  private readonly activeProjectId = computed(() => this.activeProject()?.id ?? null);
   readonly overview = signal<BudgetOverview | null>(null);
   readonly categories = signal<ExpenseCategory[]>([]);
   readonly loading = signal(false);
@@ -80,18 +81,21 @@ export class BudgetsPageComponent {
 
   constructor() {
     effect(() => {
-      const project = this.activeProject();
-      this.closeBudgetForm();
-      this.closeZeroConfirm();
-      if (!project) {
-        this.requestId++;
-        this.overview.set(null);
-        this.categories.set([]);
-        this.loading.set(false);
-        this.loadError.set('');
-        return;
-      }
-      this.load(project.id);
+      const projectId = this.activeProjectId();
+      // Metadados da mesma obra atualizam a tela sem abandonar o contexto do painel.
+      untracked(() => {
+        this.closeBudgetForm();
+        this.closeZeroConfirm();
+        if (!projectId) {
+          this.requestId++;
+          this.overview.set(null);
+          this.categories.set([]);
+          this.loading.set(false);
+          this.loadError.set('');
+          return;
+        }
+        this.load(projectId);
+      });
     });
   }
 

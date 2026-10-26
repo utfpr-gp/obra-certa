@@ -40,6 +40,18 @@ describe('BudgetFormModalComponent', () => {
     );
   }
 
+  function typeAmount(value: string): HTMLInputElement {
+    const input = query<HTMLInputElement>('budget-form-amount')!;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    return input;
+  }
+
+  function visibleAmount(): string {
+    return query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ');
+  }
+
   function open(overrides: {
     editingCategory?: BudgetCategory | null;
     preselectedCategoryId?: string | null;
@@ -74,10 +86,71 @@ describe('BudgetFormModalComponent', () => {
     expect(component.form.controls.categoryId.disabled).toBeTrue();
     expect(component.form.controls.categoryId.value).toBe('cat-alvenaria');
     expect(component.form.controls.estimatedAmount.value).toBe(1000);
+    expect(visibleAmount()).toBe('R$ 1.000,00');
     const select = query<HTMLSelectElement>('budget-form-category');
     expect(select).not.toBeNull();
     expect(select!.disabled).toBeTrue();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Editar orçamento');
+  });
+
+  for (const [digits, amount, display] of [
+    ['1', 0.01, 'R$ 0,01'],
+    ['123', 1.23, 'R$ 1,23'],
+    ['123456', 1234.56, 'R$ 1.234,56'],
+  ] as const) {
+    it(`formats ${digits} as cents while keeping the numeric reais payload`, () => {
+      open({ preselectedCategoryId: 'cat-hidraulica' });
+      typeAmount(digits);
+      expect(visibleAmount()).toBe(display);
+      expect(component.form.controls.estimatedAmount.value).toBe(amount);
+      component.save();
+      expect(budgetService.setBudget).toHaveBeenCalledOnceWith(
+        'project-1', 'cat-hidraulica', { estimatedAmount: amount },
+      );
+    });
+  }
+
+  it('formats successive digits immediately and supports backspace and replacement', () => {
+    open({ preselectedCategoryId: 'cat-hidraulica' });
+    const input = typeAmount('1');
+    for (const digit of ['2', '3', '4', '5', '6']) typeAmount(input.value + digit);
+    expect(visibleAmount()).toBe('R$ 1.234,56');
+    typeAmount(input.value.slice(0, -1));
+    expect(visibleAmount()).toBe('R$ 123,45');
+    input.setSelectionRange(0, input.value.length);
+    input.setRangeText('987', input.selectionStart!, input.selectionEnd!, 'end');
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(visibleAmount()).toBe('R$ 9,87');
+    expect(input.inputMode).toBe('numeric');
+  });
+
+  it('accepts pasted BRL text and clears to a required null without sending', () => {
+    open({ preselectedCategoryId: 'cat-hidraulica' });
+    typeAmount('R$ 1.234,56');
+    expect(visibleAmount()).toBe('R$ 1.234,56');
+    expect(component.form.controls.estimatedAmount.value).toBe(1234.56);
+    typeAmount('');
+    expect(component.form.controls.estimatedAmount.value).toBeNull();
+    query<HTMLInputElement>('budget-form-amount')!.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(component.form.controls.estimatedAmount.touched).toBeTrue();
+    expect(query('budget-form-amount-error')).not.toBeNull();
+    component.save();
+    expect(budgetService.setBudget).not.toHaveBeenCalled();
+  });
+
+  it('keeps zero invalid after typing and clears the display when reopened for creation', () => {
+    open({ editingCategory: existing });
+    typeAmount('0');
+    expect(visibleAmount()).toBe('R$ 0,00');
+    component.save();
+    expect(budgetService.setBudget).not.toHaveBeenCalled();
+    fixture.componentRef.setInput('isOpen', false);
+    fixture.detectChanges();
+    open({ preselectedCategoryId: 'cat-hidraulica' });
+    expect(visibleAmount()).toBe('');
+    expect(component.form.controls.estimatedAmount.value).toBeNull();
   });
 
   it('keeps the category selectable and preselected when defining a ceiling', () => {
@@ -211,14 +284,17 @@ describe('BudgetFormModalComponent', () => {
     spyOn(component.saved, 'emit');
     spyOn(component.closed, 'emit');
     open({ editingCategory: existing });
-    component.form.controls.estimatedAmount.setValue(1200);
+    typeAmount('120000');
 
     component.save();
     fixture.detectChanges();
 
     expect(query('budget-form-error')!.textContent).toContain(message);
     expect(query('budget-form-modal')).not.toBeNull();
-    expect(query<HTMLInputElement>('budget-form-amount')!.value).toBe('1200');
+    expect(visibleAmount()).toBe('R$ 1.200,00');
+    expect(budgetService.setBudget).toHaveBeenCalledWith(
+      'project-1', 'cat-alvenaria', { estimatedAmount: 1200 },
+    );
     expect(component.saved.emit).not.toHaveBeenCalled();
     expect(component.closed.emit).not.toHaveBeenCalled();
     expect(query<HTMLButtonElement>('budget-form-submit')!.disabled).toBeFalse();

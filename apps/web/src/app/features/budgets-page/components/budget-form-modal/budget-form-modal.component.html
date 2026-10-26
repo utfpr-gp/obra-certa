@@ -51,13 +51,13 @@
         <label class="block text-sm font-medium text-slate-700">
           Valor planejado
           <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            inputmode="decimal"
-            formControlName="estimatedAmount"
+            type="text"
+            inputmode="numeric"
+            [value]="amountDisplay()"
+            (input)="onAmountInput($event)"
+            (blur)="onAmountBlur()"
             data-testid="budget-form-amount"
-            placeholder="Ex.: 1500,00"
+            placeholder="R$ 0,00"
             class="input border-1 rounded-md text-gray-700 w-full mt-1 focus:outline-none focus:ring-2 focus:border-transparent"
             [ngClass]="showAmountError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
           />
