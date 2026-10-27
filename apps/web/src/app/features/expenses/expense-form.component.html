@@ -1,0 +1,87 @@
+<section class="mx-auto max-w-3xl p-4 sm:p-6">
+  <h1 class="text-2xl font-bold text-base-content mb-2">Cadastrar despesa</h1>
+  @if (activeProject(); as project) {
+    <p class="mb-6 text-base-content/70">{{ project.name }} · Pagamento quitado</p>
+    @if (loading()) { <p role="status">Carregando categorias e fornecedores…</p> }
+    @if (errorMessage()) {
+      <div class="alert alert-error mb-4" role="alert">{{ errorMessage() }}</div>
+      @if (!categories().length) { <button class="btn btn-outline mb-4" (click)="loadOptions()">Tentar carregar novamente</button> }
+    }
+    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-5">
+      <label class="form-control">Descrição
+        <input class="input input-bordered w-full" formControlName="description" [attr.aria-invalid]="invalid('description')" />
+        @if (invalid('description')) { <span class="text-error text-sm">Informe a descrição.</span> }
+      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <label class="form-control">Data da despesa
+          <input type="date" class="input input-bordered w-full" formControlName="purchaseDate" [attr.aria-invalid]="invalid('purchaseDate')" />
+          @if (invalid('purchaseDate')) { <span class="text-error text-sm">Informe uma data válida.</span> }
+        </label>
+        <label class="form-control">Categoria
+          <select class="select select-bordered w-full" formControlName="categoryId" [attr.aria-invalid]="invalid('categoryId')">
+            <option value="">Selecione a categoria</option>
+            @for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
+          </select>
+          @if (invalid('categoryId')) { <span class="text-error text-sm">Selecione a categoria.</span> }
+        </label>
+      </div>
+      <fieldset class="border border-base-300 rounded-box p-4 flex flex-col gap-3">
+        <legend class="px-2 font-semibold">Fornecedor</legend>
+        @if (inlineSupplier()) {
+          <label>Nome
+            <input class="input input-bordered w-full" formControlName="supplierName" [attr.aria-invalid]="invalid('supplierName')" />
+            @if (invalid('supplierName')) { <span class="text-error text-sm">Informe o nome (até 255 caracteres).</span> }
+          </label>
+          <label>CNPJ
+            <input class="input input-bordered w-full" formControlName="supplierDocument" [attr.aria-invalid]="invalid('supplierDocument')" placeholder="00.000.000/0000-00" />
+            @if (invalid('supplierDocument')) { <span class="text-error text-sm">Informe um CNPJ de 14 dígitos.</span> }
+          </label>
+        } @else {
+          <label>Fornecedor cadastrado
+            <select class="select select-bordered w-full" formControlName="supplierId" [attr.aria-invalid]="invalid('supplierId')">
+              <option value="">Selecione o fornecedor</option>
+              @for (supplier of suppliers(); track supplier.id) { <option [value]="supplier.id">{{ supplier.name }} — {{ supplier.document }}</option> }
+            </select>
+            @if (invalid('supplierId')) { <span class="text-error text-sm">Selecione ou cadastre um fornecedor.</span> }
+          </label>
+        }
+        <button type="button" class="btn btn-outline self-start" data-testid="inline-supplier" (click)="toggleSupplier()">
+          {{ inlineSupplier() ? 'Selecionar fornecedor existente' : 'Cadastrar novo fornecedor' }}
+        </button>
+      </fieldset>
+      <label>Modo de valor
+        <select class="select select-bordered w-full" formControlName="valueMode">
+          <option value="DIRECT">Informar valor total</option>
+          <option value="CALCULATED">Quantidade × valor unitário</option>
+        </select>
+      </label>
+      @if (form.controls.valueMode.value === 'DIRECT') {
+        <label>Valor total
+          <input class="input input-bordered w-full" inputmode="numeric" formControlName="totalPrice" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" [attr.aria-invalid]="invalid('totalPrice')" />
+          @if (invalid('totalPrice')) { <span class="text-error text-sm">Informe um valor positivo com até duas casas decimais.</span> }
+        </label>
+      } @else {
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <label>Quantidade
+            <input type="number" step="0.01" class="input input-bordered w-full" formControlName="quantity" [attr.aria-invalid]="invalid('quantity')" />
+            @if (invalid('quantity')) { <span class="text-error text-sm">Informe quantidade positiva com até duas casas decimais.</span> }
+          </label>
+          <label>Valor unitário
+            <input class="input input-bordered w-full" inputmode="numeric" formControlName="unitPrice" [value]="money(form.controls.unitPrice.value)" (input)="onMoneyInput($event,'unitPrice')" [attr.aria-invalid]="invalid('unitPrice')" />
+            @if (invalid('unitPrice')) { <span class="text-error text-sm">Informe valor positivo com até duas casas decimais.</span> }
+          </label>
+        </div>
+        <output class="font-semibold" data-testid="calculated-total" aria-live="polite">Total: {{ money(calculatedTotal()) }}</output>
+      }
+      <p class="badge badge-success">Quitada</p>
+      <div class="flex gap-3 justify-end">
+        <a class="btn btn-ghost" routerLink="/orcamentos">Cancelar</a>
+        <button class="btn btn-primary" type="submit" data-testid="save-expense" [disabled]="saving() || loading()">
+          {{ saving() ? 'Salvando…' : 'Salvar despesa' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    <p role="status" class="my-6">Selecione ou cadastre uma obra no menu para cadastrar uma despesa.</p>
+  }
+</section>

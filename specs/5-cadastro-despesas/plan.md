@@ -30,6 +30,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 ### Frontend (`apps/web`)
 
 - Rotas protegidas `/despesas/nova` e `/despesas/:id`, carregadas sob o layout existente. Cadastro com `ReactiveForms`, tokens existentes e modos de valor mutuamente exclusivos. Consulta individual com tag “Sem comprovante”, acesso ao comprovante confirmado e seleção de arquivo para reenvio. Sem criar uma seção separada de pendências nem antecipar a listagem completa da US05.
+- Ajuste solicitado pelo autor na triagem da tarefa 1: o acesso ao cadastro fica em um botão **“Cadastrar conta”** dentro de **“Contas a pagar”** (`/contas`), direcionando a `/despesas/nova`. Não criar um item “Cadastrar despesa” no menu principal. A página de entrada não antecipa listagem, filtros ou baixa de pagamentos das histórias posteriores.
 - `core/services/expense.service.ts` e `supplier.service.ts` concentram HTTP e DTOs tipados. Usar `CategoryService`, `BudgetService`, `ActiveProjectService` e identidade autenticada existentes. Estado de carregamento, erro, envio e progresso em signals; nenhum componente usa HTTP diretamente.
 - Após criar, abrir a consulta individual usando o ID confirmado e disponibilizar seu endereço. Para comprovante selecionado, enviar somente depois da criação; falha mostra o alerta aprovado sem apagar o sucesso da gravação financeira. Reabrir o endereço permite reenvio escolhendo outro arquivo local.
 - A mudança real de obra encerra o contexto do formulário e ignora respostas antigas, inclusive A → B → A. Atualização dos metadados da mesma obra não descarta campos. Uma operação já recebida pelo servidor pode concluir para a obra original; não prometer cancelamento transacional por navegação.
@@ -38,7 +39,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Cadastrar despesa quitada com fornecedor**
+- [x] **Tarefa 1 — Cadastrar despesa quitada com fornecedor**
   - Cobre: CA1, CA10 e CA7 para criação e consulta individual.
   - Teste primeiro: JUnit de criação por valor direto e calculado, limites e campos inválidos, seleção/criação inline de fornecedor e rollback, incluindo fornecedor/obra alheios com 404. Integração PostgreSQL para backfill de fornecedores e persistência. Angular `.spec.ts` para formulário, validações dos dois modos, fornecedor inline, resposta de sucesso e consulta individual real. RED antes de criar o fluxo.
   - Migration: `V8__prepare_expense_registration.sql`.

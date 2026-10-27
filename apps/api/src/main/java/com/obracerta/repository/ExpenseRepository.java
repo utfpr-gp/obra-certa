@@ -12,6 +12,10 @@ import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, String> {
 
+    @Query("select e from Expense e where e.id = :id and e.project.user.id = :userId "
+            + "and e.deletedAt is null and e.project.deletedAt is null")
+    java.util.Optional<Expense> findActiveByIdAndOwner(@Param("id") String id, @Param("userId") String userId);
+
     @Query("""
             select e.category.id as categoryId,
                    e.category.name as categoryName,

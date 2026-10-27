@@ -14,6 +14,20 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ExpenseValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleExpenseValidation(
+            ExpenseValidationException exception,
+            HttpServletRequest request) {
+        return new ApiErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
     @ExceptionHandler(BudgetBelowSpentException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleBudgetBelowSpent(
