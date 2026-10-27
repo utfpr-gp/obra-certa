@@ -52,7 +52,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Migration: nenhuma; o schema atual já suporta o pagamento. Validar vencimento obrigatório e sua relação com a data da despesa no service, preservando o legado.
   - Arquivos previstos: DTO/service/mapper de Expense, `PendingPayment`, repositório e migration; formulário e modelos de despesas; testes API/web.
 
-- [ ] **Tarefa 3 — Avisar sobre categoria sem teto**
+- [x] **Tarefa 3 — Avisar sobre categoria sem teto**
   - Cobre: CA4.
   - Teste primeiro: JUnit/integração prova salvamento sem orçamento e com teto zerado sem criar teto artificial; Angular prova aviso, atalho para orçamento da categoria e manutenção dos campos ao abrir esse fluxo.
   - Migration: nenhuma; nullable de `budget_id` nasce na tarefa 1.

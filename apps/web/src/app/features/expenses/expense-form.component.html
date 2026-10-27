@@ -25,6 +25,18 @@
           @if (invalid('categoryId')) { <span class="text-error text-sm">Selecione a categoria.</span> }
         </label>
       </div>
+      @if (categoryWithoutBudget()) {
+        <div class="alert alert-warning" role="status" data-testid="no-category-budget">
+          <span>Esta categoria está sem teto. Você pode salvar a despesa mesmo assim.</span>
+          <button type="button" class="btn btn-outline btn-sm" data-testid="define-category-budget" (click)="openBudget()">Definir teto</button>
+        </div>
+      }
+      @if (budgetError()) {
+        <div class="alert alert-error" role="alert" data-testid="category-budget-error">
+          <span>{{ budgetError() }}</span>
+          <button type="button" class="btn btn-outline btn-sm" data-testid="retry-category-budget" (click)="loadBudgets()">Tentar novamente</button>
+        </div>
+      }
       <fieldset class="border border-base-300 rounded-box p-4 flex flex-col gap-3">
         <legend class="px-2 font-semibold">Fornecedor</legend>
         @if (inlineSupplier()) {
@@ -97,6 +109,11 @@
         </button>
       </div>
     </form>
+    @if (budgetContext(); as context) {
+      <app-budget-form-modal [isOpen]="true" [projectId]="context.projectId"
+        [preselectedCategoryId]="context.categoryId" [categories]="categories()"
+        (closed)="budgetContext.set(null)" (saved)="budgetSaved($event)" />
+    }
   } @else {
     <p role="status" class="my-6">Selecione ou cadastre uma obra no menu para cadastrar uma despesa.</p>
   }

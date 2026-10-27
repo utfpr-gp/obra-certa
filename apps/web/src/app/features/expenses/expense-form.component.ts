@@ -9,10 +9,13 @@ import { SupplierService } from '../../core/services/supplier.service';
 import { CategoryService } from '../../core/services/category.service';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { ExpenseCreate, ExpenseSupplier } from '../../core/models/expense-registration.model';
+import { BudgetService } from '../../core/services/budget.service';
+import { BudgetCategory } from '../../core/models/budget.model';
+import { BudgetFormModalComponent } from '../budgets-page/components/budget-form-modal/budget-form-modal.component';
 
 @Component({
   selector: 'app-expense-form', standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, BudgetFormModalComponent],
   templateUrl: './expense-form.component.html',
 })
 export class ExpenseFormComponent {
@@ -20,6 +23,7 @@ export class ExpenseFormComponent {
   private readonly expenses = inject(ExpenseService);
   private readonly supplierService = inject(SupplierService);
   private readonly categoryService = inject(CategoryService);
+  private readonly budgetService = inject(BudgetService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly activeProject = inject(ActiveProjectService).activeProject;
@@ -29,6 +33,9 @@ export class ExpenseFormComponent {
   readonly errorMessage = signal('');
   readonly saving = signal(false);
   readonly inlineSupplier = signal(false);
+  readonly budgetCategories = signal<BudgetCategory[] | null>(null);
+  readonly budgetError = signal('');
+  readonly budgetContext = signal<{projectId: string; categoryId: string} | null>(null);
   readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.pattern(/\S/)]],
     purchaseDate: ['', Validators.required],
@@ -41,6 +48,13 @@ export class ExpenseFormComponent {
     quantity: [null as number | null], unitPrice: [null as number | null],
   });
   private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+  readonly categoryWithoutBudget = computed(() => {
+    const categoryId = this.values().categoryId;
+    const categories = this.budgetCategories();
+    if (!categoryId || categories === null) return false;
+    const category = categories.find(item => item.categoryId === categoryId);
+    return !category?.hasBudget || category.plannedAmount === 0;
+  });
   readonly calculatedTotal = computed(() => {
     const value = this.values();
     if (!value.quantity || !value.unitPrice || !Number.isFinite(value.quantity) || !Number.isFinite(value.unitPrice)) return 0;
@@ -56,6 +70,38 @@ export class ExpenseFormComponent {
     this.form.controls.purchaseDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() =>
       this.form.controls.dueDate.updateValueAndValidity({ emitEvent: false }));
     this.loadOptions();
+    this.loadBudgets();
+  }
+
+  loadBudgets(): void {
+    const projectId = this.activeProject()?.id;
+    if (!projectId) return;
+    this.budgetCategories.set(null);
+    this.budgetError.set('');
+    this.budgetService.getOverview(projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: overview => {
+        if (this.activeProject()?.id === projectId) this.budgetCategories.set(overview.categories);
+      },
+      error: () => {
+        if (this.activeProject()?.id === projectId)
+          this.budgetError.set('Não foi possível consultar o teto da categoria. Tente novamente.');
+      },
+    });
+  }
+
+  openBudget(): void {
+    const projectId = this.activeProject()?.id;
+    const categoryId = this.form.controls.categoryId.value;
+    if (projectId && categoryId) this.budgetContext.set({projectId, categoryId});
+  }
+
+  budgetSaved(category: BudgetCategory): void {
+    if (this.budgetContext()?.projectId === this.activeProject()?.id) {
+      this.budgetCategories.update(categories => [
+        ...(categories ?? []).filter(item => item.categoryId !== category.categoryId), category,
+      ]);
+    }
+    this.budgetContext.set(null);
   }
 
   loadOptions(): void {

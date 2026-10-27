@@ -71,6 +71,7 @@ describe('Expense registration and individual consultation', () => {
     const harness = await RouterTestingHarness.create('/despesas/nova');
     http.expectOne(`${api}/expense-categories`).flush([{id:'category',name:'Alvenaria'}]);
     http.expectOne(`${api}/suppliers`).flush([{id:'supplier',name:'Loja',document:'12345678000190'}]);
+    http.expectOne(`${api}/budgets?projectId=project`).flush({projectId:'project',categories:[]});
     harness.detectChanges();
     return harness;
   }

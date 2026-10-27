@@ -34,6 +34,7 @@ class ExpenseRegistrationIntegrationTest {
     @Autowired ExpenseCategoryRepository categories;
     @Autowired ExpenseRepository expenses;
     @Autowired SupplierRepository suppliers;
+    @Autowired BudgetRepository budgets;
     @Autowired JdbcTemplate jdbc;
     @MockBean UserContextHelper identity;
     User owner, other;
@@ -62,6 +63,34 @@ class ExpenseRegistrationIntegrationTest {
         String id = json.readTree(response.getContentAsString()).get("id").asText();
         assertThat(response.getHeader("Location")).isEqualTo("/api/expenses/"+id);
         return id;
+    }
+    @Test void savesWithoutBudgetWithoutCreatingAnArtificialCeiling() throws Exception {
+        String id = create(body());
+        expenses.flush();
+        assertThat(jdbc.queryForObject("select budget_id from expenses where id=?", String.class, id)).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from budgets where project_id=?", Integer.class,
+                project.getId())).isZero();
+        mvc.perform(get("/api/budgets").param("projectId",project.getId())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].hasBudget").value(false))
+                .andExpect(jsonPath("$.categories[0].plannedAmount").value(0))
+                .andExpect(jsonPath("$.categories[0].spentAmount").value(100.25));
+    }
+    @Test void savesWithZeroBudgetWithoutIncreasingOrDuplicatingTheCeiling() throws Exception {
+        Budget budget = budgets.saveAndFlush(Budget.builder().user(owner).project(project)
+                .category(categories.findById(categoryId).orElseThrow())
+                .estimatedAmount(java.math.BigDecimal.ZERO).build());
+        String id = create(body());
+        expenses.flush();
+        assertThat(jdbc.queryForObject("select budget_id from expenses where id=?", String.class,id))
+                .isEqualTo(budget.getId());
+        assertThat(jdbc.queryForObject("select count(*) from budgets where project_id=?", Integer.class,
+                project.getId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select estimated_amount from budgets where id=?",
+                java.math.BigDecimal.class,budget.getId())).isZero();
+        mvc.perform(get("/api/budgets").param("projectId",project.getId())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].hasBudget").value(true))
+                .andExpect(jsonPath("$.categories[0].plannedAmount").value(0))
+                .andExpect(jsonPath("$.categories[0].spentAmount").value(100.25));
     }
     @Test void persistsInlineSupplierExpenseAndBudgetAggregateThenReadsActualIndividualResource() throws Exception {
         String id = create(body());

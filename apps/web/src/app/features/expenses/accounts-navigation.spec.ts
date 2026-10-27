@@ -33,6 +33,7 @@ describe('Accounts navigation', () => {
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/api/expense-categories`).flush([]);
     http.expectOne(`${environment.apiUrl}/api/suppliers`).flush([]);
+    http.expectOne(`${environment.apiUrl}/api/budgets?projectId=project`).flush({projectId:'project',categories:[]});
     harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/despesas/nova');
     expect(harness.routeNativeElement?.querySelector('input[formControlName="description"]')).not.toBeNull();
