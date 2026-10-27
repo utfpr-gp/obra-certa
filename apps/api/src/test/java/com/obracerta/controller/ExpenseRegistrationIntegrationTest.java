@@ -117,7 +117,7 @@ class ExpenseRegistrationIntegrationTest {
         jdbc.update("update projects set deleted_at=now() where id=?",project.getId());
         mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body().toString())).andExpect(status().isNotFound());
     }
-    @Test void rejectsAmbiguousSupplierAndUnpaidUntilPendingPaymentTask() throws Exception {
+    @Test void rejectsAmbiguousSupplierAndUnpaidWithoutDueDate() throws Exception {
         for (var body : java.util.List.of(body().put("supplierId","any"),body().put("paid",false))) {
             mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
         }

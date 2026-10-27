@@ -37,7 +37,12 @@ public class ExpenseService {
         ExpenseCategory category = categories.findById(request.categoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoria não encontrada"));
         if (request.description()==null || request.description().isBlank() || request.purchaseDate()==null
-                || !Boolean.TRUE.equals(request.paid())) invalid("Informe descrição, data e pagamento quitado.");
+                || request.paid()==null) invalid("Informe descrição, data e situação do pagamento.");
+        if (!request.paid()) {
+            if (request.dueDate()==null) invalid("Informe o vencimento do pagamento pendente.");
+            if (request.dueDate().isBefore(request.purchaseDate()))
+                invalid("O vencimento não pode ser anterior à data da despesa.");
+        }
         boolean calculated = "CALCULATED".equals(request.valueMode());
         if (!calculated && !"DIRECT".equals(request.valueMode())) invalid("Selecione o modo de valor.");
         BigDecimal total;
@@ -62,9 +67,12 @@ public class ExpenseService {
         }
         Expense expense=Expense.builder().user(owner).project(project).category(category).supplier(supplier)
                 .budget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(),category.getId()).orElse(null))
-                .description(request.description().trim()).purchaseDate(request.purchaseDate()).paid(true)
+                .description(request.description().trim()).purchaseDate(request.purchaseDate()).paid(request.paid())
                 .quantity(calculated ? request.quantity() : null).unitPrice(calculated ? request.unitPrice() : null)
                 .totalPrice(total.setScale(2,RoundingMode.HALF_UP)).build();
+        if (!request.paid()) {
+            expense.setPendingPayment(PendingPayment.builder().expense(expense).dueDate(request.dueDate()).build());
+        }
         return ExpenseMapper.toDTO(expenses.save(expense));
     }
     @Transactional(readOnly=true)

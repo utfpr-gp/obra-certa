@@ -32,6 +32,7 @@ export class ExpenseFormComponent {
   readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.pattern(/\S/)]],
     purchaseDate: ['', Validators.required],
+    paid: [true], dueDate: [''],
     categoryId: ['', Validators.required],
     supplierId: ['', Validators.required],
     supplierName: [''], supplierDocument: [''],
@@ -51,6 +52,9 @@ export class ExpenseFormComponent {
 
   constructor() {
     this.form.controls.valueMode.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.configureFields());
+    this.form.controls.paid.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.configureFields());
+    this.form.controls.purchaseDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() =>
+      this.form.controls.dueDate.updateValueAndValidity({ emitEvent: false }));
     this.loadOptions();
   }
 
@@ -74,6 +78,9 @@ export class ExpenseFormComponent {
   private configureFields(): void {
     const calculated = this.form.controls.valueMode.value === 'CALCULATED';
     const controls = this.form.controls;
+    controls.dueDate.setValidators(controls.paid.value ? [] : [Validators.required, control =>
+      control.value && controls.purchaseDate.value && control.value < controls.purchaseDate.value
+        ? {beforePurchase: true} : null]);
     controls.totalPrice.setValidators(calculated ? [] : [Validators.required, positiveDecimal(13)]);
     controls.quantity.setValidators(calculated ? [Validators.required, positiveDecimal(8)] : []);
     controls.unitPrice.setValidators(calculated ? [Validators.required, positiveDecimal(13)] : []);
@@ -114,7 +121,8 @@ export class ExpenseFormComponent {
     }
     const request: ExpenseCreate = {
       projectId, description: value.description.trim(), purchaseDate: value.purchaseDate,
-      categoryId: value.categoryId, paid: true, valueMode: value.valueMode,
+      categoryId: value.categoryId, paid: value.paid, valueMode: value.valueMode,
+      ...(!value.paid ? {dueDate: value.dueDate} : {}),
       ...(this.inlineSupplier() ? { newSupplier: {name: value.supplierName.trim(), document: value.supplierDocument} }
         : { supplierId: value.supplierId }),
       ...(calculated ? {quantity: value.quantity!, unitPrice: value.unitPrice!} : {totalPrice: value.totalPrice!}),

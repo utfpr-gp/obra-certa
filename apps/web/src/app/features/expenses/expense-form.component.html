@@ -1,7 +1,7 @@
 <section class="mx-auto max-w-3xl p-4 sm:p-6">
   <h1 class="text-2xl font-bold text-base-content mb-2">Cadastrar despesa</h1>
   @if (activeProject(); as project) {
-    <p class="mb-6 text-base-content/70">{{ project.name }} · Pagamento quitado</p>
+    <p class="mb-6 text-base-content/70">{{ project.name }}</p>
     @if (loading()) { <p role="status">Carregando categorias e fornecedores…</p> }
     @if (errorMessage()) {
       <div class="alert alert-error mb-4" role="alert">{{ errorMessage() }}</div>
@@ -73,7 +73,23 @@
         </div>
         <output class="font-semibold" data-testid="calculated-total" aria-live="polite">Total: {{ money(calculatedTotal()) }}</output>
       }
-      <p class="badge badge-success">Quitada</p>
+      <label>Pagamento
+        <select class="select select-bordered w-full" formControlName="paid">
+          <option [ngValue]="true">Quitada</option>
+          <option [ngValue]="false">Não quitada</option>
+        </select>
+      </label>
+      @if (!form.controls.paid.value) {
+        <label>Vencimento
+          <input type="date" class="input input-bordered w-full" formControlName="dueDate" required
+            [min]="form.controls.purchaseDate.value" [attr.aria-invalid]="invalid('dueDate')" />
+          @if (invalid('dueDate')) {
+            <span class="text-error text-sm" role="alert">
+              {{ form.controls.dueDate.hasError('required') ? 'Informe o vencimento.' : 'O vencimento não pode ser anterior à data da despesa.' }}
+            </span>
+          }
+        </label>
+      }
       <div class="flex gap-3 justify-end">
         <a class="btn btn-ghost" routerLink="/orcamentos">Cancelar</a>
         <button class="btn btn-primary" type="submit" data-testid="save-expense" [disabled]="saving() || loading()">

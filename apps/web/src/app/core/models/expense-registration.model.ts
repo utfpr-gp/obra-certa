@@ -12,6 +12,7 @@ export interface ExpenseCreate {
   supplierId?: string;
   newSupplier?: { name: string; document: string };
   paid: boolean;
+  dueDate?: string;
   valueMode: 'DIRECT' | 'CALCULATED';
   quantity?: number;
   unitPrice?: number;
@@ -27,6 +28,7 @@ export interface ExpenseResponse {
   categoryName: string;
   supplier: ExpenseSupplier;
   paid: boolean;
+  dueDate: string | null;
   quantity: number | null;
   unitPrice: number | null;
   totalPrice: number;

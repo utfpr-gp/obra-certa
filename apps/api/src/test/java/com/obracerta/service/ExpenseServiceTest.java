@@ -44,7 +44,7 @@ class ExpenseServiceTest {
     }
     ExpenseCreateDTO request(String mode, String quantity, String unitPrice, String total) {
         return new ExpenseCreateDTO("project", "Cimento", LocalDate.of(2030,1,1), "category",
-                "supplier", null, true, mode, number(quantity), number(unitPrice), number(total));
+                "supplier", null, true, mode, number(quantity), number(unitPrice), number(total), null);
     }
     BigDecimal number(String value) { return value == null ? null : new BigDecimal(value); }
     @Test void createsDirectWithoutQuantityOrBudget() {

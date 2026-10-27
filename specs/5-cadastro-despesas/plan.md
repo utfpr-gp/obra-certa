@@ -22,9 +22,9 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 
 - Última migration no início do plano: `V7__seed_predefined_expense_categories.sql`. Confirmar novamente a sequência antes de cada tarefa; nunca editar uma migration aplicada. Manter `ddl-auto=validate`.
 - Tarefa 1: `V8__prepare_expense_registration.sql`. Flexibilizar `expenses.budget_id` para permitir categoria sem orçamento; manter obra e categoria obrigatórias. Persistir a informação de quitação. Introduzir titularidade de fornecedor e ajustar dados legados sem misturar contas: associar fornecedor usado por uma conta a essa conta, clonar e religar referências por proprietário quando compartilhado no legado. Fornecedores legados sem referências ficam sem proprietário e não são expostos pela API. Testar explicitamente esse backfill; não atribuir dados sem dono a um usuário arbitrário.
-- Tarefa 2: `V9__validate_pending_payment_due_date.sql`, para a obrigatoriedade de vencimento quando aplicável e eventuais ajustes necessários à representação do pagamento. Comparação entre data da despesa e vencimento é validada no service, dentro da transação; não criar `CHECK` que consulte outra tabela.
-- Tarefa 5: `V10__add_expense_receipt_state.sql`. Persistir chave interna e estado `NONE`/`PENDING`/`UPLOADED`, com integridade entre presença de chave e estado. Tratar valores legados explicitamente; não inventar sucesso para uma referência cujo objeto não foi confirmado. O estado após upload deve ser consistente com o comportamento de retry da tarefa 7.
-- Tarefa 9: `V11__add_expense_creation_idempotency.sql`, com unicidade por usuário, obra e chave, hash normalizado e referência da despesa. Sem reutilizar chave para uma nova intenção de lançamento.
+- Tarefa 2: nenhuma migration. O schema existente já representa pagamento com vencimento e vínculo único à despesa. Obrigatoriedade e comparação com a data da despesa serão validadas no service para novos lançamentos, dentro da transação. Preservar dados legados com vencimento nulo, sem inventar datas nem alterar migrations aplicadas.
+- Tarefa 5: `V9__add_expense_receipt_state.sql`. Persistir chave interna e estado `NONE`/`PENDING`/`UPLOADED`, com integridade entre presença de chave e estado. Tratar valores legados explicitamente; não inventar sucesso para uma referência cujo objeto não foi confirmado. O estado após upload deve ser consistente com o comportamento de retry da tarefa 7.
+- Tarefa 9: `V10__add_expense_creation_idempotency.sql`, com unicidade por usuário, obra e chave, hash normalizado e referência da despesa. Sem reutilizar chave para uma nova intenção de lançamento.
 - Caso uma migration prevista não seja necessária após verificar o schema, registrar “nenhuma” na tarefa antes de implementá-la; não criar migration vazia. Renumerar apenas as futuras, ainda não aplicadas.
 
 ### Frontend (`apps/web`)
@@ -46,10 +46,10 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller,service,repository,mapper,model/dto,model/entity}` nos recursos Expense/Supplier; migration e testes correspondentes em `apps/api/src/test`; `apps/web/src/app/core/{models,services}`, `apps/web/src/app/features/expenses`, `app.routes.ts` e navegação necessária ao cadastro, com testes correspondentes.
   - Entrega: formulário → API → PostgreSQL → consulta individual; gasto da US07 reflete a despesa. Nenhuma listagem completa é criada.
 
-- [ ] **Tarefa 2 — Registrar pagamento pendente com vencimento válido**
+- [x] **Tarefa 2 — Registrar pagamento pendente com vencimento válido**
   - Cobre: CA2 e CA9; reforça CA7 no lançamento a prazo.
   - Teste primeiro: JUnit prova criação atômica de despesa/pagamento, igualdade de datas aceita, data anterior e ausência rejeitadas sem gravação parcial. Angular prova opção não quitada, campo obrigatório e erro de vencimento. Testar que falha não deixa fornecedor inline órfão.
-  - Migration: `V9__validate_pending_payment_due_date.sql`, se necessária conforme a seção de schema.
+  - Migration: nenhuma; o schema atual já suporta o pagamento. Validar vencimento obrigatório e sua relação com a data da despesa no service, preservando o legado.
   - Arquivos previstos: DTO/service/mapper de Expense, `PendingPayment`, repositório e migration; formulário e modelos de despesas; testes API/web.
 
 - [ ] **Tarefa 3 — Avisar sobre categoria sem teto**
@@ -67,7 +67,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 - [ ] **Tarefa 5 — Anexar e consultar comprovante válido**
   - Cobre: CA3 e CA7 para acesso ao comprovante.
   - Teste primeiro: JUnit com armazenamento controlado prova upload/leitura de JPEG, PNG e PDF, limite exato aceito e 404 antes de acesso ao storage para recurso alheio ou excluído. Angular prova instruções de formato/tamanho, progresso e upload apenas após confirmar criação financeira.
-  - Migration: `V10__add_expense_receipt_state.sql`.
+  - Migration: `V9__add_expense_receipt_state.sql`.
   - Arquivos previstos: controller/service de comprovantes, adaptador S3 e configuração por ambiente, `pom.xml`, entidade/DTO de despesa, migration e testes API; serviço e componentes de despesa com testes web; configuração MinIO local e `.env.example` se necessário, sem credenciais reais.
 
 - [ ] **Tarefa 6 — Rejeitar comprovantes inválidos**
@@ -91,7 +91,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 - [ ] **Tarefa 9 — Recuperar salvamento sem duplicar lançamento**
   - Cobre: CA12.
   - Teste primeiro: integração PostgreSQL prova duas requisições com mesma chave/payload, incluindo concorrência, gerando uma despesa, um fornecedor inline e no máximo um pagamento; payload diferente gera 409. Angular simula resposta perdida, preserva campos/chave, repete sem duplicação e bloqueia duplo clique; nova intenção recebe nova chave. Verificar autorização no replay.
-  - Migration: `V11__add_expense_creation_idempotency.sql`.
+  - Migration: `V10__add_expense_creation_idempotency.sql`.
   - Arquivos previstos: entidade/repositório da chave de criação, service/controller de despesas, migration e testes API; serviço/componente de cadastro e testes web.
 
 - [ ] **Tarefa 10 — Recuperar campos após sessão expirada**

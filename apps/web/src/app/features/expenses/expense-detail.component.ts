@@ -18,6 +18,9 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><dt class="font-semibold">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
             <div><dt class="font-semibold">Data</dt><dd>{{ date(expense.purchaseDate) }}</dd></div>
+            @if (expense.dueDate) {
+              <div><dt class="font-semibold">Vencimento</dt><dd>{{ date(expense.dueDate) }}</dd></div>
+            }
             <div><dt class="font-semibold">Fornecedor</dt><dd>{{ expense.supplier.name }}</dd></div>
             <div><dt class="font-semibold">CNPJ</dt><dd>{{ expense.supplier.document }}</dd></div>
             @if (expense.quantity !== null) {

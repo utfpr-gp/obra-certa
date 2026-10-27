@@ -20,6 +20,53 @@ describe('Expense registration and individual consultation', () => {
     http = TestBed.inject(HttpTestingController);
   });
   afterEach(() => http.verify());
+  async function pendingForm() {
+    const harness = await open();
+    input(harness,'description','Cimento a prazo'); input(harness,'purchaseDate','2030-01-01');
+    input(harness,'categoryId','category'); input(harness,'supplierId','supplier');
+    input(harness,'totalPrice','10025');
+    const select = harness.routeNativeElement!.querySelector('[formControlName="paid"]') as HTMLSelectElement;
+    expect(select).withContext('payment choice must be available').not.toBeNull();
+    const pending = Array.from(select.options).find(option => option.textContent?.includes('Não quitada'))!;
+    input(harness,'paid',pending.value);
+    return harness;
+  }
+  it('requires a due date and highlights an earlier date, including after changing purchase date', async () => {
+    const harness = await pendingForm();
+    click(harness,'save-expense');
+    expect(harness.routeNativeElement!.querySelector('[formControlName="dueDate"]')!.getAttribute('aria-invalid')).toBe('true');
+    expect(harness.routeNativeElement!.textContent).toContain('Informe o vencimento');
+    input(harness,'dueDate','2029-12-31'); click(harness,'save-expense');
+    expect(harness.routeNativeElement!.textContent).toContain('O vencimento não pode ser anterior');
+    input(harness,'dueDate','2030-01-02');
+    input(harness,'purchaseDate','2030-01-03'); click(harness,'save-expense');
+    expect(harness.routeNativeElement!.querySelector('[formControlName="dueDate"]')!.getAttribute('aria-invalid')).toBe('true');
+    http.expectNone(`${api}/expenses`);
+  });
+  for (const dueDate of ['2030-01-01','2030-02-01']) {
+    it(`saves a pending expense with due date ${dueDate} and displays its confirmed due date`, async () => {
+      const harness = await pendingForm(); input(harness,'dueDate',dueDate);
+      click(harness,'save-expense');
+      const request = http.expectOne(`${api}/expenses`);
+      expect(request.request.body).toEqual(jasmine.objectContaining({paid:false,dueDate}));
+      const saved = {...request.request.body,id:'pending',categoryName:'Alvenaria',
+        supplier:{id:'supplier',name:'Loja',document:'12345678000190'},quantity:null,unitPrice:null};
+      request.flush(saved,{status:201,statusText:'Created'});
+      await harness.fixture.whenStable();
+      http.expectOne(`${api}/expenses/pending`).flush(saved); harness.detectChanges();
+      expect(harness.routeNativeElement!.textContent).toContain('Pendente');
+      expect(harness.routeNativeElement!.textContent).toContain(dueDate.split('-').reverse().join('/'));
+    });
+  }
+  it('removes the due-date requirement and omits stale dueDate when switched back to paid', async () => {
+    const harness = await pendingForm(); input(harness,'dueDate','2029-12-31');
+    const select = harness.routeNativeElement!.querySelector('[formControlName="paid"]') as HTMLSelectElement;
+    input(harness,'paid',Array.from(select.options).find(option => option.textContent?.trim() === 'Quitada')!.value);
+    click(harness,'save-expense');
+    const request = http.expectOne(`${api}/expenses`);
+    expect(request.request.body.paid).toBeTrue(); expect(request.request.body.dueDate).toBeUndefined();
+    request.flush({}, {status:400,statusText:'Bad Request'});
+  });
   async function open() {
     const harness = await RouterTestingHarness.create('/despesas/nova');
     http.expectOne(`${api}/expense-categories`).flush([{id:'category',name:'Alvenaria'}]);

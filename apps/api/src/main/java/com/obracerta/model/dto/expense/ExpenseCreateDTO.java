@@ -7,7 +7,8 @@ import jakarta.validation.constraints.*;
 
 public record ExpenseCreateDTO(@NotBlank String projectId, @NotBlank String description, @NotNull LocalDate purchaseDate,
         @NotBlank String categoryId, String supplierId, @Valid NewSupplierDTO newSupplier, @NotNull Boolean paid,
-        @NotBlank String valueMode, BigDecimal quantity, BigDecimal unitPrice, BigDecimal totalPrice) {
+        @NotBlank String valueMode, BigDecimal quantity, BigDecimal unitPrice, BigDecimal totalPrice,
+        LocalDate dueDate) {
     public record NewSupplierDTO(@NotBlank @Size(max=255) String name,
             @NotBlank @Pattern(regexp="[0-9./\\-\\s]+") String document) {}
 }
