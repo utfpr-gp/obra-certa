@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { BudgetService } from '../../core/services/budget.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse } from '../../core/models/expense-registration.model';
 
@@ -11,6 +12,13 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
       <h1 class="text-2xl font-bold mb-6">Despesa</h1>
       @if (loading()) { <p role="status">Carregando despesa…</p> }
       @if (errorMessage()) { <p class="alert alert-error" role="alert">{{ errorMessage() }}</p> }
+      @if (budgetExceeded()) {
+        <div class="alert alert-warning my-4" role="alert" data-testid="budget-ceiling-alert">
+          <span>O gasto da categoria atingiu ou ultrapassou o teto. Revise o orçamento.</span>
+          <a class="link" routerLink="/orcamentos">Ver orçamento</a>
+        </div>
+      }
+      @if (budgetError()) { <p class="alert alert-warning my-4" role="status">{{ budgetError() }}</p> }
       @if (expense(); as expense) {
         <article class="card bg-base-100 border border-base-300 p-6">
           <h2 class="text-xl font-semibold">{{ expense.description }}</h2>
@@ -38,14 +46,25 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
   `,
 })
 export class ExpenseDetailComponent {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly expenses = inject(ExpenseService);
+  private readonly budgets = inject(BudgetService);
+  readonly budgetExceeded = signal(false);
+  readonly budgetError = signal('');
   readonly expense = signal<ExpenseResponse | null>(null);
   readonly loading = signal(true);
   readonly errorMessage = signal('');
   constructor() {
     const id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
     this.expenses.get(id).pipe(takeUntilDestroyed()).subscribe({
-      next: expense => { this.expense.set(expense); this.loading.set(false); },
+      next: expense => {
+        this.expense.set(expense); this.loading.set(false);
+        this.budgets.getOverview(expense.projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+          next: overview => this.budgetExceeded.set(overview.categories.some(
+            category => category.categoryId === expense.categoryId && category.state === 'EXCEEDED')),
+          error: () => this.budgetError.set('Não foi possível consultar o orçamento. A despesa está salva; confira o orçamento novamente.'),
+        });
+      },
       error: () => { this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false); },
     });
   }

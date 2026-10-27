@@ -53,7 +53,8 @@ describe('Expense registration and individual consultation', () => {
         supplier:{id:'supplier',name:'Loja',document:'12345678000190'},quantity:null,unitPrice:null};
       request.flush(saved,{status:201,statusText:'Created'});
       await harness.fixture.whenStable();
-      http.expectOne(`${api}/expenses/pending`).flush(saved); harness.detectChanges();
+      http.expectOne(`${api}/expenses/pending`).flush(saved);
+      http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]}); harness.detectChanges();
       expect(harness.routeNativeElement!.textContent).toContain('Pendente');
       expect(harness.routeNativeElement!.textContent).toContain(dueDate.split('-').reverse().join('/'));
     });
@@ -107,11 +108,60 @@ describe('Expense registration and individual consultation', () => {
     request.flush(saved,{status:201,statusText:'Created'});
     await harness.fixture.whenStable();
     http.expectOne(`${api}/expenses/expense`).flush(saved);
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
     harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/despesas/expense');
     expect(harness.routeNativeElement!.textContent).toContain('Cimento');
     expect(harness.routeNativeElement!.textContent).toContain('Quitada');
   });
+  for (const scenario of [
+    {state:'EXCEEDED',percentage:100,spent:100.25,planned:100.25,alert:true},
+    {state:'EXCEEDED',percentage:110,spent:110.25,planned:100.25,alert:true},
+    {state:'WARNING',percentage:100,spent:99.96,planned:100,alert:false},
+    {state:'ON_TRACK',percentage:50,spent:50,planned:100,alert:false},
+    {state:'NO_BUDGET',percentage:null,spent:100.25,planned:0,alert:false},
+    {state:'missing',percentage:null,spent:100.25,planned:0,alert:false},
+    {state:'unavailable',percentage:null,spent:100.25,planned:0,alert:false},
+  ]) {
+  it(`preserves the saved expense after navigation with budget state ${scenario.state} (${scenario.spent})`, async () => {
+    const harness = await open();
+    input(harness,'description','Cimento'); input(harness,'purchaseDate','2030-01-01');
+    input(harness,'categoryId','category'); input(harness,'supplierId','supplier');
+    input(harness,'totalPrice','10025'); click(harness,'save-expense');
+    const saved = {id:'expense',projectId:'project',description:'Cimento',purchaseDate:'2030-01-01',
+      categoryId:'category',categoryName:'Alvenaria',supplier:{id:'supplier',name:'Loja',document:'12345678000190'},
+      totalPrice:100.25,quantity:null,unitPrice:null,paid:true,dueDate:null};
+    http.expectOne(`${api}/expenses`).flush(saved,{status:201,statusText:'Created'});
+    await harness.fixture.whenStable();
+    http.expectOne(`${api}/expenses/expense`).flush(saved);
+    harness.detectChanges();
+    const budgetRequest = http.expectOne(`${api}/budgets?projectId=project`);
+    if (scenario.state === 'unavailable') {
+      budgetRequest.flush({}, {status:503,statusText:'Unavailable'});
+    } else {
+      budgetRequest.flush({projectId:'project',categories:[
+        {categoryId:'other',state:'EXCEEDED',percentage:200,plannedAmount:1,spentAmount:2},
+        ...(scenario.state === 'missing' ? [] : [{categoryId:'category',state:scenario.state,
+          percentage:scenario.percentage,plannedAmount:scenario.planned,spentAmount:scenario.spent}])
+      ]});
+    }
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/despesas/expense');
+    expect(harness.routeNativeElement!.textContent).toContain('Despesa salva');
+    const alert = harness.routeNativeElement!.querySelector('[data-testid="budget-ceiling-alert"]');
+    expect(!!alert).toBe(scenario.alert);
+    if (scenario.alert) {
+      expect(alert!.textContent).toContain('Revise o orçamento');
+      expect(alert!.getAttribute('role')).toBe('alert');
+      expect(alert!.querySelector('a')?.getAttribute('href')).toBe('/orcamentos');
+    }
+    if (scenario.state === 'unavailable') {
+      expect(harness.routeNativeElement!.textContent).toContain('Não foi possível consultar o orçamento');
+      expect(harness.routeNativeElement!.textContent).toContain('Cimento');
+    }
+    http.expectNone(`${api}/expenses`);
+  });
+  }
   it('calculates total and sends an inline supplier with only the selected mode fields', async () => {
     const harness = await open();
     input(harness,'description','Tijolos'); input(harness,'purchaseDate','2020-01-01');

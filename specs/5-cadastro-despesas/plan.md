@@ -58,7 +58,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Migration: nenhuma; nullable de `budget_id` nasce na tarefa 1.
   - Arquivos previstos: service/DTO de despesas se necessário; formulário, serviços de categoria/orçamento e integração com o formulário de teto existente; testes API/web.
 
-- [ ] **Tarefa 4 — Alertar quando o gasto atingir o teto**
+- [x] **Tarefa 4 — Alertar quando o gasto atingir o teto**
   - Cobre: CA5.
   - Teste primeiro: JUnit prova agregação após salvar, incluindo despesas pagas/pendentes e exclusão de deletadas; Angular prova alerta em 100% e acima, ausência abaixo do teto e salvamento concluído apesar do alerta.
   - Migration: nenhuma.

@@ -9,6 +9,7 @@ import com.obracerta.repository.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -64,6 +65,40 @@ class ExpenseRegistrationIntegrationTest {
         assertThat(response.getHeader("Location")).isEqualTo("/api/expenses/"+id);
         return id;
     }
+    @ParameterizedTest
+    @CsvSource({"29.96,99.96,WARNING", "30.00,100.00,EXCEEDED", "30.01,100.01,EXCEEDED"})
+    void savedExpenseUpdatesExactBudgetStateCountingOnlyActiveExpensesOfItsCategoryAndProject(
+            String amount, String expectedSpent, String state) throws Exception {
+        budgets.saveAndFlush(Budget.builder().user(owner).project(project)
+                .category(categories.findById(categoryId).orElseThrow())
+                .estimatedAmount(new java.math.BigDecimal("100.00")).build());
+        create(body().put("totalPrice",30));
+        mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body().put("totalPrice",40)
+                        .put("paid",false).put("dueDate","2030-01-01").toString()))
+                .andExpect(status().isCreated());
+        String deleted = create(body().put("totalPrice",100));
+        expenses.flush();
+        jdbc.update("update expenses set deleted_at=now() where id=?",deleted);
+        String otherCategory = categories.findAll().stream().map(ExpenseCategory::getId)
+                .filter(id -> !id.equals(categoryId)).findFirst().orElseThrow();
+        create(body().put("categoryId",otherCategory).put("totalPrice",500));
+        Project otherProject = projects.saveAndFlush(Project.builder().user(owner).name("Outra obra")
+                .type(ProjectType.RENOVATION).status(ProjectStatus.IN_PROGRESS).build());
+        create(body().put("projectId",otherProject.getId()).put("totalPrice",600));
+
+        String saved = create(body().put("totalPrice",new java.math.BigDecimal(amount)));
+        mvc.perform(get("/api/expenses/"+saved)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPrice").value(Double.parseDouble(amount)));
+        var overview = mvc.perform(get("/api/budgets").param("projectId",project.getId()))
+                .andExpect(status().isOk()).andReturn().getResponse();
+        var category = java.util.stream.StreamSupport.stream(
+                json.readTree(overview.getContentAsString()).get("categories").spliterator(),false)
+                .filter(row -> row.get("categoryId").asText().equals(categoryId)).findFirst().orElseThrow();
+        assertThat(category.get("spentAmount").decimalValue()).isEqualByComparingTo(expectedSpent);
+        assertThat(category.get("state").asText()).isEqualTo(state);
+        // The rounded display percentage must not decide whether the ceiling was reached.
+        assertThat(category.get("percentage").decimalValue()).isEqualByComparingTo("100.0");
+    }
     @Test void savesWithoutBudgetWithoutCreatingAnArtificialCeiling() throws Exception {
         String id = create(body());
         expenses.flush();
@@ -73,6 +108,7 @@ class ExpenseRegistrationIntegrationTest {
         mvc.perform(get("/api/budgets").param("projectId",project.getId())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.categories[0].hasBudget").value(false))
                 .andExpect(jsonPath("$.categories[0].plannedAmount").value(0))
+                .andExpect(jsonPath("$.categories[0].state").value("NO_BUDGET"))
                 .andExpect(jsonPath("$.categories[0].spentAmount").value(100.25));
     }
     @Test void savesWithZeroBudgetWithoutIncreasingOrDuplicatingTheCeiling() throws Exception {
@@ -90,6 +126,7 @@ class ExpenseRegistrationIntegrationTest {
         mvc.perform(get("/api/budgets").param("projectId",project.getId())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.categories[0].hasBudget").value(true))
                 .andExpect(jsonPath("$.categories[0].plannedAmount").value(0))
+                .andExpect(jsonPath("$.categories[0].state").value("NO_BUDGET"))
                 .andExpect(jsonPath("$.categories[0].spentAmount").value(100.25));
     }
     @Test void persistsInlineSupplierExpenseAndBudgetAggregateThenReadsActualIndividualResource() throws Exception {
