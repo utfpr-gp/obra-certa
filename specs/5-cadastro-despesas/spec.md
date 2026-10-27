@@ -1,6 +1,6 @@
 ---
 issue: 5
-status: rascunho
+status: aprovada
 ---
 
 # US03 — Cadastro de Despesas
