@@ -69,7 +69,8 @@ public class ExpenseService {
                 .budget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(),category.getId()).orElse(null))
                 .description(request.description().trim()).purchaseDate(request.purchaseDate()).paid(request.paid())
                 .quantity(calculated ? request.quantity() : null).unitPrice(calculated ? request.unitPrice() : null)
-                .totalPrice(total.setScale(2,RoundingMode.HALF_UP)).build();
+                .totalPrice(total.setScale(2,RoundingMode.HALF_UP))
+                .receiptState(Boolean.TRUE.equals(request.receiptExpected()) ? "PENDING" : "NONE").build();
         if (!request.paid()) {
             expense.setPendingPayment(PendingPayment.builder().expense(expense).dueDate(request.dueDate()).build());
         }

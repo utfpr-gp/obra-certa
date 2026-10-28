@@ -31,7 +31,12 @@ class ExpenseRegistrationMigrationTest {
             }
             jdbc.update("INSERT INTO "+schema+".expenses(id,user_id,project_id,budget_id,category_id,supplier_id,total_price) VALUES ('single-e','a','pa','ba',?,'single',1)",category);
             jdbc.update("INSERT INTO "+schema+".pending_payments(id,expense_id) VALUES ('payment','eb')");
+            jdbc.update("UPDATE "+schema+".expenses SET receipt_url='https://legacy.invalid/receipt.pdf' WHERE id='ea'");
             Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            assertThat(jdbc.queryForObject("SELECT receipt_url FROM "+schema+".expenses WHERE id='ea'",String.class))
+                    .isEqualTo("https://legacy.invalid/receipt.pdf");
+            assertThat(jdbc.queryForObject("SELECT receipt_state FROM "+schema+".expenses WHERE id='ea'",String.class)).isEqualTo("NONE");
+            assertThat(jdbc.queryForObject("SELECT receipt_key FROM "+schema+".expenses WHERE id='ea'",String.class)).isNull();
             assertThat(jdbc.queryForObject("SELECT count(*) FROM "+schema+".expenses e JOIN "+schema+".suppliers s ON s.id=e.supplier_id WHERE s.user_id=e.user_id",Integer.class)).isEqualTo(3);
             assertThat(jdbc.queryForObject("SELECT count(DISTINCT supplier_id) FROM "+schema+".expenses WHERE id IN ('ea','eb')",Integer.class)).isEqualTo(2);
             assertThat(jdbc.queryForObject("SELECT user_id FROM "+schema+".suppliers WHERE id='unused'",String.class)).isNull();

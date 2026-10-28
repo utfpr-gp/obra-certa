@@ -1,3 +1,4 @@
+import { HttpEventType } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -32,6 +33,9 @@ export class ExpenseFormComponent {
   readonly loading = signal(true);
   readonly errorMessage = signal('');
   readonly saving = signal(false);
+  readonly receiptFile = signal<File | null>(null);
+  readonly uploadProgress = signal<number | null>(null);
+  readonly savedExpenseId = signal<string | null>(null);
   readonly inlineSupplier = signal(false);
   readonly budgetCategories = signal<BudgetCategory[] | null>(null);
   readonly budgetError = signal('');
@@ -155,8 +159,30 @@ export class ExpenseFormComponent {
     input.value = this.money(this.form.controls[field].value);
   }
 
+  selectReceipt(event: Event): void {
+    this.receiptFile.set((event.target as HTMLInputElement).files?.item(0) ?? null);
+  }
+
+  private uploadReceipt(id: string, file: File): void {
+    this.uploadProgress.set(0);
+    this.expenses.uploadReceipt(id, file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: event => {
+        if (event.type === HttpEventType.UploadProgress && event.total)
+          this.uploadProgress.set(Math.round(100 * event.loaded / event.total));
+        if (event.type === HttpEventType.Response) {
+          this.saving.set(false); this.uploadProgress.set(null);
+          void this.router.navigate(['/despesas',id]);
+        }
+      },
+      error: () => {
+        this.saving.set(false); this.uploadProgress.set(null);
+        this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      },
+    });
+  }
+
   save(): void {
-    if (this.saving() || this.loading()) return;
+    if (this.saving() || this.loading() || this.savedExpenseId()) return;
     this.form.markAllAsTouched();
     const projectId = this.activeProject()?.id;
     if (this.form.invalid || !projectId) return;
@@ -166,6 +192,7 @@ export class ExpenseFormComponent {
       this.errorMessage.set('O total calculado deve ser positivo e estar dentro do limite permitido.'); return;
     }
     const request: ExpenseCreate = {
+      ...(this.receiptFile() ? {receiptExpected:true} : {}),
       projectId, description: value.description.trim(), purchaseDate: value.purchaseDate,
       categoryId: value.categoryId, paid: value.paid, valueMode: value.valueMode,
       ...(!value.paid ? {dueDate: value.dueDate} : {}),
@@ -175,7 +202,12 @@ export class ExpenseFormComponent {
     };
     this.saving.set(true); this.errorMessage.set('');
     this.expenses.create(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: expense => { this.saving.set(false); void this.router.navigate(['/despesas',expense.id]); },
+      next: expense => {
+        this.savedExpenseId.set(expense.id);
+        const file = this.receiptFile();
+        if (file) this.uploadReceipt(expense.id,file);
+        else { this.saving.set(false); void this.router.navigate(['/despesas',expense.id]); }
+      },
       error: () => { this.saving.set(false); this.errorMessage.set('Não foi possível confirmar o salvamento. Confira os dados e tente novamente.'); },
     });
   }

@@ -64,6 +64,19 @@ public class Expense {
     @Builder.Default
     private boolean paid = true;
 
+    @Column(name = "receipt_state", nullable = false, length = 16)
+    @Builder.Default
+    private String receiptState = "NONE";
+
+    @Column(name = "receipt_key")
+    private String receiptKey;
+
+    @Column(name = "receipt_content_type", length = 64)
+    private String receiptContentType;
+
+    @Column(name = "receipt_size")
+    private Long receiptSize;
+
     @Column(name = "receipt_url")
     private String receiptUrl;
 

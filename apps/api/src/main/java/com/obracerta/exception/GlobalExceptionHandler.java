@@ -13,6 +13,13 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(ReceiptException.class)
+    public org.springframework.http.ResponseEntity<ApiErrorResponse> handleReceipt(
+            ReceiptException exception, HttpServletRequest request) {
+        var status=exception.status();
+        return org.springframework.http.ResponseEntity.status(status).body(new ApiErrorResponse(
+                Instant.now(),status.value(),status.getReasonPhrase(),exception.getMessage(),request.getRequestURI(),List.of()));
+    }
 
     @ExceptionHandler(ExpenseValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)

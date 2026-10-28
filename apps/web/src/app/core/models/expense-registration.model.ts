@@ -17,6 +17,7 @@ export interface ExpenseCreate {
   quantity?: number;
   unitPrice?: number;
   totalPrice?: number;
+  receiptExpected?: boolean;
 }
 
 export interface ExpenseResponse {
@@ -32,4 +33,5 @@ export interface ExpenseResponse {
   quantity: number | null;
   unitPrice: number | null;
   totalPrice: number;
+  receiptState: 'NONE' | 'PENDING' | 'UPLOADED';
 }

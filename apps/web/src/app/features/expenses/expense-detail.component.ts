@@ -37,6 +37,10 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
             }
             <div><dt class="font-semibold">Total</dt><dd class="text-xl">{{ money(expense.totalPrice) }}</dd></div>
           </dl>
+          @if (expense.receiptState === 'UPLOADED') {
+            <button class="btn btn-outline mt-4" data-testid="download-receipt" type="button"
+              [disabled]="downloading()" (click)="downloadReceipt()">Consultar comprovante</button>
+          }
         </article>
         <p class="my-4">Despesa salva. Você pode voltar a esta consulta pelo endereço desta página.</p>
       }
@@ -53,6 +57,7 @@ export class ExpenseDetailComponent {
   readonly budgetError = signal('');
   readonly expense = signal<ExpenseResponse | null>(null);
   readonly loading = signal(true);
+  readonly downloading = signal(false);
   readonly errorMessage = signal('');
   constructor() {
     const id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
@@ -68,6 +73,19 @@ export class ExpenseDetailComponent {
       error: () => { this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false); },
     });
   }
-  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
+  downloadReceipt(): void {
+    const expense = this.expense();
+    if (!expense || this.downloading()) return;
+    this.downloading.set(true); this.errorMessage.set('');
+    this.expenses.downloadReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href=url; link.download=`comprovante.${blob.type === 'application/pdf' ? 'pdf' : blob.type === 'image/png' ? 'png' : 'jpg'}`;
+        link.click(); URL.revokeObjectURL(url); this.downloading.set(false);
+      },
+      error: () => { this.downloading.set(false); this.errorMessage.set('Não foi possível consultar o comprovante. Tente novamente.'); },
+    });
+  }  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
   date(value: string): string { return value.split('-').reverse().join('/'); }
 }

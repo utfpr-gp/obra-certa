@@ -84,7 +84,7 @@ obra-certa/
 │   └── user-flows.md                      # Diagramas de Jornadas e Mitigações
 │
 ├── specs/                                 # Especificações por Issue (Ordem de Serviço do SDD)
-├── docker-compose.yml                     # Orquestração de serviços locais (PostgreSQL, MinIO/Storage)
+├── docker-compose.yml                     # PostgreSQL, backend e frontend; storage externo no Supabase
 ├── .env.example                           # Template de variáveis de ambiente sem segredos
 └── README.md                              # Guia de início rápido e visão geral do projeto
 ```
@@ -105,7 +105,7 @@ flowchart TD
         Frontend["💻 Frontend Web<br/>(Angular 21.2.x + Tailwind v4 + DaisyUI v5)<br/>Build estático"]
         Backend["⚙️ Backend API REST<br/>(Java 21 LTS + Spring Boot 3.5.4)<br/>Spring Security Stateless JWT"]
         Database[("🗄️ PostgreSQL 16+<br/>(Dev: Docker / Prod: Neon Serverless)")]
-        Storage[("📦 Object Storage S3-Compatible<br/>(Dev: MinIO / Prod: S3/Supabase Storage)")]
+        Storage[("📦 Supabase Storage (API S3)<br/>(Dev e Prod: buckets privados separados)")]
 
         Frontend -->|"HTTPS / JSON<br/>Bearer Token JWT"| Backend
         Backend -->|"JDBC HikariCP<br/>ddl-auto: validate"| Database
@@ -412,9 +412,11 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 | **Banco de Dados** | PostgreSQL 16+ via Docker Compose | PostgreSQL 16 fornecido pelo ambiente ou serviço da CI | Neon Serverless PostgreSQL |
 | **Conexão** | `localhost:5432` | `SPRING_DATASOURCE_URL`, usuário e senha por ambiente | Pooling (`-pooler`) com `prepareThreshold=0` |
 | **Flyway** | Executado na subida (`validate`) | Executado na subida (`validate`) | String direta (sem pooler) para advisory locks |
-| **Comprovantes** | MinIO local (S3 API) | Mock / Temp Directory | AWS S3 / Supabase Storage S3 |
+| **Comprovantes** | Supabase Storage S3; bucket privado de desenvolvimento, requer internet | Substituto controlado e HTTP local, sem conta real | Supabase Storage S3; bucket privado e credenciais exclusivos de produção |
 | **Frontend** | Angular CLI (`localhost:4200`) | Jasmine/Karma com ChromeHeadless | Build estático; hospedagem conforme configuração de implantação |
 | **Backend** | Spring Boot CLI (`localhost:8080`) | JUnit 5 + SpringBootTest | Container Docker gerenciado sob HTTPS |
+
+- **Configuração de comprovantes:** `RECEIPT_STORAGE_*` no `.env` da raiz, preenchido manualmente. O Compose usa `env_file`; o Spring importa opcionalmente esse arquivo ao executar da raiz ou de `apps/api`. As chaves S3 ficam apenas no backend; como elas ignoram RLS, a API valida a posse antes de acessar objetos. PostgreSQL e autenticação JWT existentes são preservados. O roteiro de configuração e validação está em [supabase-storage.md](./supabase-storage.md). A inicialização financeira não depende de credenciais ou conexão com o storage.
 
 - **Regra de Ouro das Migrações:**
   - `spring.jpa.hibernate.ddl-auto=validate` em todos os perfis;

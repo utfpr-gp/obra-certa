@@ -14,6 +14,6 @@ public final class ExpenseMapper {
         return new ExpenseResponseDTO(expense.getId(),expense.getProject().getId(),expense.getDescription(),
                 expense.getPurchaseDate(),expense.getCategory().getId(),expense.getCategory().getName(),
                 toSupplierDTO(expense.getSupplier()),expense.isPaid(),expense.getQuantity(),expense.getUnitPrice(),expense.getTotalPrice(),
-                expense.getPendingPayment() == null ? null : expense.getPendingPayment().getDueDate());
+                expense.getPendingPayment() == null ? null : expense.getPendingPayment().getDueDate(),expense.getReceiptState());
     }
 }

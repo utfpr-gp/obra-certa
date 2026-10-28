@@ -86,7 +86,58 @@ describe('Expense registration and individual consultation', () => {
     (harness.routeNativeElement!.querySelector(`[data-testid="${id}"]`) as HTMLElement).click();
     harness.detectChanges();
   }
-  it('shows required errors and does not send an invalid form', async () => {
+  it('explains formats and size, uploads only after confirmation and displays progress', async () => {
+    const harness = await open();
+    expect(harness.routeNativeElement!.textContent).toContain('JPEG, PNG e PDF');
+    expect(harness.routeNativeElement!.textContent).toContain('10 MB');
+    input(harness,'description','Com recibo'); input(harness,'purchaseDate','2030-01-01');
+    input(harness,'categoryId','category'); input(harness,'supplierId','supplier'); input(harness,'totalPrice','100');
+    const fileInput = harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+    expect(fileInput).not.toBeNull();
+    const files=new DataTransfer(); files.items.add(new File(['%PDF-1.7'],'recibo.pdf',{type:'application/pdf'}));
+    fileInput.files=files.files; fileInput.dispatchEvent(new Event('change')); harness.detectChanges();
+    click(harness,'save-expense');
+    http.expectNone(`${api}/expenses/receipt/receipt`);
+    const post=http.expectOne(`${api}/expenses`); expect(post.request.body.receiptExpected).toBeTrue();
+    http.expectNone(request => request.method === 'PUT');
+    const saved={...post.request.body,id:'receipt',supplier:{name:'Loja'},receiptState:'PENDING'};
+    post.flush(saved,{status:201,statusText:'Created'});
+    const upload=http.expectOne(`${api}/expenses/receipt/receipt`);
+    expect(upload.request.method).toBe('PUT'); expect(upload.request.body instanceof FormData).toBeTrue();
+    upload.event({type:1,loaded:5,total:10}); harness.detectChanges();
+    expect(harness.routeNativeElement!.querySelector('progress')?.value).toBe(50);
+    upload.flush({...saved,receiptState:'UPLOADED'});
+    await harness.fixture.whenStable(); http.expectOne(`${api}/expenses/receipt`).flush(saved);
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
+  });  it('downloads a confirmed receipt through the API service as a blob', async () => {
+    spyOn(URL,'createObjectURL').and.returnValue('blob:receipt-test');
+    spyOn(URL,'revokeObjectURL'); spyOn(HTMLAnchorElement.prototype,'click');
+    const harness=await RouterTestingHarness.create('/despesas/confirmed');
+    http.expectOne(`${api}/expenses/confirmed`).flush({id:'confirmed',projectId:'project',description:'Com recibo',
+      purchaseDate:'2030-01-01',categoryId:'category',categoryName:'Alvenaria',supplier:{name:'Loja'},
+      totalPrice:1,quantity:null,unitPrice:null,paid:true,dueDate:null,receiptState:'UPLOADED'});
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]}); harness.detectChanges();
+    const button=harness.routeNativeElement!.querySelector('[data-testid="download-receipt"]')!;
+    expect(button.getAttribute('href')).toBeNull(); click(harness,'download-receipt');
+    const download=http.expectOne(`${api}/expenses/confirmed/receipt`);
+    expect(download.request.method).toBe('GET'); expect(download.request.responseType).toBe('blob');
+    const blob=new Blob(['%PDF-1.7'],{type:'application/pdf'}); download.flush(blob);
+    expect(URL.createObjectURL).toHaveBeenCalledWith(blob);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:receipt-test');
+  });
+  it('keeps the confirmed expense and prevents another creation after an upload failure', async () => {
+    const harness=await open();
+    input(harness,'description','Com recibo'); input(harness,'purchaseDate','2030-01-01');
+    input(harness,'categoryId','category'); input(harness,'supplierId','supplier'); input(harness,'totalPrice','100');
+    const fileInput=harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+    const files=new DataTransfer(); files.items.add(new File(['%PDF-1.7'],'receipt.pdf',{type:'application/pdf'}));
+    fileInput.files=files.files; fileInput.dispatchEvent(new Event('change')); click(harness,'save-expense');
+    http.expectOne(`${api}/expenses`).flush({id:'saved',receiptState:'PENDING'},{status:201,statusText:'Created'});
+    http.expectOne(`${api}/expenses/saved/receipt`).flush({},{status:503,statusText:'Unavailable'}); harness.detectChanges();
+    expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+    expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();
+    click(harness,'save-expense'); http.expectNone(request => request.method === 'POST');
+  });  it('shows required errors and does not send an invalid form', async () => {
     const harness = await open();
     click(harness,'save-expense');
     expect(harness.routeNativeElement!.querySelectorAll('[aria-invalid="true"]').length).toBeGreaterThan(3);
