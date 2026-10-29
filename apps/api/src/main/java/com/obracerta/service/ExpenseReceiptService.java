@@ -26,7 +26,7 @@ public class ExpenseReceiptService {
     public ExpenseReceiptService(ExpenseRepository expenses,UserContextHelper identity,ReceiptStorage storage) {
         this.expenses=expenses; this.identity=identity; this.storage=storage;
     }
-    @Transactional
+    @Transactional(noRollbackFor=ReceiptException.class)
     public ExpenseResponseDTO upload(String id,MultipartFile file) {
         Expense expense=owned(id);
         if ("UPLOADED".equals(expense.getReceiptState()))
@@ -37,6 +37,8 @@ public class ExpenseReceiptService {
         String name=file.getOriginalFilename()==null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
         boolean extension=name.endsWith("."+EXTENSIONS.get(type)) || (type.equals("image/jpeg") && name.endsWith(".jpeg"));
         if (!extension) invalid();
+        // Keep the retry intent even when the private storage rejects this attempt.
+        expense.setReceiptState("PENDING");
         // Deterministic private key lets a pending retry overwrite only its own unconfirmed object.
         String key="expenses/"+expense.getId()+"/receipt";
         try (InputStream input=file.getInputStream()) {

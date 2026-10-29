@@ -150,6 +150,57 @@ class ExpenseReceiptIntegrationTest {
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.status").value(404));
         org.mockito.Mockito.verifyNoInteractions(storage);
     }
+    @ParameterizedTest @ValueSource(booleans={false, true})
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void retryPersistsPendingAcrossRequestsWithoutDuplicatingFinancialRecords(boolean expected) throws Exception {
+        try {
+            var request=body().put("receiptExpected",expected).put("paid",false).put("dueDate","2030-01-02");
+            var response=mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(request.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse();
+            String id=json.readTree(response.getContentAsString()).get("id").asText();
+            mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value(expected ? "PENDING" : "NONE"));
+            org.mockito.Mockito.doThrow(new com.obracerta.exception.ReceiptException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento indisponível."))
+                    .doThrow(new com.obracerta.exception.ReceiptException(
+                            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Timeout."))
+                    .doAnswer(invocation -> { objects.put(invocation.getArgument(0),
+                        ((java.io.InputStream)invocation.getArgument(1)).readAllBytes()); return null; })
+                    .when(storage).put(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anyString());
+            var file=new org.springframework.mock.web.MockMultipartFile("file","receipt.pdf","application/pdf","receipt".getBytes());
+            String paymentId=jdbc.queryForObject("select id from pending_payments where expense_id=?",String.class,id);
+            for (int attempt=0; attempt<2; attempt++) {
+                mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
+                        .andExpect(status().isServiceUnavailable());
+                mvc.perform(get("/api/expenses/"+id)).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.receiptState").value("PENDING"))
+                        .andExpect(jsonPath("$.paid").value(false)).andExpect(jsonPath("$.totalPrice").value(100.25))
+                        .andExpect(jsonPath("$.dueDate").value("2030-01-02"));
+                assertThat(jdbc.queryForObject("select receipt_state from expenses where id=?",String.class,id)).isEqualTo("PENDING");
+            }
+            mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id))
+                    .andExpect(jsonPath("$.receiptState").value("UPLOADED"));
+            mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value("UPLOADED"));
+            assertThat(jdbc.queryForObject("select count(*) from expenses where project_id=?",Long.class,project.getId())).isEqualTo(1);
+            assertThat(jdbc.queryForObject("select sum(total_price) from expenses where project_id=?",java.math.BigDecimal.class,project.getId()))
+                    .isEqualByComparingTo("100.25");
+            assertThat(jdbc.queryForObject("select id from pending_payments where expense_id=?",String.class,id)).isEqualTo(paymentId);
+            assertThat(jdbc.queryForObject("select count(*) from pending_payments where expense_id=?",Long.class,id)).isEqualTo(1);
+            assertThat(objects).hasSize(1);
+            when(identity.getAuthenticatedUser()).thenReturn(other);
+            org.mockito.Mockito.clearInvocations(storage);
+            mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
+                    .andExpect(status().isNotFound());
+            org.mockito.Mockito.verifyNoInteractions(storage);
+        } finally {
+            jdbc.update("delete from pending_payments where expense_id in (select id from expenses where project_id=?)",project.getId());
+            jdbc.update("delete from expenses where project_id=?",project.getId());
+            jdbc.update("delete from suppliers where user_id=?",owner.getId());
+            projects.deleteById(project.getId());
+            users.deleteById(owner.getId()); users.deleteById(other.getId());
+        }
+    }
     @Test void failureNeverConfirmsUploadAndRetryUsesSamePrivateObjectAndFinancialRecord() throws Exception {
         String id=create(body().put("receiptExpected",true));
         org.mockito.Mockito.doThrow(new com.obracerta.exception.ReceiptException(

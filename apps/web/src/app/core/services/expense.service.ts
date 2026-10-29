@@ -9,6 +9,14 @@ export class ExpenseService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = `${environment.apiUrl}/api/expenses`;
 
+  static readonly receiptGuidance = 'Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).';
+  static validReceipt(file: File): boolean {
+    const extensions: Record<string, RegExp> = {
+      'image/jpeg': /\.jpe?g$/i, 'image/png': /\.png$/i, 'application/pdf': /\.pdf$/i,
+    };
+    return file.size > 0 && file.size <= 10485760 && !!extensions[file.type.toLowerCase()]?.test(file.name);
+  }
+
   create(request: ExpenseCreate): Observable<ExpenseResponse> {
     return this.http.post<ExpenseResponse>(this.endpoint, request);
   }

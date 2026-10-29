@@ -12,14 +12,15 @@ import { environment } from '../../../environments/environment';
 describe('Expense registration and individual consultation', () => {
   let http: HttpTestingController;
   const api = `${environment.apiUrl}/api`;
-  beforeEach(() => {
+  function configure() {
     const layout = routes.find(route => route.canActivate?.includes(authGuard))!;
     TestBed.configureTestingModule({providers: [provideHttpClient(), provideHttpClientTesting(),
       provideRouter(layout.children!)]});
     TestBed.inject(ActiveProjectService).activeProject.set({id:'project',name:'Casa',type:'RENOVATION',
       status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''});
     http = TestBed.inject(HttpTestingController);
-  });
+  }
+  beforeEach(configure);
   afterEach(() => http.verify());
   async function pendingForm() {
     const harness = await open();
@@ -86,6 +87,82 @@ describe('Expense registration and individual consultation', () => {
   function click(harness: RouterTestingHarness, id: string) {
     (harness.routeNativeElement!.querySelector(`[data-testid="${id}"]`) as HTMLElement).click();
     harness.detectChanges();
+  }
+
+  function selectDetailReceipt(harness: RouterTestingHarness, file: File) {
+    const element=harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+    expect(element).withContext('the expense must allow selecting a receipt again').not.toBeNull();
+    const files=new DataTransfer(); files.items.add(file); element.files=files.files;
+    element.dispatchEvent(new Event('change')); harness.detectChanges();
+    return element;
+  }
+  const detailExpense={id:'saved',projectId:'project',description:'Cimento',purchaseDate:'2030-01-01',
+    categoryId:'category',categoryName:'Alvenaria',supplier:{id:'supplier',name:'Loja',document:'12345678000190'},
+    paid:false,dueDate:'2030-01-02',totalPrice:100.25,quantity:null,unitPrice:null};
+  async function detail(state: string) {
+    const harness=await RouterTestingHarness.create('/despesas/saved');
+    http.expectOne(`${api}/expenses/saved`).flush({...detailExpense,receiptState:state});
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]}); harness.detectChanges();
+    return harness;
+  }
+  for (const state of ['NONE','PENDING']) {
+    it(`shows the missing receipt tag for ${state} without claiming an upload failed`, async () => {
+      const harness=await detail(state);
+      expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')?.textContent).toContain('Sem comprovante');
+      expect(harness.routeNativeElement!.textContent).not.toContain('mas o comprovante não foi enviado');
+      expect(harness.routeNativeElement!.querySelector('[data-testid="upload-receipt"]')).not.toBeNull();
+      http.expectNone(request => request.method==='POST' || request.method==='PUT');
+    });
+  }
+  for (const status of [0,503]) {
+    it(`reopens a saved expense after upload failure ${status} and retries only its receipt`, async () => {
+      let harness=await detail('PENDING');
+      const file=new File(['receipt'],'receipt.pdf',{type:'application/pdf'});
+      selectDetailReceipt(harness,file); click(harness,'upload-receipt');
+      const first=http.expectOne(`${api}/expenses/saved/receipt`);
+      expect(first.request.method).toBe('PUT');
+      expect((harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement).disabled).toBeTrue();
+      expect((harness.routeNativeElement!.querySelector('[data-testid="upload-receipt"]') as HTMLButtonElement).disabled).toBeTrue();
+      first.event({type:1,loaded:5,total:10}); harness.detectChanges();
+      expect(harness.routeNativeElement!.querySelector('progress')?.value).toBe(50);
+      if (status===0) first.error(new ProgressEvent('error'));
+      else first.flush({}, {status,statusText:'Unavailable'});
+      harness.detectChanges();
+      expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).not.toBeNull();
+      harness.fixture.destroy();
+      http.verify(); TestBed.resetTestingModule(); configure();
+      harness=await detail('PENDING');
+      expect((harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement).files?.length).toBe(0);
+      click(harness,'upload-receipt'); http.expectNone(request => request.method==='PUT');
+      selectDetailReceipt(harness,file); click(harness,'upload-receipt');
+      http.expectOne(`${api}/expenses/saved/receipt`).flush({}, {status:503,statusText:'Unavailable'});
+      harness.detectChanges();
+      expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).not.toBeNull();
+      selectDetailReceipt(harness,file); click(harness,'upload-receipt');
+      http.expectOne(`${api}/expenses/saved/receipt`).flush({...detailExpense,receiptState:'UPLOADED'}); harness.detectChanges();
+      expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).toBeNull();
+      expect(harness.routeNativeElement!.querySelector('[data-testid="download-receipt"]')).not.toBeNull();
+      expect(harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]')).toBeNull();
+      expect(harness.routeNativeElement!.textContent).not.toContain('mas o comprovante não foi enviado');
+      http.expectNone(request => request.method==='POST');
+    });
+  }
+  for (const status of [400,413]) {
+    it(`keeps format guidance and clears an invalid replacement on receipt retry ${status}`, async () => {
+      const harness=await detail('NONE');
+      selectDetailReceipt(harness,new File(['receipt'],'receipt.pdf',{type:'application/pdf'}));
+      const element=selectDetailReceipt(harness,new File(['bad'],'receipt.png',{type:'application/pdf'}));
+      expect(element.value).toBe(''); click(harness,'upload-receipt');
+      http.expectNone(request => request.method==='PUT');
+      expect(harness.routeNativeElement!.querySelector('[data-testid="receipt-error"]')?.textContent).toContain('JPEG, PNG ou PDF');
+      selectDetailReceipt(harness,new File(['receipt'],'receipt.pdf',{type:'application/pdf'})); click(harness,'upload-receipt');
+      http.expectOne(`${api}/expenses/saved/receipt`).flush({}, {status,statusText:'Rejected'}); harness.detectChanges();
+      expect(harness.routeNativeElement!.querySelector('[data-testid="receipt-error"]')?.textContent).toContain('10 MB (10 MiB)');
+      expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).not.toBeNull();
+      http.expectNone(request => request.method==='POST');
+    });
   }
 
   for (const file of [new File(['text'],'bad.txt',{type:'text/plain'}),
@@ -221,7 +298,7 @@ describe('Expense registration and individual consultation', () => {
     expect(request.request.body.quantity).toBeUndefined();
     const saved = {id:'expense',projectId:'project',description:'Cimento',purchaseDate:'2030-01-01',
       categoryId:'category',categoryName:'Alvenaria',supplier:{id:'supplier',name:'Loja',document:'12345678000190'},
-      totalPrice:100.25,quantity:null,unitPrice:null,paid:true};
+      totalPrice:100.25,quantity:null,unitPrice:null,paid:true,receiptState:'NONE'};
     request.flush(saved,{status:201,statusText:'Created'});
     await harness.fixture.whenStable();
     http.expectOne(`${api}/expenses/expense`).flush(saved);
@@ -230,6 +307,9 @@ describe('Expense registration and individual consultation', () => {
     expect(TestBed.inject(Router).url).toBe('/despesas/expense');
     expect(harness.routeNativeElement!.textContent).toContain('Cimento');
     expect(harness.routeNativeElement!.textContent).toContain('Quitada');
+    expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')?.textContent).toContain('Sem comprovante');
+    expect(harness.routeNativeElement!.textContent).not.toContain('mas o comprovante não foi enviado');
+    http.expectNone(request => request.method === 'PUT');
   });
   for (const scenario of [
     {state:'EXCEEDED',percentage:100,spent:100.25,planned:100.25,alert:true},

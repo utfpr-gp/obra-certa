@@ -168,12 +168,9 @@ export class ExpenseFormComponent {
     if (!file) return;
     const reject = () => {
       input.value = '';
-      this.receiptError.set('Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).');
+      this.receiptError.set(ExpenseService.receiptGuidance);
     };
-    const extensions: Record<string, RegExp> = {
-      'image/jpeg': /\.jpe?g$/i, 'image/png': /\.png$/i, 'application/pdf': /\.pdf$/i,
-    };
-    if (!file.size || file.size > 10485760 || !extensions[file.type.toLowerCase()]?.test(file.name)) { reject(); return; }
+    if (!ExpenseService.validReceipt(file)) { reject(); return; }
     this.receiptFile.set(file);
   }
 
@@ -191,7 +188,7 @@ export class ExpenseFormComponent {
       error: (error: HttpErrorResponse) => {
         this.saving.set(false); this.uploadProgress.set(null);
         if (error.status === 400 || error.status === 413)
-          this.receiptError.set('Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).');
+          this.receiptError.set(ExpenseService.receiptGuidance);
         this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
       },
     });

@@ -76,7 +76,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Migration: nenhuma.
   - Arquivos previstos: validação e configuração de upload, tratamento de erros da API, seletor de arquivo e testes API/web.
 
-- [ ] **Tarefa 7 — Manter tag e permitir reenvio na despesa**
+- [x] **Tarefa 7 — Manter tag e permitir reenvio na despesa**
   - Cobre: CA6 completo e CA7 no reenvio.
   - Teste primeiro: JUnit prova despesa e pagamento preservados após falha do storage, estado recuperável por GET, upload posterior na mesma despesa e ausência de duplicação financeira. Angular simula falha, alerta, tag “Sem comprovante”, destruição/reabertura da consulta e nova seleção/reenvio; sucesso remove tag, nova falha mantém. Provar tag também em despesa criada sem anexo, sem alerta de falha nesse caso.
   - Migration: nenhuma; estado persistente incluído na tarefa 5.

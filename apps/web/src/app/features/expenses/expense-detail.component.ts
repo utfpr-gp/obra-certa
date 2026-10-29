@@ -1,4 +1,5 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BudgetService } from '../../core/services/budget.service';
@@ -40,6 +41,20 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
           @if (expense.receiptState === 'UPLOADED') {
             <button class="btn btn-outline mt-4" data-testid="download-receipt" type="button"
               [disabled]="downloading()" (click)="downloadReceipt()">Consultar comprovante</button>
+          } @else {
+            <span class="badge badge-warning my-3" data-testid="no-receipt">Sem comprovante</span>
+            <label class="form-control mt-4">
+              <span>Comprovante (JPEG, PNG e PDF, até 10 MB — 10 MiB)</span>
+              <input class="file-input file-input-bordered" data-testid="receipt-file" type="file"
+                accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" [disabled]="uploading()"
+                (change)="selectReceipt($event)" />
+            </label>
+            @if (receiptError()) { <p class="text-error" role="alert" data-testid="receipt-error">{{ receiptError() }}</p> }
+            @if (uploadProgress() !== null) {
+              <progress class="progress progress-primary mt-3" max="100" [value]="uploadProgress()" aria-label="Progresso do comprovante"></progress>
+            }
+            <button class="btn btn-outline mt-4" data-testid="upload-receipt" type="button"
+              [disabled]="uploading() || !receiptFile()" (click)="uploadReceipt()">Enviar comprovante</button>
           }
         </article>
         <p class="my-4">Despesa salva. Você pode voltar a esta consulta pelo endereço desta página.</p>
@@ -59,6 +74,10 @@ export class ExpenseDetailComponent {
   readonly loading = signal(true);
   readonly downloading = signal(false);
   readonly errorMessage = signal('');
+  readonly receiptFile = signal<File | null>(null);
+  readonly receiptError = signal('');
+  readonly uploading = signal(false);
+  readonly uploadProgress = signal<number | null>(null);
   constructor() {
     const id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
     this.expenses.get(id).pipe(takeUntilDestroyed()).subscribe({
@@ -71,6 +90,37 @@ export class ExpenseDetailComponent {
         });
       },
       error: () => { this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false); },
+    });
+  }
+  selectReceipt(event: Event): void {
+    if (this.uploading()) return;
+    const input=event.target as HTMLInputElement;
+    const file=input.files?.item(0);
+    this.receiptFile.set(null); this.receiptError.set('');
+    if (!file) return;
+    if (!ExpenseService.validReceipt(file)) {
+      input.value=''; this.receiptError.set(ExpenseService.receiptGuidance); return;
+    }
+    this.receiptFile.set(file);
+  }
+  uploadReceipt(): void {
+    const expense=this.expense(), file=this.receiptFile();
+    if (!expense || expense.receiptState === 'UPLOADED' || !file || this.uploading()) return;
+    this.uploading.set(true); this.uploadProgress.set(0); this.errorMessage.set(''); this.receiptError.set('');
+    this.expenses.uploadReceipt(expense.id,file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: event => {
+        if (event.type === HttpEventType.UploadProgress && event.total)
+          this.uploadProgress.set(Math.round(100*event.loaded/event.total));
+        if (event.type === HttpEventType.Response) {
+          this.expense.set(event.body); this.receiptFile.set(null);
+          this.uploading.set(false); this.uploadProgress.set(null);
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        this.uploading.set(false); this.uploadProgress.set(null);
+        if (error.status === 400 || error.status === 413) this.receiptError.set(ExpenseService.receiptGuidance);
+        this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      },
     });
   }
   downloadReceipt(): void {
