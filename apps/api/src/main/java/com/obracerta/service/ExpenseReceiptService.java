@@ -31,9 +31,9 @@ public class ExpenseReceiptService {
         Expense expense=owned(id);
         if ("UPLOADED".equals(expense.getReceiptState()))
             throw new ReceiptException(HttpStatus.CONFLICT,"Este comprovante já foi enviado. Consulte a despesa.");
-        String type=file.getContentType();
-        if (file.isEmpty() || !EXTENSIONS.containsKey(type==null ? "" : type)) invalid();
-        if (file.getSize()>MAX_BYTES) throw new ReceiptException(HttpStatus.PAYLOAD_TOO_LARGE,"O comprovante deve ter no máximo 10 MB (10 MiB).");
+        String type=file.getContentType()==null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
+        if (file.isEmpty() || !EXTENSIONS.containsKey(type)) invalid();
+        if (file.getSize()>MAX_BYTES) throw new ReceiptException(HttpStatus.PAYLOAD_TOO_LARGE,ReceiptException.FILE_GUIDANCE);
         String name=file.getOriginalFilename()==null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
         boolean extension=name.endsWith("."+EXTENSIONS.get(type)) || (type.equals("image/jpeg") && name.endsWith(".jpeg"));
         if (!extension) invalid();
@@ -60,7 +60,7 @@ public class ExpenseReceiptService {
                 .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada"));
     }
     private static void invalid() {
-        throw new ReceiptException(HttpStatus.BAD_REQUEST,"Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).");
+        throw new ReceiptException(HttpStatus.BAD_REQUEST,ReceiptException.FILE_GUIDANCE);
     }
     public record ReceiptDownload(InputStream content,String contentType,String filename,long length) {}
 }

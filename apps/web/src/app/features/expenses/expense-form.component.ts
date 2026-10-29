@@ -1,4 +1,4 @@
-import { HttpEventType } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -34,6 +34,7 @@ export class ExpenseFormComponent {
   readonly errorMessage = signal('');
   readonly saving = signal(false);
   readonly receiptFile = signal<File | null>(null);
+  readonly receiptError = signal('');
   readonly uploadProgress = signal<number | null>(null);
   readonly savedExpenseId = signal<string | null>(null);
   readonly inlineSupplier = signal(false);
@@ -160,7 +161,20 @@ export class ExpenseFormComponent {
   }
 
   selectReceipt(event: Event): void {
-    this.receiptFile.set((event.target as HTMLInputElement).files?.item(0) ?? null);
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.item(0);
+    this.receiptFile.set(null);
+    this.receiptError.set('');
+    if (!file) return;
+    const reject = () => {
+      input.value = '';
+      this.receiptError.set('Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).');
+    };
+    const extensions: Record<string, RegExp> = {
+      'image/jpeg': /\.jpe?g$/i, 'image/png': /\.png$/i, 'application/pdf': /\.pdf$/i,
+    };
+    if (!file.size || file.size > 10485760 || !extensions[file.type.toLowerCase()]?.test(file.name)) { reject(); return; }
+    this.receiptFile.set(file);
   }
 
   private uploadReceipt(id: string, file: File): void {
@@ -174,8 +188,10 @@ export class ExpenseFormComponent {
           void this.router.navigate(['/despesas',id]);
         }
       },
-      error: () => {
+      error: (error: HttpErrorResponse) => {
         this.saving.set(false); this.uploadProgress.set(null);
+        if (error.status === 400 || error.status === 413)
+          this.receiptError.set('Selecione um comprovante JPEG, PNG ou PDF de até 10 MB (10 MiB).');
         this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
       },
     });

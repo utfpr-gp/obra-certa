@@ -108,6 +108,9 @@
           [disabled]="saving() || !!savedExpenseId()" aria-describedby="receipt-help" />
       </label>
       <p id="receipt-help" class="text-sm">JPEG, PNG e PDF. Até 10 MB (10 MiB = 10.485.760 bytes).</p>
+      @if (receiptError()) {
+        <p role="alert" data-testid="receipt-error" class="text-error text-sm">{{ receiptError() }}</p>
+      }
       @if (uploadProgress() !== null) {
         <div role="status" aria-live="polite">Enviando comprovante: {{ uploadProgress() }}%
           <progress class="progress progress-primary" [value]="uploadProgress()" max="100" aria-label="Envio do comprovante"></progress>

@@ -80,13 +80,7 @@ class ExpenseReceiptIntegrationTest {
     void uploadsAndReadsPrivateReceipt(String extension, String type) throws Exception {
         String id=create(body().put("receiptExpected",true));
         mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value("PENDING"));
-        byte[] bytes;
-        if (extension.equals("pdf")) bytes=("%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-                +"2 0 obj\n<< /Type /Pages /Count 0 /Kids [] >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n").getBytes();
-        else {
-            var image=new java.awt.image.BufferedImage(1,1,java.awt.image.BufferedImage.TYPE_INT_RGB);
-            var output=new java.io.ByteArrayOutputStream(); javax.imageio.ImageIO.write(image,extension,output); bytes=output.toByteArray();
-        }
+        byte[] bytes="receipt bytes".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         var file=new org.springframework.mock.web.MockMultipartFile("file","../../receipt."+extension,type,bytes);
         mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.receiptState").value("UPLOADED"))
@@ -95,30 +89,48 @@ class ExpenseReceiptIntegrationTest {
                 .andExpect(content().bytes(bytes)).andExpect(content().contentType(type))
                 .andExpect(header().string("Content-Disposition",org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("../"))));
     }
+
+    @ParameterizedTest
+    @CsvSource({"receipt.txt,text/plain,text", "receipt.pdf,image/png,text", "receipt.png,application/pdf,text",
+            "receipt.jpg,image/png,text", "receipt.gif,image/gif,text", "receipt.pdf,,text",
+            "receipt.pdf,application/pdf,empty", "receipt.pdf,application/pdf,large"})
+    void rejectsInvalidReceiptWithoutStorageOrFinancialChanges(String filename, String type, String content) throws Exception {
+        var request=body().put("receiptExpected",true).put("paid",false).put("dueDate","2030-01-02");
+        var response=mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(request.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse();
+        String id=json.readTree(response.getContentAsString()).get("id").asText();
+        byte[] bytes=switch(content) {
+            case "empty" -> new byte[0];
+            case "large" -> new byte[10485761];
+            default -> "not a receipt".getBytes();
+        };
+        org.mockito.Mockito.clearInvocations(storage);
+        mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(new org.springframework.mock.web.MockMultipartFile(
+                "file",filename,type,bytes)).with(r -> {r.setMethod("PUT"); return r;}))
+                .andExpect(status().is(content.equals("large") ? 413 : 400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("JPEG, PNG ou PDF")))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("10 MB")));
+        org.mockito.Mockito.verifyNoInteractions(storage);
+        assertThat(objects).isEmpty();
+        mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value("PENDING"))
+                .andExpect(jsonPath("$.paid").value(false)).andExpect(jsonPath("$.totalPrice").value(100.25))
+                .andExpect(jsonPath("$.dueDate").value("2030-01-02"));
+        assertThat(jdbc.queryForObject("select count(*) from pending_payments where expense_id=?",Long.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select receipt_key from expenses where id=?",String.class,id)).isNull();
+    }
+    @ParameterizedTest
+    @CsvSource({"receipt.jpg,image/jpeg", "receipt.JPEG,IMAGE/JPEG", "receipt.PNG,image/png", "receipt.PDF,application/pdf"})
+    void acceptsDeclaredTypeAndSizeWithoutInspectingContent(String filename, String type) throws Exception {
+        String id=create(body().put("receiptExpected",true));
+        byte[] bytes="arbitrary bytes without a file signature".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(new org.springframework.mock.web.MockMultipartFile(
+                "file",filename,type,bytes)).with(r -> {r.setMethod("PUT"); return r;}))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.receiptState").value("UPLOADED"));
+        assertThat(objects.values()).singleElement().isEqualTo(bytes);
+    }
     @Test void acceptsExactlyTenMebibytes() throws Exception {
         String id=create(body().put("receiptExpected",true));
-        // A complete one-page PDF, padded with legal whitespace before its cross-reference table.
-        var document=new StringBuilder("%PDF-1.7\n");
-        String[] definitions={"<< /Type /Catalog /Pages 2 0 R >>",
-                "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>"};
-        int[] offsets=new int[4];
-        for (int index=1;index<=3;index++) {
-            offsets[index]=document.length();
-            document.append(index).append(" 0 obj\n").append(definitions[index-1]).append("\nendobj\n");
-        }
-        var table=new StringBuilder("xref\n0 4\n0000000000 65535 f \n");
-        for (int index=1;index<=3;index++)
-            table.append(String.format(java.util.Locale.ROOT,"%010d 00000 n \n",offsets[index]));
-        java.util.function.IntFunction<String> trailer=position -> table
-                +"trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n"
-                +String.format(java.util.Locale.ROOT,"%010d",position)+"\n%%EOF\n";
-        byte[] bytes=new byte[10485760]; java.util.Arrays.fill(bytes,(byte)' ');
-        byte[] header=document.toString().getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-        int xrefPosition=bytes.length-trailer.apply(0).length();
-        byte[] ending=trailer.apply(xrefPosition).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-        System.arraycopy(header,0,bytes,0,header.length); bytes[xrefPosition-1]='\n';
-        System.arraycopy(ending,0,bytes,xrefPosition,ending.length);
+        byte[] bytes=new byte[10485760];
         mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(new org.springframework.mock.web.MockMultipartFile(
                 "file","receipt.pdf","application/pdf",bytes)).with(r -> {r.setMethod("PUT"); return r;}))
                 .andExpect(status().isOk());
@@ -146,7 +158,7 @@ class ExpenseReceiptIntegrationTest {
                     ((java.io.InputStream)invocation.getArgument(1)).readAllBytes()); return null; })
                 .when(storage).put(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anyString());
-        var file=new org.springframework.mock.web.MockMultipartFile("file","receipt.pdf","application/pdf","%PDF-1.7".getBytes());
+        var file=new org.springframework.mock.web.MockMultipartFile("file","receipt.pdf","application/pdf","receipt bytes".getBytes());
         mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
                 .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.status").value(503));
         mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value("PENDING"));

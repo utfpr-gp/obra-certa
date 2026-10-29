@@ -13,6 +13,13 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ApiErrorResponse handleMultipartSize(HttpServletRequest request) {
+        return new ApiErrorResponse(Instant.now(),413,HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase(),
+                ReceiptException.FILE_GUIDANCE,request.getRequestURI(),List.of());
+    }
+
     @ExceptionHandler(ReceiptException.class)
     public org.springframework.http.ResponseEntity<ApiErrorResponse> handleReceipt(
             ReceiptException exception, HttpServletRequest request) {
