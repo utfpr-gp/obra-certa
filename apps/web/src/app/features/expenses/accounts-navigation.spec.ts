@@ -35,7 +35,7 @@ describe('Accounts navigation', () => {
     http.expectOne(`${environment.apiUrl}/api/suppliers`).flush([]);
     http.expectOne(`${environment.apiUrl}/api/budgets?projectId=project`).flush({projectId:'project',categories:[]});
     harness.detectChanges();
-    expect(TestBed.inject(Router).url).toBe('/despesas/nova');
+    expect(TestBed.inject(Router).url).toBe('/contas/nova');
     expect(harness.routeNativeElement?.querySelector('input[formControlName="description"]')).not.toBeNull();
     http.verify();
   });
@@ -48,5 +48,47 @@ describe('Accounts navigation', () => {
     await harness.fixture.whenStable();
     expect(TestBed.inject(Router).url).toBe('/');
     expect(harness.routeNativeElement?.querySelector('input[formControlName="email"]')).not.toBeNull();
+  });
+
+  it('opens the registration form directly at the canonical address', async () => {
+    TestBed.configureTestingModule({providers: [provideRouter(routes), provideHttpClient(),
+      provideHttpClientTesting(),
+      {provide: Auth, useValue: {isAuthenticated: () => true, getToken: () => null}},
+      {provide: ProjectService, useValue: {getProjects: () => of([])}}]});
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/contas/nova');
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/api/expense-categories`).flush([]);
+    http.expectOne(`${environment.apiUrl}/api/suppliers`).flush([]);
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/contas/nova');
+    expect(harness.routeNativeElement?.textContent).toContain('Selecione ou cadastre uma obra');
+    http.verify();
+  });
+
+  it('requires authentication before opening the canonical registration address', async () => {
+    TestBed.configureTestingModule({providers: [provideRouter(routes), provideHttpClient(),
+      {provide: Auth, useValue: {isAuthenticated: () => false}}]});
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/contas/nova');
+    await harness.fixture.whenStable();
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(harness.routeNativeElement?.querySelector('input[formControlName="email"]')).not.toBeNull();
+  });
+
+  it('redirects the legacy registration address to the canonical address', async () => {
+    TestBed.configureTestingModule({providers: [provideRouter(routes), provideHttpClient(),
+      provideHttpClientTesting(),
+      {provide: Auth, useValue: {isAuthenticated: () => true, getToken: () => null}},
+      {provide: ProjectService, useValue: {getProjects: () => of([])}}]});
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/despesas/nova');
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/api/expense-categories`).flush([]);
+    http.expectOne(`${environment.apiUrl}/api/suppliers`).flush([]);
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/contas/nova');
+    expect(harness.routeNativeElement?.textContent).toContain('Selecione ou cadastre uma obra');
+    http.verify();
   });
 });

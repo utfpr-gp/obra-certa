@@ -68,7 +68,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A(["«pessoa» acessa Contas a pagar e clica em 'Cadastrar conta'<br/>/despesas/nova"]) --> B{"Categoria possui teto<br/>definido na obra?"}
+    A(["«pessoa» acessa Contas a pagar e clica em 'Cadastrar conta'<br/>/contas/nova"]) --> B{"Categoria possui teto<br/>definido na obra?"}
     
     B -->|"não ou zerado"| X1[["Aviso não bloqueante e atalho Definir teto"]] --> C
     B -->|"sim"| C["«pessoa» preenche categoria, descrição, data e fornecedor;<br/>escolhe valor direto ou quantidade e preço unitário"]
@@ -109,10 +109,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A(["«pessoa» clica em link direto protegido<br/>ex: /despesas/nova"]) --> B{"authGuard verifica:<br/>Existe Token JWT válido?"}
+    A(["«pessoa» clica em link direto protegido<br/>ex: /contas/nova"]) --> B{"authGuard verifica:<br/>Existe Token JWT válido?"}
     
     B -->|"sim"| C["Acesso liberado diretamente à tela"]
-    B -->|"não"| D["authGuard salva rota de destino<br/>(returnUrl = /despesas/nova)"]
+    B -->|"não"| D["authGuard salva rota de destino<br/>(returnUrl = /contas/nova)"]
     
     D --> E["Redireciona para /login"]
     E --> F["«pessoa» informa E-mail e Senha"]
@@ -123,7 +123,7 @@ flowchart TD
     G -->|"sim"| H["Armazena Token JWT"]
     
     H --> I{"Existe returnUrl salva?"}
-    I -->|"sim"| J(["Redireciona para returnUrl<br/>(/despesas/nova)"])
+    I -->|"sim"| J(["Redireciona para returnUrl<br/>(/contas/nova)"])
     I -->|"não"| K(["Redireciona para /home (Dashboard)"])
 
     style X1 fill:#ffe0e0,stroke:#c62828
@@ -131,4 +131,4 @@ flowchart TD
 
 ### 🛡️ Decisões de Projeto para o Nó Vermelho da Jornada 3:
 
-- **Nó 🔴 X1 (Usuário não cadastrado e perda de destino):** Ao clicar em *"Criar Conta"* a partir da tela de login, o parâmetro `?returnUrl=/despesas/nova` é propagado para a rota `/register`. Após concluir o cadastro com sucesso e realizar o primeiro login, o sistema recupera o parâmetro e entrega o usuário exatamente na tela onde ele queria chegar inicialmente, garantindo uma experiência contínua e sem atritos.
+- **Nó 🔴 X1 (Usuário não cadastrado e perda de destino):** Ao clicar em *"Criar Conta"* a partir da tela de login, o parâmetro `?returnUrl=/contas/nova` é propagado para a rota `/register`. Após concluir o cadastro com sucesso e realizar o primeiro login, o sistema recupera o parâmetro e entrega o usuário exatamente na tela onde ele queria chegar inicialmente, garantindo uma experiência contínua e sem atritos.

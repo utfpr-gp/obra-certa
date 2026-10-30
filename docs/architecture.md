@@ -443,10 +443,11 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 | `GET /api/expenses/{id}/receipt` | `200`, arquivo | Leitura autenticada, com nome seguro, `no-store` e `nosniff`. |
 
 - Serviço valida obra ativa do proprietário, categoria e fornecedor. Leituras e upload recusam obra/despesa excluída; recurso alheio ou inexistente retorna `404`, antes de acessar storage.
+- No cadastro inline, nome do fornecedor é obrigatório e CNPJ é opcional. A tela aplica máscara `00.000.000/0000-00`; a API valida 14 dígitos quando preenchido e normaliza a pontuação. Ausência de documento é persistida como `NULL` e não é usada para reutilizar fornecedores. A coluna já aceita nulo; nenhuma migration adicional é necessária.
 - Modo direto exige total; modo calculado exige quantidade e valor unitário, calcula com `BigDecimal` e arredonda o total com `HALF_UP`. Pagamento a prazo exige vencimento igual ou posterior à compra. Gastos continuam no agregado da US07; alertas de teto ausente ou consumo de pelo menos 100% não bloqueiam a gravação.
 - Comprovantes: MIME declarado e extensão correspondente JPEG/PNG/PDF; arquivo não vazio e até 10 MiB (10 × 1024 × 1024 bytes). Sem inspeção de bytes, decodificação de imagens ou biblioteca de PDF. Tipo inválido retorna `400`; tamanho excedido, `413`.
 - Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado e listagem completa ficam para histórias posteriores.
-- Entrada: `/contas` → “Cadastrar conta” → `/despesas/nova`; consulta individual em `/despesas/:id`.
+- Entrada: `/contas` → “Cadastrar conta” → `/contas/nova`; consulta individual em `/despesas/:id`.
 
 ---
 

@@ -10,7 +10,7 @@ export interface ExpenseCreate {
   purchaseDate: string;
   categoryId: string;
   supplierId?: string;
-  newSupplier?: { name: string; document: string };
+  newSupplier?: { name: string; document?: string | null };
   paid: boolean;
   dueDate?: string;
   valueMode: 'DIRECT' | 'CALCULATED';

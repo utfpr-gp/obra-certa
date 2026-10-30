@@ -71,7 +71,7 @@ describe('Expense registration and individual consultation', () => {
     request.flush({}, {status:400,statusText:'Bad Request'});
   });
   async function open() {
-    const harness = await RouterTestingHarness.create('/despesas/nova');
+    const harness = await RouterTestingHarness.create('/contas/nova');
     http.expectOne(`${api}/expense-categories`).flush([{id:'category',name:'Alvenaria'}]);
     http.expectOne(`${api}/suppliers`).flush([{id:'supplier',name:'Loja',document:'12345678000190'}]);
     http.expectOne(`${api}/budgets?projectId=project`).flush({projectId:'project',categories:[]});
@@ -143,6 +143,13 @@ describe('Expense registration and individual consultation', () => {
     http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]}); harness.detectChanges();
     return harness;
   }
+  it('shows a missing CNPJ in the expense detail without an empty value', async () => {
+    const harness=await RouterTestingHarness.create('/despesas/saved');
+    http.expectOne(`${api}/expenses/saved`).flush({...detailExpense,receiptState:'NONE',
+      supplier:{id:'supplier',name:'Loja sem CNPJ',document:null}});
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]}); harness.detectChanges();
+    expect(harness.routeNativeElement!.textContent).toContain('Não informado');
+  });
   for (const state of ['NONE','PENDING']) {
     it(`shows the missing receipt tag for ${state} without claiming an upload failed`, async () => {
       const harness=await detail(state);
@@ -262,7 +269,7 @@ describe('Expense registration and individual consultation', () => {
       expect(harness.routeNativeElement!.querySelector('[data-testid="receipt-error"]')?.textContent).toContain('10 MB (10 MiB)');
       expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
       expect(harness.routeNativeElement!.querySelector('progress')).toBeNull();
-      expect(TestBed.inject(Router).url).toBe('/despesas/nova');
+      expect(TestBed.inject(Router).url).toBe('/contas/nova');
       expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();
       click(harness,'save-expense'); http.expectNone(request => request.method==='POST');
     });
@@ -413,13 +420,59 @@ describe('Expense registration and individual consultation', () => {
     expect(request.request.body.totalPrice).toBeUndefined();
     request.flush({}, {status:400,statusText:'Bad Request'});
   });
-  it('requires both positive calculated fields and inline supplier name and CNPJ', async () => {
+  it('requires both positive calculated fields and inline supplier name', async () => {
     const harness = await open();
     input(harness,'description','Cimento'); input(harness,'purchaseDate','2026-10-27');
     input(harness,'categoryId','category'); input(harness,'valueMode','CALCULATED');
     click(harness,'inline-supplier'); input(harness,'quantity','0');
     click(harness,'save-expense');
-    expect(harness.routeNativeElement!.querySelectorAll('[aria-invalid="true"]').length).toBeGreaterThanOrEqual(4);
+    expect(harness.routeNativeElement!.querySelectorAll('[aria-invalid="true"]').length).toBe(3);
     http.expectNone(`${api}/expenses`);
+  });
+  it('progressively masks typed CNPJ digits, supports paste, truncates and clears', async () => {
+    const harness = await open(); click(harness,'inline-supplier');
+    const field = harness.routeNativeElement!.querySelector('[formControlName="supplierDocument"]') as HTMLInputElement;
+    expect(field.inputMode).toBe('numeric'); expect(field.maxLength).toBe(18);
+    expect(field.getAttribute('aria-required')).toBeNull();
+    expect(field.closest('label')!.textContent).toContain('opcional');
+    expect(field.closest('label')!.textContent).not.toContain('*');
+    const expected = ['1','12','12.3','12.34','12.345','12.345.6','12.345.67','12.345.678',
+      '12.345.678/0','12.345.678/00','12.345.678/000','12.345.678/0001','12.345.678/0001-9','12.345.678/0001-90'];
+    for (const [index,digit] of Array.from('12345678000190').entries()) {
+      input(harness,'supplierDocument',field.value + digit); expect(field.value).toBe(expected[index]);
+    }
+    for (const pasted of ['12345678000190','12.345.678/0001-90','12345678000190999']) {
+      input(harness,'supplierDocument',pasted); expect(field.value).toBe('12.345.678/0001-90');
+    }
+    input(harness,'supplierDocument','12.345.678/0001-9'); expect(field.value).toBe('12.345.678/0001-9');
+    input(harness,'supplierDocument',''); expect(field.value).toBe('');
+    expect((harness.routeDebugElement!.componentInstance as ExpenseFormComponent).form.controls.supplierDocument.value).toBe('');
+  });
+  it('keeps the caret near an edit within the formatted CNPJ', async () => {
+    const harness = await open(); click(harness,'inline-supplier');
+    const field = harness.routeNativeElement!.querySelector('[formControlName="supplierDocument"]') as HTMLInputElement;
+    input(harness,'supplierDocument','12345678000190');
+    field.value = '12.945.678/0001-90'; field.setSelectionRange(4,4);
+    field.dispatchEvent(new Event('input')); harness.detectChanges();
+    expect(field.value).toBe('12.945.678/0001-90'); expect(field.selectionStart).toBe(4);
+    field.value = '12945.678/0001-90'; field.setSelectionRange(2,2);
+    field.dispatchEvent(new InputEvent('input',{inputType:'deleteContentBackward'})); harness.detectChanges();
+    expect(field.value).toBe('19.456.780/0019-0'); expect(field.selectionStart).toBe(1);
+  });
+  it('saves an inline supplier without CNPJ but rejects a partial CNPJ and still requires its name', async () => {
+    const harness = await open();
+    input(harness,'description','Cimento'); input(harness,'purchaseDate','2030-01-01');
+    input(harness,'categoryId','category'); input(harness,'totalPrice','100'); click(harness,'inline-supplier');
+    click(harness,'save-expense');
+    expect(harness.routeNativeElement!.querySelector('[formControlName="supplierName"]')!.getAttribute('aria-invalid')).toBe('true');
+    expect(harness.routeNativeElement!.querySelector('[formControlName="supplierDocument"]')!.getAttribute('aria-invalid')).toBe('false');
+    http.expectNone(`${api}/expenses`);
+    input(harness,'supplierName','Loja sem CNPJ'); input(harness,'supplierDocument','123'); click(harness,'save-expense');
+    expect(harness.routeNativeElement!.textContent).toContain('Informe um CNPJ de 14 dígitos'); http.expectNone(`${api}/expenses`);
+    input(harness,'supplierDocument',''); click(harness,'save-expense');
+    const post = http.expectOne(`${api}/expenses`);
+    expect(post.request.body.newSupplier.name).toBe('Loja sem CNPJ');
+    expect(post.request.body.newSupplier.document || null).toBeNull();
+    post.flush({}, {status:400,statusText:'Bad Request'});
   });
 });

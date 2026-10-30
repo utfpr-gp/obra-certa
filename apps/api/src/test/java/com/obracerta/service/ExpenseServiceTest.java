@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +48,16 @@ class ExpenseServiceTest {
                 "supplier", null, true, mode, number(quantity), number(unitPrice), number(total), null, false);
     }
     BigDecimal number(String value) { return value == null ? null : new BigDecimal(value); }
+    @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"   \t"})
+    void createsSupplierWithNullDocumentWithoutLookingUpAnAbsentCnpj(String document) {
+        when(suppliers.save(any())).thenAnswer(call -> call.getArgument(0));
+        var request = new ExpenseCreateDTO("project", "Cimento", LocalDate.of(2030,1,1), "category",
+                null, new ExpenseCreateDTO.NewSupplierDTO("Loja",document), true,"DIRECT",null,null,
+                new BigDecimal("1.00"),null,false);
+        assertThat(service.create(request).supplier().document()).isNull();
+        verify(suppliers,never()).findFirstByUserIdAndDocument(any(),any());
+        verify(suppliers).save(argThat(saved -> saved.getDocument()==null && saved.getName().equals("Loja")));
+    }
     @Test void createsDirectWithoutQuantityOrBudget() {
         var result = service.create(request("DIRECT", null, null, "100.25"));
         assertThat(result.totalPrice()).isEqualByComparingTo("100.25");

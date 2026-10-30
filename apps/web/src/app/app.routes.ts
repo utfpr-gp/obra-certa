@@ -28,7 +28,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: 'contas', component: AccountsPageComponent },
-      { path: 'despesas/nova', component: ExpenseFormComponent },
+      { path: 'contas/nova', component: ExpenseFormComponent },
+      { path: 'despesas/nova', redirectTo: 'contas/nova', pathMatch: 'full' },
       { path: 'despesas/:id', component: ExpenseDetailComponent },
       {
         path: 'home',

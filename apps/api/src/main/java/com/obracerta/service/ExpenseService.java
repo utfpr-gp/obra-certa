@@ -59,11 +59,15 @@ public class ExpenseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Fornecedor não encontrado"));
         else {
             var input=request.newSupplier();
-            String document=input.document()==null ? "" : input.document().replaceAll("[./\\-\\s]","");
+            String document=input.document()==null || input.document().isBlank()
+                    ? null : input.document().replaceAll("[./\\-\\s]","");
             if (input.name()==null || input.name().isBlank() || input.name().trim().length()>255
-                    || !document.matches("[0-9]{14}")) invalid("Informe nome e CNPJ de 14 dígitos do fornecedor.");
-            supplier=suppliers.findFirstByUserIdAndDocument(owner.getId(),document).orElseGet(() ->
-                    suppliers.save(Supplier.builder().user(owner).name(input.name().trim()).document(document).build()));
+                    || (document!=null && !document.matches("[0-9]{14}")))
+                invalid("Informe o nome e, se preenchido, CNPJ de 14 dígitos do fornecedor.");
+            supplier=document==null
+                    ? suppliers.save(Supplier.builder().user(owner).name(input.name().trim()).document(null).build())
+                    : suppliers.findFirstByUserIdAndDocument(owner.getId(),document).orElseGet(() ->
+                        suppliers.save(Supplier.builder().user(owner).name(input.name().trim()).document(document).build()));
         }
         Expense expense=Expense.builder().user(owner).project(project).category(category).supplier(supplier)
                 .budget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(),category.getId()).orElse(null))

@@ -29,7 +29,7 @@ describe('SidebarComponent', () => {
   it('keeps accounts as the entry to registration without a standalone registration item', () => {
     const menu = fixture.nativeElement as HTMLElement;
     expect(menu.textContent).not.toContain('Cadastrar despesa');
-    expect(menu.querySelector('a[href="/despesas/nova"]')).toBeNull();
+    expect(menu.querySelector('a[href="/contas/nova"]')).toBeNull();
     expect(menu.querySelector('a[href="/contas"]')?.textContent).toContain('Contas a Pagar');
   });
 

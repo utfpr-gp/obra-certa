@@ -10,5 +10,5 @@ public record ExpenseCreateDTO(@NotBlank String projectId, @NotBlank String desc
         @NotBlank String valueMode, BigDecimal quantity, BigDecimal unitPrice, BigDecimal totalPrice,
         LocalDate dueDate, Boolean receiptExpected) {
     public record NewSupplierDTO(@NotBlank @Size(max=255) String name,
-            @NotBlank @Pattern(regexp="[0-9./\\-\\s]+") String document) {}
+            @Pattern(regexp="[0-9./\\-\\s]*") String document) {}
 }

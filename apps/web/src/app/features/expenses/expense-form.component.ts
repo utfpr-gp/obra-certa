@@ -162,7 +162,7 @@ export class ExpenseFormComponent {
     controls.unitPrice.setValidators(calculated ? [Validators.required, positiveDecimal(13)] : []);
     controls.supplierId.setValidators(this.inlineSupplier() ? [] : [Validators.required]);
     controls.supplierName.setValidators(this.inlineSupplier() ? [Validators.required, Validators.pattern(/\S/), Validators.maxLength(255)] : []);
-    controls.supplierDocument.setValidators(this.inlineSupplier() ? [Validators.required, cnpjFormat] : []);
+    controls.supplierDocument.setValidators(this.inlineSupplier() ? [cnpjFormat] : []);
     for (const control of Object.values(controls)) control.updateValueAndValidity({ emitEvent: false });
   }
 
@@ -183,6 +183,31 @@ export class ExpenseFormComponent {
     this.form.controls[field].setValue(digits ? cents / 100 : null);
     this.form.controls[field].markAsDirty();
     input.value = this.money(this.form.controls[field].value);
+  }
+
+  onCnpjInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const caret = input.selectionStart ?? input.value.length;
+    let digitsBeforeCaret = input.value.slice(0,caret).replace(/\D/g,'').length;
+    let digits = input.value.replace(/\D/g,'').slice(0,14);
+    const format = (value: string) => value.replace(/^(\d{2})(\d)/,'$1.$2')
+      .replace(/^(\d{2}\.\d{3})(\d)/,'$1.$2')
+      .replace(/^(\d{2}\.\d{3}\.\d{3})(\d)/,'$1/$2')
+      .replace(/(\/\d{4})(\d)/,'$1-$2');
+    // Backspace over a separator also removes the preceding digit, so the mask cannot trap the cursor.
+    if ((event as InputEvent).inputType === 'deleteContentBackward' && caret > 0
+        && /[./-]/.test(format(digits).charAt(caret)) && !/[./-]/.test(input.value.charAt(caret))) {
+      digits = digits.slice(0,digitsBeforeCaret-1) + digits.slice(digitsBeforeCaret);
+      digitsBeforeCaret--;
+    }
+    const formatted = format(digits);
+    this.form.controls.supplierDocument.setValue(formatted);
+    this.form.controls.supplierDocument.markAsDirty();
+    input.value = formatted;
+    let position = 0;
+    for (let count = 0; position < formatted.length && count < digitsBeforeCaret; position++)
+      if (/\d/.test(formatted[position])) count++;
+    input.setSelectionRange(position,position);
   }
 
   selectReceipt(event: Event): void {
@@ -268,5 +293,6 @@ function positiveDecimal(integers: number) {
   };
 }
 function cnpjFormat(control: AbstractControl): ValidationErrors | null {
-  return /^\d{14}$/.test(String(control.value).replace(/[./\s-]/g,'')) ? null : {invalidCnpj: true};
+  const value = String(control.value ?? '');
+  return !value.trim() || /^\d{14}$/.test(value.replace(/[./\s-]/g,'')) ? null : {invalidCnpj: true};
 }

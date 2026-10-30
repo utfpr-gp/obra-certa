@@ -35,7 +35,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
               <div><dt class="font-semibold">Vencimento</dt><dd>{{ date(expense.dueDate) }}</dd></div>
             }
             <div><dt class="font-semibold">Fornecedor</dt><dd>{{ expense.supplier.name }}</dd></div>
-            <div><dt class="font-semibold">CNPJ</dt><dd>{{ expense.supplier.document }}</dd></div>
+            <div><dt class="font-semibold">CNPJ</dt><dd>{{ expense.supplier.document || 'Não informado' }}</dd></div>
             @if (expense.quantity !== null) {
               <div><dt class="font-semibold">Quantidade</dt><dd>{{ expense.quantity }}</dd></div>
               <div><dt class="font-semibold">Valor unitário</dt><dd>{{ money(expense.unitPrice!) }}</dd></div>
@@ -63,7 +63,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
         </article>
         <p class="my-4">Despesa salva. Você pode voltar a esta consulta pelo endereço desta página.</p>
       }
-      <a class="btn btn-primary mt-4" routerLink="/despesas/nova">Nova despesa</a>
+      <a class="btn btn-primary mt-4" routerLink="/contas/nova">Nova despesa</a>
       <a class="btn btn-ghost mt-4" routerLink="/orcamentos">Ver orçamento</a>
     </section>
   `,

@@ -115,7 +115,7 @@
 **Critérios de Aceitação:**
 1. **Caminho Feliz (Despesa quitada por cálculo ou valor direto):**
    - **Dado** que o proprietário está na área de lançamento de uma obra de sua propriedade,
-   - **Quando** informa descrição, data da despesa (presente, passada ou futura planejada), seleciona uma categoria pré-definida, seleciona um fornecedor existente ou cadastra um novo inline (com nome e CNPJ), assinala como quitada e preenche:
+   - **Quando** informa descrição, data da despesa (presente, passada ou futura planejada), seleciona uma categoria pré-definida, seleciona um fornecedor existente ou cadastra um novo inline (nome obrigatório e CNPJ opcional, com máscara `00.000.000/0000-00` e validação de 14 dígitos quando preenchido), assinala como quitada e preenche:
      - ou `quantidade > 0` e `valor unitário > 0` (sistema calcula o total automaticamente);
      - ou `valor total > 0` diretamente;
    - **Então** o sistema grava a despesa associada à obra e atualiza o montante consumido da categoria correspondente.

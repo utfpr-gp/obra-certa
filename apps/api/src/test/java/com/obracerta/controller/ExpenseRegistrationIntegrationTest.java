@@ -65,6 +65,43 @@ class ExpenseRegistrationIntegrationTest {
         assertThat(response.getHeader("Location")).isEqualTo("/api/expenses/"+id);
         return id;
     }
+    @ParameterizedTest @ValueSource(strings={"omitted", "null", "", "   \t"})
+    void acceptsMissingCnpjAsNullAndCreatesSeparateInlineSuppliers(String document) throws Exception {
+        var payload = body();
+        var input = (ObjectNode) payload.get("newSupplier");
+        if (document.equals("omitted")) input.remove("document");
+        else if (document.equals("null")) input.putNull("document");
+        else input.put("document", document);
+        String first = create(payload);
+        input.put("name", "Outra loja sem CNPJ");
+        String second = create(payload);
+        expenses.flush();
+        String firstSupplier = jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,first);
+        String secondSupplier = jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,second);
+        assertThat(secondSupplier).isNotEqualTo(firstSupplier);
+        for (String supplier : java.util.List.of(firstSupplier,secondSupplier))
+            assertThat(jdbc.queryForObject("select document from suppliers where id=?",String.class,supplier)).isNull();
+        mvc.perform(get("/api/expenses/"+second)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.supplier.name").value("Outra loja sem CNPJ"))
+                .andExpect(jsonPath("$.supplier.document").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(get("/api/suppliers")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+    }
+    @ParameterizedTest @ValueSource(strings={"123", "12.345.678/0001-9", "123456780001900", "./-", "abc", "1234567800019a"})
+    void rejectsFilledInvalidCnpjWithoutAnyWrite(String document) throws Exception {
+        var payload = body(); ((ObjectNode) payload.get("newSupplier")).put("document",document);
+        long supplierCount = suppliers.count(); long expenseCount = expenses.count();
+        mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(payload.toString()))
+                .andExpect(status().isBadRequest());
+        assertThat(suppliers.count()).isEqualTo(supplierCount); assertThat(expenses.count()).isEqualTo(expenseCount);
+    }
+    @Test void normalizesFilledCnpjAndReusesOnlyItsOwnersMatchingSupplier() throws Exception {
+        String first = create(body());
+        var payload = body(); ((ObjectNode) payload.get("newSupplier")).put("document","12345678000190");
+        String second = create(payload); expenses.flush();
+        assertThat(jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,first))
+                .isEqualTo(jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,second));
+        assertThat(suppliers.count()).isEqualTo(1);
+    }
     @Test void persistsInTheValidatedPayloadProjectWhenAnotherProjectIsSelectedForTheNextOperation() throws Exception {
         Project original = project;
         ObjectNode originalPayload = body();
