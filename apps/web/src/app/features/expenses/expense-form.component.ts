@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -27,7 +27,10 @@ export class ExpenseFormComponent {
   private readonly budgetService = inject(BudgetService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  readonly activeProject = inject(ActiveProjectService).activeProject;
+  private readonly projects = inject(ActiveProjectService);
+  readonly activeProject = this.projects.activeProject;
+  private contextVersion = this.projects.contextVersion();
+  private readonly receiptInput = viewChild<ElementRef<HTMLInputElement>>('receiptInput');
   readonly categories = signal<ExpenseCategory[]>([]);
   readonly suppliers = signal<ExpenseSupplier[]>([]);
   readonly loading = signal(true);
@@ -76,19 +79,40 @@ export class ExpenseFormComponent {
       this.form.controls.dueDate.updateValueAndValidity({ emitEvent: false }));
     this.loadOptions();
     this.loadBudgets();
+    effect(() => {
+      const version = this.projects.contextVersion();
+      untracked(() => this.synchronizeContext(version));
+    });
+  }
+
+  private synchronizeContext(version = this.projects.contextVersion()): void {
+    if (this.contextVersion === version) return;
+    this.contextVersion = version;
+    this.form.reset(); this.inlineSupplier.set(false); this.configureFields();
+    this.receiptFile.set(null); this.receiptError.set(''); this.uploadProgress.set(null);
+    const input = this.receiptInput()?.nativeElement;
+    if (input) input.value = '';
+    this.savedExpenseId.set(null); this.saving.set(false); this.errorMessage.set('');
+    this.budgetContext.set(null); this.budgetCategories.set(null); this.budgetError.set('');
+    this.loadBudgets();
+  }
+
+  cancel(): void {
+    void this.router.navigate(['/orcamentos']);
   }
 
   loadBudgets(): void {
+    const version = this.projects.contextVersion();
     const projectId = this.activeProject()?.id;
     if (!projectId) return;
     this.budgetCategories.set(null);
     this.budgetError.set('');
     this.budgetService.getOverview(projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: overview => {
-        if (this.activeProject()?.id === projectId) this.budgetCategories.set(overview.categories);
+        if (this.projects.contextVersion() === version) this.budgetCategories.set(overview.categories);
       },
       error: () => {
-        if (this.activeProject()?.id === projectId)
+        if (this.projects.contextVersion() === version)
           this.budgetError.set('Não foi possível consultar o teto da categoria. Tente novamente.');
       },
     });
@@ -101,6 +125,7 @@ export class ExpenseFormComponent {
   }
 
   budgetSaved(category: BudgetCategory): void {
+    this.synchronizeContext();
     if (this.budgetContext()?.projectId === this.activeProject()?.id) {
       this.budgetCategories.update(categories => [
         ...(categories ?? []).filter(item => item.categoryId !== category.categoryId), category,
@@ -174,10 +199,11 @@ export class ExpenseFormComponent {
     this.receiptFile.set(file);
   }
 
-  private uploadReceipt(id: string, file: File): void {
+  private uploadReceipt(id: string, file: File, version: number): void {
     this.uploadProgress.set(0);
     this.expenses.uploadReceipt(id, file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: event => {
+        if (this.projects.contextVersion() !== version) return;
         if (event.type === HttpEventType.UploadProgress && event.total)
           this.uploadProgress.set(Math.round(100 * event.loaded / event.total));
         if (event.type === HttpEventType.Response) {
@@ -186,6 +212,7 @@ export class ExpenseFormComponent {
         }
       },
       error: (error: HttpErrorResponse) => {
+        if (this.projects.contextVersion() !== version) return;
         this.saving.set(false); this.uploadProgress.set(null);
         if (error.status === 400 || error.status === 413)
           this.receiptError.set(ExpenseService.receiptGuidance);
@@ -195,6 +222,7 @@ export class ExpenseFormComponent {
   }
 
   save(): void {
+    this.synchronizeContext();
     if (this.saving() || this.loading() || this.savedExpenseId()) return;
     this.form.markAllAsTouched();
     const projectId = this.activeProject()?.id;
@@ -213,15 +241,20 @@ export class ExpenseFormComponent {
         : { supplierId: value.supplierId }),
       ...(calculated ? {quantity: value.quantity!, unitPrice: value.unitPrice!} : {totalPrice: value.totalPrice!}),
     };
+    const version = this.projects.contextVersion();
+    const file = this.receiptFile();
     this.saving.set(true); this.errorMessage.set('');
     this.expenses.create(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: expense => {
+        if (this.projects.contextVersion() !== version) return;
         this.savedExpenseId.set(expense.id);
-        const file = this.receiptFile();
-        if (file) this.uploadReceipt(expense.id,file);
+        if (file) this.uploadReceipt(expense.id,file,version);
         else { this.saving.set(false); void this.router.navigate(['/despesas',expense.id]); }
       },
-      error: () => { this.saving.set(false); this.errorMessage.set('Não foi possível confirmar o salvamento. Confira os dados e tente novamente.'); },
+      error: () => {
+        if (this.projects.contextVersion() !== version) return;
+        this.saving.set(false); this.errorMessage.set('Não foi possível confirmar o salvamento. Confira os dados e tente novamente.');
+      },
     });
   }
 }

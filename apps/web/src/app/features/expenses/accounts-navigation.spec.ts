@@ -24,8 +24,8 @@ describe('Accounts navigation', () => {
     harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/contas');
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('Contas a pagar');
-    TestBed.inject(ActiveProjectService).activeProject.set({id:'project',name:'Casa',type:'RENOVATION',
-      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''});
+    TestBed.inject(ActiveProjectService).selectProject({id:'project',name:'Casa',type:'RENOVATION',
+      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''}, 'owner');
     const button = harness.routeNativeElement?.querySelector('[data-testid="create-account"]') as HTMLAnchorElement;
     expect(button.textContent).toContain('Cadastrar conta');
     button.click();

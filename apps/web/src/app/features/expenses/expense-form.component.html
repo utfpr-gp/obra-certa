@@ -103,7 +103,7 @@
         </label>
       }
       <label>Comprovante (opcional)
-        <input type="file" class="file-input file-input-bordered w-full" data-testid="receipt-file"
+        <input #receiptInput type="file" class="file-input file-input-bordered w-full" data-testid="receipt-file"
           accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" (change)="selectReceipt($event)"
           [disabled]="saving() || !!savedExpenseId()" aria-describedby="receipt-help" />
       </label>
@@ -120,7 +120,7 @@
         <a class="link" [routerLink]="['/despesas',id]">Consultar despesa salva</a>
       }
       <div class="flex gap-3 justify-end">
-        <a class="btn btn-ghost" routerLink="/orcamentos">Cancelar</a>
+        <button class="btn btn-ghost" type="button" data-testid="cancel-expense" (click)="cancel()">Cancelar</button>
         <button class="btn btn-primary" type="submit" data-testid="save-expense" [disabled]="saving() || loading() || !!savedExpenseId()">
           {{ saving() ? 'Salvando…' : 'Salvar despesa' }}
         </button>

@@ -82,7 +82,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Migration: nenhuma; estado persistente incluído na tarefa 5.
   - Arquivos previstos: service/DTO de comprovante e despesas, consulta individual e serviço web, testes API/web. Não criar seção de pendências ou listagem geral.
 
-- [ ] **Tarefa 8 — Preservar o contexto ao cancelar ou trocar de obra**
+- [x] **Tarefa 8 — Preservar o contexto ao cancelar ou trocar de obra**
   - Cobre: CA11.
   - Teste primeiro: Angular prova cancelamento/fechamento antes do envio sem POST, ausência de obra com orientação, troca de obra e respostas atrasadas inclusive A → B → A, sem descarte por mudança de metadados da mesma obra. JUnit reforça que a obra persistida é a validada no payload da operação original.
   - Migration: nenhuma.

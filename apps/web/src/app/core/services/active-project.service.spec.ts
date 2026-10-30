@@ -42,6 +42,24 @@ describe('ActiveProjectService', () => {
     expect(localStorage.getItem('active-project:user-1')).toBe('project-2');
   });
 
+  it('counts each real ID transition synchronously while preserving metadata refreshes', () => {
+    const service = TestBed.inject(ActiveProjectService);
+    service.initialize(projects, 'user-1');
+    const initial = service.contextVersion();
+    service.selectProject({...projects[0],name:'Updated'}, 'user-1');
+    service.initialize([{...projects[0],name:'Updated again'},projects[1]], 'user-1');
+    expect(service.contextVersion()).toBe(initial);
+    service.selectProject(projects[1], 'user-1');
+    service.setActiveProject(projects[0], 'user-1');
+    expect(service.contextVersion()).toBe(initial+2);
+    service.clear(); expect(service.contextVersion()).toBe(initial+3);
+    service.clear(); expect(service.contextVersion()).toBe(initial+3);
+    service.initialize([], 'user-1'); expect(service.contextVersion()).toBe(initial+3);
+    service.initialize(projects, 'user-1'); expect(service.contextVersion()).toBe(initial+4);
+    service.initialize(projects, null); expect(service.contextVersion()).toBe(initial+5);
+    expect(service.activeProject()).toBeNull();
+  });
+
   it('selects and persists the first valid project when the cache is stale', () => {
     localStorage.setItem('active-project:user-1', 'deleted-project');
     const service = TestBed.inject(ActiveProjectService);

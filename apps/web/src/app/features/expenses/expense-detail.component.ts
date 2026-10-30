@@ -1,16 +1,20 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BudgetService } from '../../core/services/budget.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { ActiveProjectService } from '../../core/services/active-project.service';
 
 @Component({
   selector: 'app-expense-detail', standalone: true, imports: [RouterLink],
   template: `
     <section class="mx-auto max-w-3xl p-4 sm:p-6">
       <h1 class="text-2xl font-bold mb-6">Despesa</h1>
+      @if (!activeProject()) {
+        <p role="status">Selecione ou cadastre uma obra no menu para consultar uma despesa.</p>
+      }
       @if (loading()) { <p role="status">Carregando despesa…</p> }
       @if (errorMessage()) { <p class="alert alert-error" role="alert">{{ errorMessage() }}</p> }
       @if (budgetExceeded()) {
@@ -68,6 +72,9 @@ export class ExpenseDetailComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly expenses = inject(ExpenseService);
   private readonly budgets = inject(BudgetService);
+  private readonly projects = inject(ActiveProjectService);
+  readonly activeProject = this.projects.activeProject;
+  private contextVersion: number | null = this.activeProject() ? this.projects.contextVersion() : null;
   readonly budgetExceeded = signal(false);
   readonly budgetError = signal('');
   readonly expense = signal<ExpenseResponse | null>(null);
@@ -80,20 +87,56 @@ export class ExpenseDetailComponent {
   readonly uploadProgress = signal<number | null>(null);
   constructor() {
     const id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
-    this.expenses.get(id).pipe(takeUntilDestroyed()).subscribe({
+    effect(() => {
+      const version = this.projects.contextVersion();
+      const project = this.activeProject();
+      if (this.contextVersion === null) {
+        if (project) untracked(() => {
+          this.contextVersion = version;
+          this.loading.set(true);
+          this.loadExpense(id);
+        });
+        return;
+      }
+      if (version !== this.contextVersion) untracked(() => {
+        this.expense.set(null); this.loading.set(false); this.budgetExceeded.set(false); this.budgetError.set('');
+        this.receiptFile.set(null); this.receiptError.set(''); this.uploading.set(false);
+        this.downloading.set(false); this.uploadProgress.set(null);
+        this.errorMessage.set(this.activeProject() ? 'A obra foi alterada. Abra uma despesa da obra selecionada.' : '');
+      });
+    });
+    if (!this.activeProject()) { this.loading.set(false); return; }
+    this.loadExpense(id);
+  }
+  private loadExpense(id: string): void {
+    this.expenses.get(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: expense => {
+        if (!this.isCurrentContext()) return;
+        if (expense.projectId !== this.activeProject()?.id) {
+          this.loading.set(false); this.errorMessage.set('A despesa pertence a outra obra. Selecione a obra correspondente.'); return;
+        }
         this.expense.set(expense); this.loading.set(false);
         this.budgets.getOverview(expense.projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-          next: overview => this.budgetExceeded.set(overview.categories.some(
-            category => category.categoryId === expense.categoryId && category.state === 'EXCEEDED')),
-          error: () => this.budgetError.set('Não foi possível consultar o orçamento. A despesa está salva; confira o orçamento novamente.'),
+          next: overview => {
+            if (this.isCurrentContext()) this.budgetExceeded.set(overview.categories.some(
+              category => category.categoryId === expense.categoryId && category.state === 'EXCEEDED'));
+          },
+          error: () => {
+            if (this.isCurrentContext()) this.budgetError.set('Não foi possível consultar o orçamento. A despesa está salva; confira o orçamento novamente.');
+          },
         });
       },
-      error: () => { this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false); },
+      error: () => {
+        if (!this.isCurrentContext()) return;
+        this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false);
+      },
     });
   }
+  private isCurrentContext(): boolean {
+    return this.projects.contextVersion() === this.contextVersion;
+  }
   selectReceipt(event: Event): void {
-    if (this.uploading()) return;
+    if (!this.isCurrentContext() || this.uploading()) return;
     const input=event.target as HTMLInputElement;
     const file=input.files?.item(0);
     this.receiptFile.set(null); this.receiptError.set('');
@@ -105,10 +148,11 @@ export class ExpenseDetailComponent {
   }
   uploadReceipt(): void {
     const expense=this.expense(), file=this.receiptFile();
-    if (!expense || expense.receiptState === 'UPLOADED' || !file || this.uploading()) return;
+    if (!this.isCurrentContext() || !expense || expense.receiptState === 'UPLOADED' || !file || this.uploading()) return;
     this.uploading.set(true); this.uploadProgress.set(0); this.errorMessage.set(''); this.receiptError.set('');
     this.expenses.uploadReceipt(expense.id,file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: event => {
+        if (!this.isCurrentContext()) return;
         if (event.type === HttpEventType.UploadProgress && event.total)
           this.uploadProgress.set(Math.round(100*event.loaded/event.total));
         if (event.type === HttpEventType.Response) {
@@ -117,6 +161,7 @@ export class ExpenseDetailComponent {
         }
       },
       error: (error: HttpErrorResponse) => {
+        if (!this.isCurrentContext()) return;
         this.uploading.set(false); this.uploadProgress.set(null);
         if (error.status === 400 || error.status === 413) this.receiptError.set(ExpenseService.receiptGuidance);
         this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
@@ -125,16 +170,20 @@ export class ExpenseDetailComponent {
   }
   downloadReceipt(): void {
     const expense = this.expense();
-    if (!expense || this.downloading()) return;
+    if (!this.isCurrentContext() || !expense || this.downloading()) return;
     this.downloading.set(true); this.errorMessage.set('');
     this.expenses.downloadReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: blob => {
+        if (!this.isCurrentContext()) return;
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href=url; link.download=`comprovante.${blob.type === 'application/pdf' ? 'pdf' : blob.type === 'image/png' ? 'png' : 'jpg'}`;
         link.click(); URL.revokeObjectURL(url); this.downloading.set(false);
       },
-      error: () => { this.downloading.set(false); this.errorMessage.set('Não foi possível consultar o comprovante. Tente novamente.'); },
+      error: () => {
+        if (!this.isCurrentContext()) return;
+        this.downloading.set(false); this.errorMessage.set('Não foi possível consultar o comprovante. Tente novamente.');
+      },
     });
   }  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
   date(value: string): string { return value.split('-').reverse().join('/'); }

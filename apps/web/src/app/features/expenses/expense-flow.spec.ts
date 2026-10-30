@@ -16,8 +16,8 @@ describe('Expense registration and individual consultation', () => {
     const layout = routes.find(route => route.canActivate?.includes(authGuard))!;
     TestBed.configureTestingModule({providers: [provideHttpClient(), provideHttpClientTesting(),
       provideRouter(layout.children!)]});
-    TestBed.inject(ActiveProjectService).activeProject.set({id:'project',name:'Casa',type:'RENOVATION',
-      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''});
+    TestBed.inject(ActiveProjectService).selectProject({id:'project',name:'Casa',type:'RENOVATION',
+      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''}, 'owner');
     http = TestBed.inject(HttpTestingController);
   }
   beforeEach(configure);
@@ -99,6 +99,44 @@ describe('Expense registration and individual consultation', () => {
   const detailExpense={id:'saved',projectId:'project',description:'Cimento',purchaseDate:'2030-01-01',
     categoryId:'category',categoryName:'Alvenaria',supplier:{id:'supplier',name:'Loja',document:'12345678000190'},
     paid:false,dueDate:'2030-01-02',totalPrice:100.25,quantity:null,unitPrice:null};
+  for (const state of ['NONE','PENDING','UPLOADED']) {
+    it(`opens the direct expense URL before project initialization and restores ${state} receipt actions`, async () => {
+      const active=TestBed.inject(ActiveProjectService);
+      active.clear();
+      const harness=await RouterTestingHarness.create('/despesas/saved');
+      expect(harness.routeNativeElement!.textContent).toContain('Selecione ou cadastre uma obra');
+      http.expectNone(`${api}/expenses/saved`);
+      active.initialize([{id:'project',name:'Casa',type:'RENOVATION',status:'IN_PROGRESS',
+        location:null,createdAt:'',updatedAt:''}], 'owner');
+      harness.detectChanges();
+      http.expectOne(`${api}/expenses/saved`).flush({...detailExpense,receiptState:state});
+      http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
+      harness.detectChanges();
+      expect(harness.routeNativeElement!.textContent).toContain('Cimento');
+      expect(harness.routeNativeElement!.textContent).not.toContain('A obra foi alterada');
+      active.initialize([{id:'project',name:'Casa atualizada',type:'RENOVATION',status:'IN_PROGRESS',
+        location:null,createdAt:'',updatedAt:''}], 'owner');
+      harness.detectChanges();
+      http.expectNone(request => request.url.includes('/budgets') || request.url.endsWith('/expenses/saved'));
+      if (state==='UPLOADED') {
+        expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).toBeNull();
+        spyOn(URL,'createObjectURL').and.returnValue('blob:restored');
+        spyOn(URL,'revokeObjectURL'); spyOn(HTMLAnchorElement.prototype,'click');
+        click(harness,'download-receipt');
+        http.expectOne(`${api}/expenses/saved/receipt`).flush(new Blob(['receipt'],{type:'application/pdf'}));
+        expect(URL.createObjectURL).toHaveBeenCalled();
+      } else {
+        expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')?.textContent).toContain('Sem comprovante');
+        selectDetailReceipt(harness,new File(['receipt'],'receipt.pdf',{type:'application/pdf'}));
+        click(harness,'upload-receipt');
+        const upload=http.expectOne(`${api}/expenses/saved/receipt`);
+        expect(upload.request.method).toBe('PUT');
+        upload.flush({...detailExpense,receiptState:'UPLOADED'}); harness.detectChanges();
+        expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).toBeNull();
+      }
+      http.expectNone(request => request.method==='POST');
+    });
+  }
   async function detail(state: string) {
     const harness=await RouterTestingHarness.create('/despesas/saved');
     http.expectOne(`${api}/expenses/saved`).flush({...detailExpense,receiptState:state});

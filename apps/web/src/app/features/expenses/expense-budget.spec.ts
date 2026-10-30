@@ -16,8 +16,8 @@ describe('Expense category without a budget (CA4)', () => {
     state:amount ? 'ON_TRACK' : 'NO_BUDGET',hasBudget:true});
   beforeEach(() => {
     TestBed.configureTestingModule({providers:[provideRouter([]),provideHttpClient(),provideHttpClientTesting()]});
-    TestBed.inject(ActiveProjectService).activeProject.set({id:'project',name:'Casa',type:'RENOVATION',
-      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''});
+    TestBed.inject(ActiveProjectService).selectProject({id:'project',name:'Casa',type:'RENOVATION',
+      status:'IN_PROGRESS',location:null,createdAt:'',updatedAt:''}, 'owner');
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(ExpenseFormComponent);
     fixture.detectChanges();

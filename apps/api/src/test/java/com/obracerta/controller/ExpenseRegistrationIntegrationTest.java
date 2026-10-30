@@ -65,6 +65,25 @@ class ExpenseRegistrationIntegrationTest {
         assertThat(response.getHeader("Location")).isEqualTo("/api/expenses/"+id);
         return id;
     }
+    @Test void persistsInTheValidatedPayloadProjectWhenAnotherProjectIsSelectedForTheNextOperation() throws Exception {
+        Project original = project;
+        ObjectNode originalPayload = body();
+        project = projects.saveAndFlush(Project.builder().user(owner).name("Outra obra")
+                .type(ProjectType.RENOVATION).status(ProjectStatus.IN_PROGRESS).build());
+
+        String id = create(originalPayload);
+        expenses.flush();
+        assertThat(jdbc.queryForObject("select project_id from expenses where id=?", String.class, id))
+                .isEqualTo(original.getId());
+        mvc.perform(get("/api/expenses/" + id)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectId").value(original.getId()));
+        assertThat(jdbc.queryForObject("select count(*) from expenses where project_id=?", Integer.class,
+                project.getId())).isZero();
+        String next = create(body());
+        expenses.flush();
+        assertThat(jdbc.queryForObject("select project_id from expenses where id=?", String.class, next))
+                .isEqualTo(project.getId());
+    }
     @ParameterizedTest
     @CsvSource({"29.96,99.96,WARNING", "30.00,100.00,EXCEEDED", "30.01,100.01,EXCEEDED"})
     void savedExpenseUpdatesExactBudgetStateCountingOnlyActiveExpensesOfItsCategoryAndProject(
