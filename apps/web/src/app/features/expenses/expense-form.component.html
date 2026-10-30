@@ -11,6 +11,12 @@
       <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">{{ errorMessage() }}</div>
       @if (!categories().length) { <button type="button" class="btn-oc-outline min-h-11" (click)="loadOptions()">Tentar carregar novamente</button> }
     }
+    @if (budgetExceeded()) {
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="alert" data-testid="budget-ceiling-alert">
+        <span>O gasto da categoria atingiu ou ultrapassou o teto. Revise o orçamento.</span>
+        <a class="ml-2 font-semibold underline" routerLink="/orcamentos">Ver orçamento</a>
+      </div>
+    }
     <form [formGroup]="form" (ngSubmit)="save()" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm space-y-6">
       <section aria-labelledby="expense-information-title" class="space-y-4">
         <h2 id="expense-information-title" class="text-lg font-semibold text-slate-900">Informações da despesa</h2>

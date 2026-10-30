@@ -262,6 +262,7 @@ describe('Expense registration and individual consultation', () => {
       fileInput.files=files.files; await (harness.routeDebugElement!.componentInstance as ExpenseFormComponent).selectReceipt({target:fileInput} as unknown as Event); await harness.fixture.whenStable();
       click(harness,'save-expense');
       http.expectOne(`${api}/expenses`).flush({id:'saved',receiptState:'PENDING'},{status:201,statusText:'Created'});
+      http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
       http.expectOne(`${api}/expenses/saved/receipt`).flush({message:'Arquivo rejeitado.'},{status,statusText:'Rejected'});
       harness.detectChanges();
       expect(harness.routeNativeElement!.textContent).toContain('Despesa salva');
@@ -274,6 +275,113 @@ describe('Expense registration and individual consultation', () => {
       click(harness,'save-expense'); http.expectNone(request => request.method==='POST');
     });
   }
+  for (const scenario of [
+    {spent:100,planned:100,state:'EXCEEDED',percentage:100,status:503,alert:true},
+    {spent:110,planned:100,state:'EXCEEDED',percentage:110,status:504,alert:true},
+    {spent:99.96,planned:100,state:'WARNING',percentage:100,status:0,alert:false},
+  ]) {
+    it(`keeps the saved pending expense and simultaneous budget/upload feedback at ${scenario.spent}% (AF-01)`, async () => {
+      const harness=await pendingForm(); input(harness,'dueDate','2030-02-01');
+      const fileInput=harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+      const files=new DataTransfer(); files.items.add(new File(['receipt'],'receipt.pdf',{type:'application/pdf'}));
+      fileInput.files=files.files; fileInput.dispatchEvent(new Event('change')); harness.detectChanges();
+      click(harness,'save-expense');
+      const post=http.expectOne(`${api}/expenses`);
+      expect(post.request.body).toEqual(jasmine.objectContaining({paid:false,dueDate:'2030-02-01',receiptExpected:true}));
+      const saved={...post.request.body,id:'saved',receiptState:'PENDING'};
+      post.flush(saved,{status:201,statusText:'Created'});
+      const upload=http.expectOne(`${api}/expenses/saved/receipt`);
+      // The refreshed aggregate must start after financial confirmation, independently of upload completion.
+      const budgets=http.match(`${api}/budgets?projectId=project`);
+      expect(budgets.length).withContext('refresh budget after financial creation while upload is pending').toBe(1);
+      for (const budget of budgets) budget.flush({categories:[
+        {categoryId:'other',plannedAmount:1,spentAmount:2,state:'EXCEEDED'},
+        {categoryId:'category',plannedAmount:scenario.planned,spentAmount:scenario.spent,
+          percentage:scenario.percentage,state:scenario.state,hasBudget:true},
+      ]});
+      if (scenario.status===0) upload.error(new ProgressEvent('error'));
+      else upload.flush({}, {status:scenario.status,statusText:'Unavailable'});
+      harness.detectChanges();
+      expect(TestBed.inject(Router).url).toBe('/contas/nova');
+      expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      const alert=harness.routeNativeElement!.querySelector('[data-testid="budget-ceiling-alert"]');
+      expect(!!alert).toBe(scenario.alert);
+      if (scenario.alert) {
+        expect(alert!.textContent).toContain('Revise o orçamento');
+        expect(alert!.getAttribute('role')).toBe('alert');
+        expect(alert!.querySelector('a')?.getAttribute('href')).toBe('/orcamentos');
+      }
+      expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();
+      click(harness,'save-expense'); http.expectNone(request => request.method==='POST');
+    });
+  }
+  for (const oldResult of ['success','error']) {
+    for (const arrival of ['before','after']) {
+      it(`ignores an older same-project budget ${oldResult} arriving ${arrival} the post-save read (AF-01)`, async () => {
+        const harness=await RouterTestingHarness.create('/contas/nova');
+        http.expectOne(`${api}/expense-categories`).flush([{id:'category',name:'Alvenaria'}]);
+        http.expectOne(`${api}/suppliers`).flush([{id:'supplier',name:'Loja',document:null}]);
+        const initialBudget=http.expectOne(`${api}/budgets?projectId=project`);
+        harness.detectChanges();
+        input(harness,'description','Cimento a prazo'); input(harness,'purchaseDate','2030-01-01');
+        input(harness,'categoryId','category'); input(harness,'supplierId','supplier');
+        input(harness,'totalPrice','10025');
+        const paid=harness.routeNativeElement!.querySelector('[formControlName="paid"]') as HTMLSelectElement;
+        input(harness,'paid',Array.from(paid.options).find(option => option.textContent?.includes('Não quitada'))!.value);
+        input(harness,'dueDate','2030-02-01');
+        selectDetailReceipt(harness,new File(['receipt'],'receipt.pdf',{type:'application/pdf'}));
+        click(harness,'save-expense');
+        const post=http.expectOne(`${api}/expenses`);
+        expect(post.request.body).toEqual(jasmine.objectContaining({paid:false,dueDate:'2030-02-01',receiptExpected:true}));
+        post.flush({...post.request.body,id:'saved',receiptState:'PENDING'},{status:201,statusText:'Created'});
+        const refreshedBudget=http.expectOne(`${api}/budgets?projectId=project`);
+        http.expectOne(`${api}/expenses/saved/receipt`).flush({}, {status:503,statusText:'Unavailable'});
+        const component=harness.routeDebugElement!.componentInstance as ExpenseFormComponent;
+        const completeOldRead=() => {
+          if (oldResult==='error') initialBudget.flush({}, {status:503,statusText:'Unavailable'});
+          else initialBudget.flush({projectId:'project',categories:[{categoryId:'category',hasBudget:true,
+            plannedAmount:100,spentAmount:90,percentage:90,state:'WARNING'}]});
+          harness.detectChanges();
+        };
+        if (arrival==='before') {
+          completeOldRead();
+          expect(component.budgetCategories()).withContext('the newest budget read is still pending').toBeNull();
+          expect(harness.routeNativeElement!.querySelector('[data-testid="category-budget-error"]')).toBeNull();
+        }
+        refreshedBudget.flush({projectId:'project',categories:[{categoryId:'category',hasBudget:true,
+          plannedAmount:100,spentAmount:110,percentage:110,state:'EXCEEDED'}]});
+        harness.detectChanges();
+        if (arrival==='after') completeOldRead();
+        expect(harness.routeNativeElement!.querySelector('[data-testid="budget-ceiling-alert"]')?.textContent)
+          .toContain('Revise o orçamento');
+        expect(harness.routeNativeElement!.querySelector('[data-testid="category-budget-error"]')).toBeNull();
+        expect(harness.routeNativeElement!.textContent)
+          .toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+        expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();
+        expect(TestBed.inject(Router).url).toBe('/contas/nova');
+        click(harness,'save-expense');
+        http.expectNone(request => request.method==='POST' || request.method==='PUT');
+      });
+    }
+  }
+  it('does not block upload or repeat creation when the post-save budget read fails (AF-01)', async () => {
+    const harness=await pendingForm(); input(harness,'dueDate','2030-02-01');
+    const fileInput=harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+    const files=new DataTransfer(); files.items.add(new File(['receipt'],'receipt.pdf',{type:'application/pdf'}));
+    fileInput.files=files.files; fileInput.dispatchEvent(new Event('change')); harness.detectChanges();
+    click(harness,'save-expense');
+    http.expectOne(`${api}/expenses`).flush({id:'saved',receiptState:'PENDING'},{status:201,statusText:'Created'});
+    const budgets=http.match(`${api}/budgets?projectId=project`);
+    expect(budgets.length).withContext('refresh budget after confirmed save').toBe(1);
+    for (const budget of budgets) budget.flush({}, {status:503,statusText:'Unavailable'});
+    const upload=http.expectOne(`${api}/expenses/saved/receipt`);
+    upload.flush({}, {status:503,statusText:'Unavailable'}); harness.detectChanges();
+    expect(harness.routeNativeElement!.textContent).toContain('Não foi possível consultar');
+    expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+    expect(harness.routeNativeElement!.querySelector('[data-testid="budget-ceiling-alert"]')).toBeNull();
+    expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();
+    click(harness,'save-expense'); http.expectNone(request => request.method==='POST');
+  });
   it('explains formats and size, uploads only after confirmation and displays progress', async () => {
     const harness = await open();
     expect(harness.routeNativeElement!.textContent).toContain('JPEG, PNG e PDF');
@@ -290,6 +398,7 @@ describe('Expense registration and individual consultation', () => {
     http.expectNone(request => request.method === 'PUT');
     const saved={...post.request.body,id:'receipt',supplier:{name:'Loja'},receiptState:'PENDING'};
     post.flush(saved,{status:201,statusText:'Created'});
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
     const upload=http.expectOne(`${api}/expenses/receipt/receipt`);
     expect(upload.request.method).toBe('PUT'); expect(upload.request.body instanceof FormData).toBeTrue();
     upload.event({type:1,loaded:5,total:10}); harness.detectChanges();
@@ -321,6 +430,7 @@ describe('Expense registration and individual consultation', () => {
     const files=new DataTransfer(); files.items.add(new File(['%PDF-1.7\n%%EOF'],'receipt.pdf',{type:'application/pdf'}));
     fileInput.files=files.files; await (harness.routeDebugElement!.componentInstance as ExpenseFormComponent).selectReceipt({target:fileInput} as unknown as Event); await harness.fixture.whenStable(); click(harness,'save-expense');
     http.expectOne(`${api}/expenses`).flush({id:'saved',receiptState:'PENDING'},{status:201,statusText:'Created'});
+    http.expectOne(`${api}/budgets?projectId=project`).flush({categories:[]});
     http.expectOne(`${api}/expenses/saved/receipt`).flush({},{status:503,statusText:'Unavailable'}); harness.detectChanges();
     expect(harness.routeNativeElement!.textContent).toContain('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
     expect(harness.routeNativeElement!.querySelector('a[href="/despesas/saved"]')).not.toBeNull();

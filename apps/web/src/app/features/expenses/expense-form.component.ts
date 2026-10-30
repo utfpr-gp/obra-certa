@@ -30,6 +30,7 @@ export class ExpenseFormComponent {
   private readonly projects = inject(ActiveProjectService);
   readonly activeProject = this.projects.activeProject;
   private contextVersion = this.projects.contextVersion();
+  private budgetRequestVersion = 0;
   private readonly receiptInput = viewChild<ElementRef<HTMLInputElement>>('receiptInput');
   readonly categories = signal<ExpenseCategory[]>([]);
   readonly suppliers = signal<ExpenseSupplier[]>([]);
@@ -40,10 +41,16 @@ export class ExpenseFormComponent {
   readonly receiptError = signal('');
   readonly uploadProgress = signal<number | null>(null);
   readonly savedExpenseId = signal<string | null>(null);
+  private readonly savedCategoryId = signal<string | null>(null);
   readonly inlineSupplier = signal(false);
   readonly budgetCategories = signal<BudgetCategory[] | null>(null);
   readonly budgetError = signal('');
   readonly budgetContext = signal<{projectId: string; categoryId: string} | null>(null);
+  readonly budgetExceeded = computed(() => {
+    if (!this.savedExpenseId()) return false;
+    const category = this.budgetCategories()?.find(item => item.categoryId === this.savedCategoryId());
+    return !!category && category.plannedAmount > 0 && category.state === 'EXCEEDED';
+  });
   readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.pattern(/\S/)]],
     purchaseDate: ['', Validators.required],
@@ -92,7 +99,7 @@ export class ExpenseFormComponent {
     this.receiptFile.set(null); this.receiptError.set(''); this.uploadProgress.set(null);
     const input = this.receiptInput()?.nativeElement;
     if (input) input.value = '';
-    this.savedExpenseId.set(null); this.saving.set(false); this.errorMessage.set('');
+    this.savedExpenseId.set(null); this.savedCategoryId.set(null); this.saving.set(false); this.errorMessage.set('');
     this.budgetContext.set(null); this.budgetCategories.set(null); this.budgetError.set('');
     this.loadBudgets();
   }
@@ -105,14 +112,16 @@ export class ExpenseFormComponent {
     const version = this.projects.contextVersion();
     const projectId = this.activeProject()?.id;
     if (!projectId) return;
+    const requestVersion = ++this.budgetRequestVersion;
     this.budgetCategories.set(null);
     this.budgetError.set('');
     this.budgetService.getOverview(projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: overview => {
-        if (this.projects.contextVersion() === version) this.budgetCategories.set(overview.categories);
+        if (this.projects.contextVersion() === version && this.budgetRequestVersion === requestVersion)
+          this.budgetCategories.set(overview.categories);
       },
       error: () => {
-        if (this.projects.contextVersion() === version)
+        if (this.projects.contextVersion() === version && this.budgetRequestVersion === requestVersion)
           this.budgetError.set('Não foi possível consultar o teto da categoria. Tente novamente.');
       },
     });
@@ -273,7 +282,11 @@ export class ExpenseFormComponent {
       next: expense => {
         if (this.projects.contextVersion() !== version) return;
         this.savedExpenseId.set(expense.id);
-        if (file) this.uploadReceipt(expense.id,file,version);
+        this.savedCategoryId.set(request.categoryId);
+        if (file) {
+          this.loadBudgets();
+          this.uploadReceipt(expense.id,file,version);
+        }
         else { this.saving.set(false); void this.router.navigate(['/despesas',expense.id]); }
       },
       error: () => {

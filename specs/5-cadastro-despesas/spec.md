@@ -13,7 +13,7 @@ O proprietário já consegue selecionar uma obra e acompanhar os tetos por categ
 
 **Como** proprietário com uma obra selecionada, **eu quero** cadastrar despesas por categoria pré-definida com cálculo de valores, controle de quitação e anexo de comprovante, **para que** eu mantenha a gestão financeira fiel ao realizado e ao planejado.
 
-Revisão de escopo autorizada pelo autor em 2026-10-30: a entrega termina na tarefa 8. Os antigos CA12 e CA13, relativos à idempotência da criação e à recuperação após sessão expirada, foram retirados. A versão anterior permanece no histórico Git.
+Revisão de escopo autorizada pelo autor em 2026-10-30: a entrega original termina na tarefa 8. Os antigos CA12 e CA13, relativos à idempotência da criação e à recuperação após sessão expirada, foram retirados. A versão anterior permanece no histórico Git. A nova tarefa 9 de fechamento corrige apenas o AF-01 (combinação CA5 + CA6), com autorização do autor, sem restaurar os critérios retirados.
 
 ## Critérios de aceite
 

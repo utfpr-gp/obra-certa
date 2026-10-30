@@ -63,6 +63,33 @@ describe('Expense project context (CA11)', () => {
       http.expectOne(`${api}/budgets?projectId=${returnToA ? 'A':'B'}`).flush({categories:[]});
     });
   }
+  for (const returnToA of [false,true]) {
+  for (const fails of [false,true]) {
+    it(`ignores post-save budget ${fails ? 'failure' : 'ceiling alert'} after A → B${returnToA ? ' → A' : ''} (AF-01)`, () => {
+      const component=open(); component.save();
+      http.expectOne(`${api}/expenses`).flush(saved,{status:201,statusText:'Created'});
+      const upload=http.expectOne(`${api}/expenses/expense/receipt`);
+      upload.flush({}, {status:503,statusText:'Unavailable'});
+      const budgets=http.match(`${api}/budgets?projectId=A`);
+      expect(budgets.length).withContext('post-save aggregate pending before switching context').toBe(1);
+      active.selectProject(project('B'),'owner');
+      if (returnToA) active.selectProject(project('A'),'owner');
+      // Deliver before effects run: checking only project ID would miss A → B → A.
+      for (const budget of budgets) {
+        if (fails) budget.flush({}, {status:503,statusText:'Unavailable'});
+        else budget.flush({categories:[{categoryId:'category',plannedAmount:10,spentAmount:10,
+          state:'EXCEEDED',percentage:100,hasBudget:true}]});
+      }
+      fixture.detectChanges();
+      http.expectOne(`${api}/budgets?projectId=${returnToA ? 'A' : 'B'}`).flush({categories:[]});
+      fixture.detectChanges();
+      expect(component.savedExpenseId()).toBeNull(); expect(component.budgetError()).toBe('');
+      expect(component.errorMessage()).toBe(''); expect(component.budgetCategories()).toEqual([]);
+      expect(fixture.nativeElement.querySelector('[data-testid="budget-ceiling-alert"]')).toBeNull();
+      http.expectNone(request => request.method==='POST');
+    });
+  }
+  }
   it('shows selection guidance and does not submit without a project', () => {
     const component=open(); active.clear(); fixture.detectChanges(); component.save();
     expect(fixture.nativeElement.textContent).toContain('Selecione ou cadastre uma obra');
@@ -88,6 +115,7 @@ describe('Expense project context (CA11)', () => {
   it('ignores an upload response and resets progress after changing project', () => {
     const component=open(); const navigate=spyOn(TestBed.inject(Router),'navigate'); component.save();
     http.expectOne(`${api}/expenses`).flush(saved);
+    http.expectOne(`${api}/budgets?projectId=A`).flush({categories:[]});
     const upload=http.expectOne(`${api}/expenses/expense/receipt`);
     active.selectProject(project('B'),'owner'); fixture.detectChanges();
     upload.event({type:1,loaded:5,total:10}); upload.flush({...saved,receiptState:'UPLOADED'});

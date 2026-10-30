@@ -4,7 +4,7 @@
 
 Plano aprovado explicitamente pelo autor nesta conversa. A implementação acontece em `feature/us03-cadastro-despesas`. Não alterar o status da spec pelo agente. Antes do código, conferir a aprovação commitada pelo autor e este plano aprovado e commitado.
 
-Recorte de entrega atualizado por decisão do autor em 2026-10-30: este plano termina na tarefa 8. Idempotência da criação e recuperação de campos após sessão expirada foram retiradas desta entrega. O autor realizará o envio ao GitHub.
+Recorte de entrega atualizado por decisão do autor em 2026-10-30: a entrega original termina na tarefa 8. Idempotência da criação e recuperação de campos após sessão expirada foram retiradas desta entrega. Após a auditoria final, o autor autorizou a nova tarefa 9 de correção do AF-01, sem restaurar aquelas funcionalidades. O autor realizará o envio ao GitHub.
 
 ### Backend (`apps/api`)
 
@@ -86,6 +86,13 @@ Recorte de entrega atualizado por decisão do autor em 2026-10-30: este plano te
   - Teste primeiro: Angular prova cancelamento/fechamento antes do envio sem POST, ausência de obra com orientação, troca de obra e respostas atrasadas inclusive A → B → A, sem descarte por mudança de metadados da mesma obra. JUnit reforça que a obra persistida é a validada no payload da operação original.
   - Migration: nenhuma.
   - Arquivos previstos: componentes de despesas, integração com `ActiveProjectService` e rotas; testes web e teste de integração da API.
+
+- [x] **Tarefa 9 — Exibir alerta de orçamento mesmo quando o comprovante falhar**
+  - Cobre: CA5 combinado com CA6; preserva CA11. Correção AF-01 aceita pelo autor na triagem da auditoria final.
+  - Entrega: após confirmar a criação financeira, o alerta de categoria com teto atingido ou ultrapassado deve aparecer mesmo que o envio do comprovante falhe. Manter o lançamento permitido, a despesa salva, a mensagem de falha do comprovante e o acesso à consulta/reenvio. A verificação do orçamento não pode impedir a criação nem depender do sucesso do upload. Descartar resultados de contexto antigo.
+  - Teste primeiro: Angular com rotas e HTTP reais controlados prova criação 201 com comprovante seguido de falha de upload, alerta simultâneo de teto em 100% e acima, ausência de alerta abaixo do teto e preservação da mensagem de falha. Provar que falha da consulta de orçamento não repete nem desfaz o lançamento e que respostas atrasadas não contaminam outra obra. Na rodada 2, cobrir também sucesso e erro de consultas anteriores no mesmo contexto, impedindo que substituam a consulta mais recente, conforme triagem aceita pelo autor.
+  - Migration: nenhuma. Nenhuma mudança de contrato financeiro ou validação bloqueante.
+  - Arquivos previstos: `apps/web/src/app/features/expenses/expense-form.component.ts`, `expense-form.component.html`, `expense-flow.spec.ts`, `expense-budget.spec.ts` e `expense-context.spec.ts`, conforme necessário para a correção e seus testes.
 
 Cada tarefa segue RED → GREEN → REFACTOR nas camadas citadas. Usar PostgreSQL real com Flyway/validate nos testes de persistência, nunca H2 como substituto desses testes. Limite de duas rodadas de TDD pelo mesmo motivo e duas rodadas de revisão, conforme a constituição.
 
