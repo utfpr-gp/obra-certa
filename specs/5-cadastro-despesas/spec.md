@@ -13,6 +13,8 @@ O proprietário já consegue selecionar uma obra e acompanhar os tetos por categ
 
 **Como** proprietário com uma obra selecionada, **eu quero** cadastrar despesas por categoria pré-definida com cálculo de valores, controle de quitação e anexo de comprovante, **para que** eu mantenha a gestão financeira fiel ao realizado e ao planejado.
 
+Revisão de escopo autorizada pelo autor em 2026-10-30: a entrega termina na tarefa 8. Os antigos CA12 e CA13, relativos à idempotência da criação e à recuperação após sessão expirada, foram retirados. A versão anterior permanece no histórico Git.
+
 ## Critérios de aceite
 
 - [ ] **CA1 — Cadastro de despesa quitada:** Dado um proprietário autenticado com uma obra sua selecionada, quando informa descrição, data (passada, presente ou futura), categoria pré-definida, fornecedor e pagamento quitado, usando quantidade e valor unitário positivos ou um valor total positivo informado diretamente, então a despesa é salva naquela obra e o gasto acumulado da categoria passa a incluí-la. No modo calculado, o formulário apresenta o total automaticamente e o servidor verifica o cálculo.
@@ -26,8 +28,6 @@ O proprietário já consegue selecionar uma obra e acompanhar os tetos por categ
 - [ ] **CA9 — Vencimento inconsistente:** Dada uma despesa não quitada com vencimento anterior à data da despesa, quando tenta salvar, então o formulário destaca o erro e a API recusa a gravação, sem persistência parcial.
 - [ ] **CA10 — Campos e valores inválidos:** Dado que descrição, categoria, fornecedor ou data estão ausentes, ou os valores exigidos pelo modo escolhido são menores ou iguais a zero, quando tenta salvar, então o formulário destaca os campos inválidos e a API também impede a gravação. O modo de valor direto não exige quantidade e valor unitário; o modo calculado exige ambos. O proprietário pode selecionar um fornecedor seu existente ou cadastrar um novo no próprio fluxo, informando nome e CNPJ.
 - [ ] **CA11 — Cancelamento e troca de obra:** Dado um formulário ainda não enviado, quando o proprietário cancela ou fecha a página, então nenhuma despesa é criada. Ao trocar de obra, os dados da obra anterior não são enviados para a nova nem aparecem nela por resposta atrasada. Sem obra selecionada, o cadastro orienta a selecionar ou cadastrar uma obra.
-- [ ] **CA12 — Falha no salvamento e envio repetido:** Dado um formulário preenchido, quando há erro de rede, timeout ou erro do servidor no salvamento dos dados, então a tela mantém os campos enquanto estiver aberta, informa a falha e permite nova tentativa. Durante o envio, a ação de salvar permanece desabilitada. Uma resposta perdida não deve ser apresentada como confirmação de que a despesa não foi criada. Cada tentativa de criação recebe uma identificação estável, isolada por usuário e obra: repetir o mesmo lançamento com essa identificação recupera o resultado original, sem criar outra despesa, fornecedor inline ou pagamento e sem somar o gasto novamente. A identificação é preservada na recuperação após login. Reutilizá-la com dados diferentes resulta em conflito, sem sobrescrever a despesa já criada. Um novo lançamento intencional recebe outra identificação.
-- [ ] **CA13 — Sessão expirada e recuperação dos campos:** Dado um formulário de despesa preenchido, quando a sessão expira e a API responde 401, então o fluxo existente encerra a sessão e direciona para o login, preservando temporariamente os campos do lançamento para recuperação. Após autenticar novamente com a mesma conta e retornar à mesma obra, o proprietário recupera os campos e pode conferir e enviar o formulário, sem salvamento automático. Se havia comprovante selecionado, a tela pede que o arquivo seja selecionado novamente. Outra conta não recebe os dados do rascunho, e a recuperação não transfere o lançamento para uma obra diferente. Recuperar um formulário cujo envio teve resultado incerto segue a política de CA12, sem assumir que ele ainda não foi gravado.
 
 ## Fora de escopo
 
@@ -38,14 +38,15 @@ O proprietário já consegue selecionar uma obra e acompanhar os tetos por categ
 - Painel de alertas de vencimento e baixa posterior de pagamentos (US08). Esta história cria o compromisso pendente.
 - Gestão completa de fornecedores além da seleção e criação necessárias ao lançamento.
 - Substituição e remoção de comprovante já enviado com sucesso, envio automático em segundo plano e armazenamento do arquivo no navegador após fechar a página.
+- Idempotência da criação e recuperação de campos após sessão expirada, retiradas da entrega pelo autor. Não há chave persistente de criação nem rascunho restaurável após novo login neste recorte.
 
 ## Abandono no meio
 
 - **Falha do comprovante:** decisão confirmada pelo autor: salvar a despesa, mostrar alerta e manter uma pendência recuperável ao acessar a despesa posteriormente, identificada pela tag “Sem comprovante” na própria despesa. Não criar seção de pendências. Após fechar a página, o proprietário seleciona novamente o arquivo. O reenvio não repete a criação financeira (CA6).
 - **Cancelamento ou fechamento antes do envio:** não criar despesa; não há restauração de rascunho aprovada (CA11).
 - **Troca de obra durante o formulário ou uma requisição:** preservar o isolamento do contexto e impedir que a resposta antiga contamine a obra atual (CA11).
-- **Falha no salvamento dos dados:** preservar os campos na tela aberta e permitir recuperação sem afirmar que uma resposta perdida significa ausência de gravação. A identificação estável da tentativa permite recuperar o resultado de uma criação confirmada no servidor cuja resposta se perdeu, sem duplicar despesa, fornecedor inline ou pagamento (CA12).
-- **Sessão expirada:** decisão confirmada pelo autor: manter o redirecionamento para login e recuperar os campos após autenticar novamente. O arquivo precisa ser selecionado outra vez. A recuperação respeita a conta e a obra originais e não submete o formulário automaticamente (CA13). Esta decisão resolve, para a US03, a divergência com a reautenticação dentro do formulário descrita em design-tokens e user-flows; esses documentos deverão ser alinhados no fechamento da história.
+- **Falha no salvamento dos dados:** os campos podem permanecer enquanto a tela estiver aberta, mas não há garantia de recuperação sem duplicação após resposta perdida; esse comportamento foi retirado do escopo. Uma resposta perdida não permite concluir se o servidor gravou a despesa.
+- **Sessão expirada:** manter o encerramento de sessão e redirecionamento para login existentes. Não há recuperação dos campos nem reenvio automático após autenticar novamente. Essa decisão substitui a recuperação inicialmente aprovada e alinha o recorte à retirada da tarefa 10 pelo autor.
 
 ## Assume que
 

@@ -125,7 +125,7 @@ flowchart TD
 
 ## 🗄️ 3. Modelo de Dados (MER Consolidado)
 
-O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema atual (V1–V7), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada.
+O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1–V9), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
 
 ```mermaid
 erDiagram
@@ -223,11 +223,11 @@ erDiagram
     }
 ```
 
-### Persistência implementada na US07
+### Persistência implementada na US07 (V6–V7, antes da US03)
 
 - A V6 normaliza valores nulos para `0.00`, define `NOT NULL`, `DEFAULT 0.00` e `CHECK (estimated_amount >= 0)`. Antes de criar o índice único ativo por obra/categoria, exclui logicamente duplicatas, preservando a mais recente e os vínculos das despesas.
 - A V7 insere as nove categorias pré-definidas somente quando seus nomes ainda não existem. A aplicação consulta essas categorias no banco.
-- `expenses.budget_id` continua obrigatório no schema legado. Despesas sem teto são representadas por orçamento zerado; a leitura também suporta despesa sem orçamento ativo, como quando o registro vinculado está excluído logicamente. A US07 não altera esse vínculo.
+- Na entrega da US07, `expenses.budget_id` permanecia obrigatório no schema legado. Despesas sem teto eram representadas por orçamento zerado; a leitura também suporta despesa sem orçamento ativo, como quando o registro vinculado está excluído logicamente. A US03 flexibiliza esse vínculo na V8.
 - Neste recorte do MER, as colunas mostram os vínculos e valores usados pelo orçamento; os demais atributos permanecem definidos nas migrations.
 
 ```mermaid
@@ -257,6 +257,48 @@ erDiagram
     }
 ```
 
+### Persistência implementada na US03 (V8–V9)
+
+- **V8:** torna `expenses.budget_id` opcional e acrescenta `paid`. Despesa sem teto não exige orçamento artificial; despesa a prazo gera pagamento pendente na mesma transação. Fornecedores recebem `user_id`; o backfill clona fornecedores compartilhados por contas e religa as despesas. Fornecedores legados sem referência permanecem sem proprietário e não são expostos na seleção.
+- **V9:** persiste `receipt_state` (`NONE`, `PENDING`, `UPLOADED`), chave privada, tipo e tamanho. A constraint exige ausência de metadados em `NONE/PENDING` e metadados completos em `UPLOADED`. `receipt_url` legado é mantido para auditoria, sem presumir que exista arquivo confirmado.
+- A entrega termina na tarefa 8. Não inclui tabela de idempotência nem recuperação de rascunho após sessão expirada. O recorte abaixo destaca as relações e colunas afetadas; o restante do schema continua nas migrations.
+
+```mermaid
+erDiagram
+    users ||--o{ suppliers : cadastra
+    users ||--o{ expenses : possui
+    projects ||--o{ expenses : agrupa
+    expense_categories ||--o{ expenses : classifica
+    budgets o|--o{ expenses : vincula_opcionalmente
+    suppliers ||--o{ expenses : fornece
+    expenses ||--o| pending_payments : gera
+
+    suppliers {
+        varchar id PK "VARCHAR(36)"
+        varchar user_id FK "nullable no legado sem dono"
+        varchar document "normalizado"
+    }
+    expenses {
+        varchar id PK "VARCHAR(36)"
+        varchar user_id FK "NOT NULL"
+        varchar project_id FK "NOT NULL"
+        varchar category_id FK "NOT NULL"
+        varchar supplier_id FK "NOT NULL"
+        varchar budget_id FK "nullable desde V8"
+        boolean paid "NOT NULL"
+        numeric total_price "NUMERIC(15,2)"
+        varchar receipt_state "NONE, PENDING, UPLOADED"
+        varchar receipt_key "privada, nullable"
+        varchar receipt_content_type "nullable"
+        bigint receipt_size "nullable, max 10485760"
+    }
+    pending_payments {
+        varchar id PK "VARCHAR(36)"
+        varchar expense_id FK,UK "NOT NULL"
+        date due_date "obrigatoria nos novos lancamentos a prazo"
+    }
+```
+
 ### Constraints e Índices Especiais no PostgreSQL:
 O índice de orçamento do item 1 está implementado pela V6. Os demais itens descrevem a evolução do modelo; sua aplicação física deve ser conferida nas migrations da respectiva história.
 1. **Índice Único Parcial para Orçamento Único por Categoria:**
@@ -281,7 +323,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 | **Categoria de Despesa** | `ExpenseCategory` / `CategoryResponseDTO` | `expense_categories` | `/api/expense-categories` |
 | **Fornecedor** | `Supplier` / `SupplierDTO` | `suppliers` | `/api/suppliers` |
 | **Orçamento Previsto** | `Budget` / `BudgetSetDTO`, `BudgetCategoryDTO`, `BudgetOverviewDTO` | `budgets` | `/api/budgets` |
-| **Despesa (Gasto Real)** | `Expense` / `ExpenseDTO` | `expenses` | `/api/expenses` |
+| **Despesa (Gasto Real)** | `Expense` / `ExpenseCreateDTO`, `ExpenseResponseDTO` | `expenses` | `/api/expenses` |
 | **Pagamento Pendente** | `PendingPayment` / `PaymentDTO` | `pending_payments` | `/api/pending-payments` |
 
 ---
@@ -305,6 +347,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 8. **Painel de orçamento (US07):** a recarga automática observa o identificador da obra, não a referência do objeto. Atualizar a lista da navbar ou os metadados da mesma obra não recarrega orçamento/categorias nem descarta diálogos. Troca real de obra fecha os diálogos, limpa o contexto e ignora respostas antigas, inclusive no ciclo A → B → A.
 9. **Valor monetário no formulário:** máscara local BRL interpreta os dígitos como centavos (`123456` → `R$ 1.234,56`), mantendo o controle e o DTO numéricos em reais (`1234.56`). Valores existentes são formatados sem nova divisão por cem. Vazio e zero continuam inválidos no formulário; zerar exige a confirmação explícita.
 10. **Sessão e recuperação:** `/` e `/login` abrem o mesmo Login; `Auth.logout()` remove token e obra ativa antes de navegar para `/login`. Erros preservam formulário ou confirmação e reabilitam nova tentativa. Uma resposta perdida não prova que o servidor deixou de gravar.
+11. **Contexto das despesas (US03):** `ActiveProjectService` expõe signals somente para leitura e uma versão de contexto que muda sincronamente ao trocar o identificador da obra. Formulário e consulta limpam o contexto anterior e ignoram respostas antigas, inclusive A → B → A. Atualizar metadados da mesma obra não descarta os campos. O cadastro não restaura rascunho após novo login; `401` mantém o encerramento da sessão existente.
 
 ### 5.2 Backend (Java 21 LTS / Spring Boot 3.5.4)
 
@@ -386,6 +429,24 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 - `BudgetState`: `ON_TRACK` abaixo de 90%, `WARNING` de 90% até abaixo de 100%, `EXCEEDED` a partir de 100% e `NO_BUDGET` quando o teto é zero. O estado usa a razão exata; o percentual exibido é arredondado para uma casa decimal. `hasBudget` informa a existência do registro ativo, mesmo zerado.
 - `BudgetOverviewDTO` reúne `projectId`, `totalPlanned`, `totalSpent`, `available`, `globalPercentage`, `exceededCategories`, `budgetedCategories` e `categories`. Cada `BudgetCategoryDTO` informa categoria, planejado, gasto, saldo, percentual, estado e `hasBudget`.
 - O alerta de despesas sem teto oferece “Definir teto”. Os atalhos de despesas permanecem visíveis e desabilitados até US04/US05, com a dependência informada no tooltip.
+
+---
+
+### Contrato implementado da US03
+
+| Método e caminho | Retorno | Comportamento |
+| --- | --- | --- |
+| `GET /api/suppliers` | `200`, lista de fornecedores | Somente fornecedores do usuário autenticado. |
+| `POST /api/expenses` | `201`, `ExpenseResponseDTO` e `Location` | Recebe `ExpenseCreateDTO`; seleciona fornecedor existente ou cria inline. Grava despesa e eventual pagamento atomicamente. Sem contrato de idempotência neste recorte. |
+| `GET /api/expenses/{id}` | `200`, `ExpenseResponseDTO` | Consulta individual com quitação, vencimento e estado de comprovante; não expõe URL pública do storage. |
+| `PUT /api/expenses/{id}/receipt` | `200`, `ExpenseResponseDTO` | Multipart `file`, após despesa salva; falha não desfaz os registros financeiros. Reenvio atua sobre a mesma despesa. |
+| `GET /api/expenses/{id}/receipt` | `200`, arquivo | Leitura autenticada, com nome seguro, `no-store` e `nosniff`. |
+
+- Serviço valida obra ativa do proprietário, categoria e fornecedor. Leituras e upload recusam obra/despesa excluída; recurso alheio ou inexistente retorna `404`, antes de acessar storage.
+- Modo direto exige total; modo calculado exige quantidade e valor unitário, calcula com `BigDecimal` e arredonda o total com `HALF_UP`. Pagamento a prazo exige vencimento igual ou posterior à compra. Gastos continuam no agregado da US07; alertas de teto ausente ou consumo de pelo menos 100% não bloqueiam a gravação.
+- Comprovantes: MIME declarado e extensão correspondente JPEG/PNG/PDF; arquivo não vazio e até 10 MiB (10 × 1024 × 1024 bytes). Sem inspeção de bytes, decodificação de imagens ou biblioteca de PDF. Tipo inválido retorna `400`; tamanho excedido, `413`.
+- Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado e listagem completa ficam para histórias posteriores.
+- Entrada: `/contas` → “Cadastrar conta” → `/despesas/nova`; consulta individual em `/despesas/:id`.
 
 ---
 

@@ -4,6 +4,8 @@
 
 Plano aprovado explicitamente pelo autor nesta conversa. A implementação acontece em `feature/us03-cadastro-despesas`. Não alterar o status da spec pelo agente. Antes do código, conferir a aprovação commitada pelo autor e este plano aprovado e commitado.
 
+Recorte de entrega atualizado por decisão do autor em 2026-10-30: este plano termina na tarefa 8. Idempotência da criação e recuperação de campos após sessão expirada foram retiradas desta entrega. O autor realizará o envio ao GitHub.
+
 ### Backend (`apps/api`)
 
 - `POST /api/expenses`: recebe `ExpenseCreateDTO`, retorna `201 Created`, `Location` e `ExpenseResponseDTO`. Campos: `projectId`, `description`, `purchaseDate`, `categoryId`, seleção exclusiva entre `supplierId` e `newSupplier` (nome e CNPJ), `paid`, `dueDate` e modo de valor `DIRECT` ou `CALCULATED`. No modo direto, exigir `totalPrice`; no calculado, exigir `quantity` e `unitPrice` e calcular o total no servidor. Não aceitar um total arbitrário que substitua o cálculo.
@@ -16,7 +18,6 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 - Conforme decisão explícita do autor em 2026-10-29, validar somente o tipo declarado do arquivo (MIME e extensão correspondente para JPEG, PNG e PDF) e o tamanho máximo de 10 MiB (10 × 1024 × 1024 bytes), recusando arquivo vazio. Não inspecionar bytes, assinatura, estrutura, páginas ou conteúdo interno; não usar PDFBox nem decodificar imagens. Comunicar os formatos e o limite no formulário. Tipo inválido: `400`; tamanho excedido: `413`, ambos com mensagem compreensível. Limites multipart devem comportar o envelope sem rejeitar um arquivo válido de exatamente esse tamanho.
 - O service valida obra ativa não excluída do usuário, categoria existente e fornecedor pertencente ao mesmo usuário. Leituras e upload filtram também despesa ativa e obra não excluída. Recurso alheio/inexistente: `404`, sem acesso ao armazenamento nem escrita. Controllers não recebem entidades nem acessam repositórios.
 - Despesa e pagamento pendente são uma única transação. Despesa quitada não cria pagamento pendente. Vencimento é obrigatório para não quitada e não pode anteceder `purchaseDate`. Valores gastos incluem despesas ativas pagas e pendentes; usar o agregado de orçamento da US07 para os alertas, sem manter um segundo saldo mutável.
-- Criação com `Idempotency-Key`: UUID estável por tentativa. Persistir usuário, obra, chave, hash do payload normalizado e despesa criada na mesma transação. Repetição idêntica devolve a mesma despesa; payload divergente retorna `409`. Resolver concorrência pela unicidade no banco, sem repetir fornecedor inline ou pagamento. Revalidar autorização e exclusão lógica antes de devolver resultado antigo.
 
 ### Migração de schema
 
@@ -24,7 +25,6 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 - Tarefa 1: `V8__prepare_expense_registration.sql`. Flexibilizar `expenses.budget_id` para permitir categoria sem orçamento; manter obra e categoria obrigatórias. Persistir a informação de quitação. Introduzir titularidade de fornecedor e ajustar dados legados sem misturar contas: associar fornecedor usado por uma conta a essa conta, clonar e religar referências por proprietário quando compartilhado no legado. Fornecedores legados sem referências ficam sem proprietário e não são expostos pela API. Testar explicitamente esse backfill; não atribuir dados sem dono a um usuário arbitrário.
 - Tarefa 2: nenhuma migration. O schema existente já representa pagamento com vencimento e vínculo único à despesa. Obrigatoriedade e comparação com a data da despesa serão validadas no service para novos lançamentos, dentro da transação. Preservar dados legados com vencimento nulo, sem inventar datas nem alterar migrations aplicadas.
 - Tarefa 5: `V9__add_expense_receipt_state.sql`. Persistir chave interna e estado `NONE`/`PENDING`/`UPLOADED`, com integridade entre presença de chave e estado. Tratar valores legados explicitamente; não inventar sucesso para uma referência cujo objeto não foi confirmado. O estado após upload deve ser consistente com o comportamento de retry da tarefa 7.
-- Tarefa 9: `V10__add_expense_creation_idempotency.sql`, com unicidade por usuário, obra e chave, hash normalizado e referência da despesa. Sem reutilizar chave para uma nova intenção de lançamento.
 - Caso uma migration prevista não seja necessária após verificar o schema, registrar “nenhuma” na tarefa antes de implementá-la; não criar migration vazia. Renumerar apenas as futuras, ainda não aplicadas.
 
 ### Frontend (`apps/web`)
@@ -34,8 +34,7 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
 - `core/services/expense.service.ts` e `supplier.service.ts` concentram HTTP e DTOs tipados. Usar `CategoryService`, `BudgetService`, `ActiveProjectService` e identidade autenticada existentes. Estado de carregamento, erro, envio e progresso em signals; nenhum componente usa HTTP diretamente.
 - Após criar, abrir a consulta individual usando o ID confirmado e disponibilizar seu endereço. Para comprovante selecionado, enviar somente depois da criação; falha mostra o alerta aprovado sem apagar o sucesso da gravação financeira. Reabrir o endereço permite reenvio escolhendo outro arquivo local.
 - A mudança real de obra encerra o contexto do formulário e ignora respostas antigas, inclusive A → B → A. Atualização dos metadados da mesma obra não descarta campos. Uma operação já recebida pelo servidor pode concluir para a obra original; não prometer cancelamento transacional por navegação.
-- Serviço de recuperação de rascunho em `sessionStorage`, sem token ou conteúdo binário: campos, usuário, obra, rota e chave da tentativa. Capturar antes de uma requisição protegida para sobreviver ao logout síncrono do interceptor. Restaurar somente após login da mesma conta, validando acesso à obra original; oferecer o retorno a essa obra, sem copiar o lançamento para a atualmente selecionada. Excluir rascunho após sucesso confirmado, cancelamento ou logout voluntário. Não restaurar dados para outra conta.
-- Manter o encerramento de sessão e redirecionamento para login da arquitetura existente. Recuperação não salva automaticamente; pede conferência e nova seleção do arquivo. Não modificar globalmente o comportamento dos demais formulários.
+- Manter o encerramento de sessão e redirecionamento para login da arquitetura existente, sem recuperação de rascunho após novo login neste recorte.
 
 ## Tarefas
 
@@ -88,24 +87,12 @@ Plano aprovado explicitamente pelo autor nesta conversa. A implementação acont
   - Migration: nenhuma.
   - Arquivos previstos: componentes de despesas, integração com `ActiveProjectService` e rotas; testes web e teste de integração da API.
 
-- [ ] **Tarefa 9 — Recuperar salvamento sem duplicar lançamento**
-  - Cobre: CA12.
-  - Teste primeiro: integração PostgreSQL prova duas requisições com mesma chave/payload, incluindo concorrência, gerando uma despesa, um fornecedor inline e no máximo um pagamento; payload diferente gera 409. Angular simula resposta perdida, preserva campos/chave, repete sem duplicação e bloqueia duplo clique; nova intenção recebe nova chave. Verificar autorização no replay.
-  - Migration: `V10__add_expense_creation_idempotency.sql`.
-  - Arquivos previstos: entidade/repositório da chave de criação, service/controller de despesas, migration e testes API; serviço/componente de cadastro e testes web.
-
-- [ ] **Tarefa 10 — Recuperar campos após sessão expirada**
-  - Cobre: CA13; integra recuperação com CA12 e seleção de arquivo de CA6.
-  - Teste primeiro: Angular simula 401 com logout do interceptor, login da mesma conta e retorno à obra original, preservando campos e chave sem envio automático. Outra conta/obra não recebe os dados; cancelamento/logout voluntário/sucesso removem rascunho. Arquivo precisa de nova seleção. JUnit prova 401 sem escrita e replay autorizado após login sem duplicação.
-  - Migration: nenhuma.
-  - Arquivos previstos: serviço de rascunho de despesas, formulário, fluxo de retorno do login, identidade autenticada/interceptor apenas se necessário; testes API/web. Atualizar as decisões de sessão da US03 em `docs/design-tokens.md` e `docs/user-flows.md`, conforme a spec.
-
 Cada tarefa segue RED → GREEN → REFACTOR nas camadas citadas. Usar PostgreSQL real com Flyway/validate nos testes de persistência, nunca H2 como substituto desses testes. Limite de duas rodadas de TDD pelo mesmo motivo e duas rodadas de revisão, conforme a constituição.
 
 Validação por tarefa: testes JUnit do comportamento afetado em `apps/api` com perfil `test` e PostgreSQL configurado; testes Jasmine/Karma em `apps/web` com ChromeHeadless. Executar build Angular quando alterar componentes/contratos. Não declarar checks concluídos sem executá-los.
 
 Após cada implementação: revisores distintos de conformidade e código, pareceres imutáveis e triagem do autor; leitura do diff com tutor e commit somente após autorização. Executar uma tarefa por vez e devolver o controle ao autor ao final.
 
-No fechamento, após as dez tarefas: atualizar PRD, arquitetura, índice de specs e documentação de sessão; solicitar autorização para o commit documental, então despachar auditor-final contra a spec, seguindo `utf-issue`. Essa etapa não é uma tarefa adicional de implementação nem autoriza ampliar o escopo sem novo aceite.
+No fechamento, após as oito tarefas: atualizar PRD, arquitetura, índice de specs e documentação de sessão conforme o recorte aprovado; solicitar autorização para o commit documental, então despachar auditor-final contra a spec revisada, seguindo `utf-issue`. Essa etapa não é uma tarefa adicional de implementação nem autoriza ampliar o escopo sem novo aceite.
 
 ## Critérios sem tarefa

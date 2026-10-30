@@ -12,7 +12,8 @@ Este diretório centraliza todas as ordens de serviço e planos de implementaç�
 | `#02` | `specs/002-autenticacao-jwt/` | `🟢 Implementada` | Login com emissão de token JWT, authGuard e authInterceptor (HU02). |
 | `#03` | `specs/003-home-page-scaffold/` | `🟢 Implementada` | Scaffold da tela inicial com layout DaisyUI e componentes reativos. |
 | `#04` | `specs/004-gestao-orcamento/` | `⚪ Aguardando` | CRUD de orçamentos por categoria e cálculo de progresso (HU07). |
-| `#05` | `specs/005-entidade-project-e-crud/` | `⚪ Planejada` | Criação da entidade `Project` (Obra) e associação com Budgets/Expenses. |
+| `#05` (legado) | `specs/005-entidade-project-e-crud/` | `⚪ Planejada` | Registro histórico de planejamento de `Project`; numeração legada distinta da referência local #5 da US03. |
+| `#5` (local) | [specs/5-cadastro-despesas/](5-cadastro-despesas/) | `🟢 Implementada` | US03: oito tarefas concluídas e revisadas, incluindo comprovantes no Supabase, tag/reenvio e isolamento do contexto da obra. Idempotência e recuperação de sessão retiradas pelo autor. Fechamento documental, auditoria final e PR pendentes; vínculo remoto não confirmado. |
 | `#06` | `specs/006-data-seeder-factory/` | `⚪ Planejada` | Data Seeder / Factory para popular banco com obras de exemplo no perfil Dev. |
 | `#07` | `specs/007-integracao-home-com-api/` | `⚪ Planejada` | Integração do frontend (Home-page e Navbar) com a API REST real. |
 | `#09` | [specs/09-gestao-orcamento/](09-gestao-orcamento/) | `🟢 Implementada` | US07: tetos por categoria, painel de consumo, alertas, zeramento e isolamento por usuário. Dez tarefas e ajustes revisados; auditoria final e PR pendentes. |
