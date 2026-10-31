@@ -85,6 +85,10 @@ jobs:
         working-directory: ./apps/web
         run: npm ci
 
+      - name: Rodar testes do frontend
+        working-directory: ./apps/web
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+
       - name: Validar build do frontend
         working-directory: ./apps/web
         run: npm run build

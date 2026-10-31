@@ -1,12 +1,10 @@
 package com.obracerta.model.entity;
 
 import com.obracerta.enums.UserRole;
-import com.obracerta.model.dto.UserDTO;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -49,10 +47,6 @@ public class User implements UserDetails {
     @UpdateTimestamp
     @Column(name =  "updated_at", nullable = false)
     private LocalDateTime updateAt;
-
-    public User(UserDTO user){
-        BeanUtils.copyProperties(user, this);
-    }
 
     public User(String name, String email, String password){
         this.name = name;

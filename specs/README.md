@@ -6,18 +6,24 @@ Este diretório centraliza todas as ordens de serviço e planos de implementaç�
 
 ## 📋 Tabela de Rastreabilidade
 
-| Issue | Spec (Diretório) | Estado | Observação |
-| :---: | :--- | :---: | :--- |
-| `#01` | `specs/001-cadastro-usuario/` | `🟢 Implementada` | Cadastro de usuário com validação de unicidade e BCrypt (HU01). |
-| `#02` | `specs/002-autenticacao-jwt/` | `🟢 Implementada` | Login com emissão de token JWT, authGuard e authInterceptor (HU02). |
-| `#03` | `specs/003-home-page-scaffold/` | `🟢 Implementada` | Scaffold da tela inicial com layout DaisyUI e componentes reativos. |
-| `#04` | `specs/004-gestao-orcamento/` | `⚪ Aguardando` | CRUD de orçamentos por categoria e cálculo de progresso (HU07). |
-| `#05` (legado) | `specs/005-entidade-project-e-crud/` | `⚪ Planejada` | Registro histórico de planejamento de `Project`; numeração legada distinta da referência local #5 da US03. |
-| `#5` (local) | [specs/5-cadastro-despesas/](5-cadastro-despesas/) | `🟢 Implementada` | US03: oito tarefas originais concluídas e revisadas, incluindo comprovantes no Supabase, tag/reenvio e isolamento do contexto da obra. Idempotência e recuperação de sessão retiradas pelo autor. Fechamento documental e correção AF-01 concluídos; nova tarefa 9 aprovada nas duas revisões, sem restaurar o escopo retirado. Nova auditoria e PR pendentes; vínculo remoto não confirmado. |
-| `#06` | `specs/006-data-seeder-factory/` | `⚪ Planejada` | Data Seeder / Factory para popular banco com obras de exemplo no perfil Dev. |
-| `#07` | `specs/007-integracao-home-com-api/` | `⚪ Planejada` | Integração do frontend (Home-page e Navbar) com a API REST real. |
-| `#09` | [specs/09-gestao-orcamento/](09-gestao-orcamento/) | `🟢 Implementada` | US07: tetos por categoria, painel de consumo, alertas, zeramento e isolamento por usuário. Dez tarefas e ajustes revisados; auditoria final e PR pendentes. |
-| `#27` | `specs/27-gestao-projetos/` | `🟢 Implementada` | Gestão e seleção de obras (Projetos), tabela multi-obra e seletor (US14). |
+| Issue | História | Spec (Diretório) | Estado | PR | Observação |
+| :---: | :--- | :--- | :---: | :---: | :--- |
+| #3 | US01 — Cadastro de Usuário | — | `🟢 Implementada` | #2 | Entregue antes da adoção do UTF-SDD; não possui pasta de spec. |
+| #4 | US02 — Autenticação (Login e Logout) | — | `🟢 Implementada` | #2 | Entregue antes da adoção do UTF-SDD; não possui pasta de spec. |
+| #21 | Home-page (scaffold com dados mockados) | [specs/003-home-page-scaffold/](003-home-page-scaffold/) | `🟢 Implementada` | #26 | Layout e componentes do dashboard; os dados mockados foram substituídos pela API na US14. |
+| #27 | US14 — Gestão e Seleção de Obras | [specs/27-gestao-projetos/](27-gestao-projetos/) | `🟢 Implementada` | #29 | Multi-obra, seletor global, exclusão lógica e Anti-IDOR. Auditoria final r2 (pós-merge): NÃO PRONTO; o CA5(b) segue aberto na Issue #34. |
+| #9 | US07 — Orçamento por Categoria | [specs/09-gestao-orcamento/](09-gestao-orcamento/) | `🟢 Implementada` | #30 | Tetos por categoria, painel de consumo, alertas, zeramento e seed de demonstração. Auditoria final r2 (pós-merge): NÃO PRONTO; a regressão do CA10 (erro vira 401) segue aberta na Issue #33. |
+| #5 | US03 — Cadastro de Despesas | [specs/5-cadastro-despesas/](5-cadastro-despesas/) | `🟢 Implementada` | #31 | Lançamento quitado ou a prazo, fornecedor inline e comprovante no Supabase Storage com reenvio. Auditoria final r2: pronto para PR. |
+
+### Specs substituídas (mantidas apenas como histórico)
+
+Rascunhos anteriores ao UTF-SDD, fatiados por camada. Não devem ser implementados: o conteúdo foi absorvido pelas histórias acima. As pastas são mantidas porque os pareceres da US14 as citam e pareceres não são editados.
+
+| Spec (Diretório) | Substituída por |
+| :--- | :--- |
+| `specs/005-entidade-project-e-crud/` | US14 (#27) |
+| `specs/006-data-seeder-factory/` | US07 (#9), `DemoDataSeederService` |
+| `specs/007-integracao-home-com-api/` | US14 (#27) |
 
 ---
 
