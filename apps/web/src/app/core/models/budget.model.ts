@@ -11,3 +11,31 @@ export interface Budget {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type BudgetState = 'ON_TRACK' | 'WARNING' | 'EXCEEDED' | 'NO_BUDGET';
+
+export interface BudgetCategory {
+  categoryId: string;
+  categoryName: string;
+  plannedAmount: number;
+  spentAmount: number;
+  balanceAmount: number;
+  percentage: number | null;
+  state: BudgetState;
+  hasBudget: boolean;
+}
+
+export interface BudgetSetDTO {
+  estimatedAmount: number;
+}
+
+export interface BudgetOverview {
+  projectId: string;
+  totalPlanned: number;
+  totalSpent: number;
+  available: number;
+  globalPercentage: number | null;
+  exceededCategories: number;
+  budgetedCategories: number;
+  categories: BudgetCategory[];
+}

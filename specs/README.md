@@ -15,6 +15,7 @@ Este diretório centraliza todas as ordens de serviço e planos de implementaç�
 | `#05` | `specs/005-entidade-project-e-crud/` | `⚪ Planejada` | Criação da entidade `Project` (Obra) e associação com Budgets/Expenses. |
 | `#06` | `specs/006-data-seeder-factory/` | `⚪ Planejada` | Data Seeder / Factory para popular banco com obras de exemplo no perfil Dev. |
 | `#07` | `specs/007-integracao-home-com-api/` | `⚪ Planejada` | Integração do frontend (Home-page e Navbar) com a API REST real. |
+| `#09` | [specs/09-gestao-orcamento/](09-gestao-orcamento/) | `🟢 Implementada` | US07: tetos por categoria, painel de consumo, alertas, zeramento e isolamento por usuário. Dez tarefas e ajustes revisados; auditoria final e PR pendentes. |
 | `#27` | `specs/27-gestao-projetos/` | `🟢 Implementada` | Gestão e seleção de obras (Projetos), tabela multi-obra e seletor (US14). |
 
 ---

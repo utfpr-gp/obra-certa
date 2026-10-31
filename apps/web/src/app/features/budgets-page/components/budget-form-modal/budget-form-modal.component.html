@@ -1,0 +1,110 @@
+@if (isOpen()) {
+  <div class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <section
+      data-testid="budget-form-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="budget-form-title"
+      class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"
+    >
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="budget-form-title" class="text-xl font-bold text-slate-900">
+          {{ isEditing() ? 'Editar orçamento' : 'Adicionar orçamento' }}
+        </h2>
+        <button
+          type="button"
+          data-testid="budget-form-close"
+          aria-label="Fechar"
+          (click)="close()"
+          class="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer text-xl"
+        >
+          ×
+        </button>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+        <label class="block text-sm font-medium text-slate-700">
+          Categoria
+          <select
+            formControlName="categoryId"
+            data-testid="budget-form-category"
+            class="select border-1 rounded-md text-gray-700 w-full mt-1 focus:outline-none focus:ring-2 focus:border-transparent"
+            [ngClass]="showCategoryError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+          >
+            <option value="">Selecione uma categoria</option>
+            @for (category of categories(); track category.id) {
+              <option [value]="category.id">{{ category.name }}</option>
+            }
+          </select>
+        </label>
+        @if (isEditing()) {
+          <p class="text-xs text-slate-500">
+            A categoria não pode ser alterada ao editar um orçamento existente.
+          </p>
+        }
+        @if (showCategoryError()) {
+          <p data-testid="budget-form-category-error" class="text-xs text-rose-600">
+            Selecione uma categoria.
+          </p>
+        }
+
+        <label class="block text-sm font-medium text-slate-700">
+          Valor planejado
+          <input
+            type="text"
+            inputmode="numeric"
+            [value]="amountDisplay()"
+            (input)="onAmountInput($event)"
+            (blur)="onAmountBlur()"
+            data-testid="budget-form-amount"
+            placeholder="R$ 0,00"
+            class="input border-1 rounded-md text-gray-700 w-full mt-1 focus:outline-none focus:ring-2 focus:border-transparent"
+            [ngClass]="showAmountError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+          />
+        </label>
+        @if (showAmountError()) {
+          <p data-testid="budget-form-amount-error" class="text-xs text-rose-600">
+            Informe um valor positivo com até duas casas decimais.
+          </p>
+        }
+
+        @if (errorMessage()) {
+          <p data-testid="budget-form-error" role="alert" class="text-sm text-rose-600">
+            {{ errorMessage() }}
+          </p>
+        }
+        @if (belowSpentConflict()) {
+          <!-- TODO #7: habilitar a consulta das despesas desta categoria após US05. -->
+          <button
+            type="button"
+            data-testid="budget-form-view-expenses"
+            disabled
+            title="Disponível após a implementação da tela de despesas (US05)"
+            class="text-sm font-semibold text-slate-500 cursor-not-allowed"
+          >
+            Ver despesas desta categoria
+          </button>
+        }
+
+        <div class="flex justify-end gap-2 pt-3">
+          <button
+            type="button"
+            data-testid="budget-form-cancel"
+            (click)="close()"
+            class="btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium px-4 py-2"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            data-testid="budget-form-submit"
+            [disabled]="saving()"
+            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
+          >
+            Salvar
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}

@@ -16,6 +16,7 @@ export class ConfirmModalComponent {
   confirmText = input<string>('Confirmar');
   cancelText = input<string>('Cancelar');
   isDestructive = input<boolean>(true);
+  saving = input(false);
 
   confirm = output<void>();
   cancel = output<void>();
@@ -28,6 +29,7 @@ export class ConfirmModalComponent {
   }
 
   onConfirm(): void {
+    if (!this.isOpen() || this.saving()) return;
     this.confirm.emit();
   }
 

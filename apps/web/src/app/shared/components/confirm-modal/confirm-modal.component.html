@@ -45,6 +45,7 @@
         <button
           type="button"
           data-testid="confirm-confirmation"
+          [disabled]="saving()"
           [attr.aria-label]="confirmText()"
           (click)="onConfirm()"
           class="btn border-0 font-medium rounded-md px-4 py-2 shadow-sm transition-all active:scale-98 cursor-pointer"
