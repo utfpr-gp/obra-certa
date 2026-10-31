@@ -1,6 +1,7 @@
 package com.obracerta.service;
 
 import com.obracerta.model.dto.expense.ExpenseCreateDTO;
+import com.obracerta.model.dto.expense.ExpenseUpdateDTO;
 import com.obracerta.model.entity.Expense;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.repository.*;
@@ -44,14 +45,7 @@ public class ExpenseService {
                 invalid("O vencimento não pode ser anterior à data da despesa.");
         }
         boolean calculated = "CALCULATED".equals(request.valueMode());
-        if (!calculated && !"DIRECT".equals(request.valueMode())) invalid("Selecione o modo de valor.");
-        BigDecimal total;
-        if (calculated) {
-            validateNumber(request.quantity(),8,"quantity");
-            validateNumber(request.unitPrice(),13,"unitPrice");
-            total=request.quantity().multiply(request.unitPrice()).setScale(2,RoundingMode.HALF_UP);
-        } else total=request.totalPrice();
-        validateNumber(total,13,"totalPrice");
+        BigDecimal total = calculateTotal(request.valueMode(), request.quantity(), request.unitPrice(), request.totalPrice());
         boolean existing = request.supplierId()!=null && !request.supplierId().isBlank();
         if (existing == (request.newSupplier()!=null)) invalid("Selecione um fornecedor ou cadastre um novo.");
         Supplier supplier;
@@ -80,6 +74,43 @@ public class ExpenseService {
         }
         return ExpenseMapper.toDTO(expenses.save(expense));
     }
+    @Transactional
+    public ExpenseResponseDTO update(String id, ExpenseUpdateDTO request) {
+        Expense expense = expenses.findActiveByIdAndOwner(id, identity.getAuthenticatedUser().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada"));
+        if (request.description() == null || request.description().isBlank() || request.purchaseDate() == null)
+            invalid("Informe descrição e data da despesa.");
+        ExpenseCategory category = categories.findById(request.categoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Categoria não encontrada"));
+        if (!expense.isPaid() && expense.getPendingPayment() != null
+                && expense.getPendingPayment().getDueDate().isBefore(request.purchaseDate()))
+            invalid("O vencimento não pode ser anterior à data da despesa.");
+        BigDecimal total = calculateTotal(request.valueMode(), request.quantity(), request.unitPrice(), request.totalPrice());
+        boolean calculated = "CALCULATED".equals(request.valueMode());
+        expense.setDescription(request.description().trim());
+        expense.setPurchaseDate(request.purchaseDate());
+        expense.setCategory(category);
+        expense.setBudget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(
+                expense.getProject().getId(), category.getId()).orElse(null));
+        expense.setQuantity(calculated ? request.quantity() : null);
+        expense.setUnitPrice(calculated ? request.unitPrice() : null);
+        expense.setTotalPrice(total.setScale(2, RoundingMode.HALF_UP));
+        return ExpenseMapper.toDTO(expenses.save(expense));
+    }
+
+    private static BigDecimal calculateTotal(String mode, BigDecimal quantity, BigDecimal unitPrice, BigDecimal directTotal) {
+        boolean calculated = "CALCULATED".equals(mode);
+        if (!calculated && !"DIRECT".equals(mode)) invalid("Selecione o modo de valor.");
+        BigDecimal total;
+        if (calculated) {
+            validateNumber(quantity, 8, "quantity");
+            validateNumber(unitPrice, 13, "unitPrice");
+            total = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+        } else total = directTotal;
+        validateNumber(total, 13, "totalPrice");
+        return total;
+    }
+
     @Transactional(readOnly=true)
     public ExpenseResponseDTO get(String id) {
         return ExpenseMapper.toDTO(expenses.findActiveByIdAndOwner(id,identity.getAuthenticatedUser().getId())

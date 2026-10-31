@@ -16,6 +16,10 @@ public class ExpenseController {
         var response=service.create(request);
         return ResponseEntity.created(URI.create("/api/expenses/"+response.id())).body(response);
     }
+    @PutMapping("/{id}")
+    public ExpenseResponseDTO update(@PathVariable String id, @Valid @RequestBody ExpenseUpdateDTO request) {
+        return service.update(id, request);
+    }
     @GetMapping("/{id}")
     public ExpenseResponseDTO get(@PathVariable String id) { return service.get(id); }
 }

@@ -47,7 +47,7 @@ Plano aprovado pelo autor em 31/10/2026, com a condição de revisar antes de in
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Editar os dados da despesa e recalcular o consumo**
+- [x] **Tarefa 1 — Editar os dados da despesa e recalcular o consumo**
   - Cobre: CA1 e CA2; validações e isolamento do caminho de edição do CA9. CA9 completo será consolidado na Tarefa 7.
   - Teste primeiro:
     - JUnit: `ExpenseUpdateIntegrationTest` prova atualização da mesma linha, campos diretos/calculados, mudança de categoria, ajuste dos agregados anterior/destino, preservação do teto e do fornecedor, rejeição de valores inválidos e tentativa de mudar obra sem efeito. Exercitar despesa/obra alheia e excluída com 404, sem escrita; quando pendente, validar data de compra contra vencimento já existente.

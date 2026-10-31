@@ -1,0 +1,37 @@
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" data-testid="expense-edit-backdrop">
+  <section role="dialog" aria-modal="true" aria-labelledby="edit-title" class="bg-base-100 rounded-2xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto" data-testid="expense-edit-modal">
+    <div class="flex justify-between items-center mb-4">
+      <h2 id="edit-title" class="text-xl font-bold">Editar despesa</h2>
+      <button type="button" class="btn btn-ghost" aria-label="Fechar edição" data-testid="edit-close" (click)="close()">✕</button>
+    </div>
+    <label class="form-control mb-3">Obra<input class="input input-bordered" data-testid="edit-project" [value]="project()?.name" disabled /></label>
+    @if (loading()) { <p role="status">Carregando categorias…</p> }
+    @if (optionsError()) { <p role="alert">{{ optionsError() }}</p><button type="button" class="btn" (click)="loadCategories()">Tentar novamente</button> }
+    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-3">
+      <label>Descrição<input class="input input-bordered w-full" data-testid="edit-description" formControlName="description" [attr.aria-invalid]="invalid('description')" /></label>
+      @if (invalid('description')) { <p class="text-error" data-testid="edit-description-error">Informe a descrição.</p> }
+      <label>Data<input type="date" class="input input-bordered w-full" data-testid="edit-purchaseDate" formControlName="purchaseDate" [attr.aria-invalid]="invalid('purchaseDate')" /></label>
+      @if (invalid('purchaseDate')) { <p class="text-error" data-testid="edit-purchaseDate-error">Informe uma data válida, até o vencimento pendente existente.</p> }
+      <label>Categoria<select class="select select-bordered w-full" data-testid="edit-categoryId" formControlName="categoryId" [attr.aria-invalid]="invalid('categoryId')">
+        <option value="">Selecione</option>@for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
+      </select></label>
+      @if (invalid('categoryId')) { <p class="text-error" data-testid="edit-categoryId-error">Selecione a categoria.</p> }
+      <label>Modo de valor<select class="select select-bordered w-full" data-testid="edit-valueMode" formControlName="valueMode"><option value="DIRECT">Total direto</option><option value="CALCULATED">Quantidade × valor unitário</option></select></label>
+      @if (form.controls.valueMode.value === 'DIRECT') {
+        <label>Total (R$)<input inputmode="numeric" class="input input-bordered w-full" data-testid="edit-totalPrice" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" (blur)="form.controls.totalPrice.markAsTouched()" [attr.aria-invalid]="invalid('totalPrice')" /></label>
+        @if (invalid('totalPrice')) { <p class="text-error" data-testid="edit-totalPrice-error">Informe total positivo com até duas casas decimais e menor que 10 trilhões.</p> }
+      } @else {
+        <label>Quantidade<input type="number" step="0.01" class="input input-bordered w-full" data-testid="edit-quantity" formControlName="quantity" [attr.aria-invalid]="invalid('quantity')" /></label>
+        @if (invalid('quantity')) { <p class="text-error" data-testid="edit-quantity-error">Informe quantidade positiva com até duas casas decimais e menor que 100 milhões.</p> }
+        <label>Valor unitário (R$)<input inputmode="numeric" class="input input-bordered w-full" data-testid="edit-unitPrice" [value]="money(form.controls.unitPrice.value)" (input)="onMoneyInput($event,'unitPrice')" (blur)="form.controls.unitPrice.markAsTouched()" [attr.aria-invalid]="invalid('unitPrice')" /></label>
+        @if (invalid('unitPrice')) { <p class="text-error" data-testid="edit-unitPrice-error">Informe valor positivo com até duas casas decimais e menor que 10 trilhões.</p> }
+        @if (form.hasError('invalidTotal')) { <p class="text-error" role="alert">O total calculado deve ser positivo e menor que 10 trilhões.</p> }
+      }
+      @if (errorMessage()) { <p class="text-error" role="alert">{{ errorMessage() }}</p><button type="button" class="btn btn-outline" data-testid="edit-check-state" (click)="checkState.emit()">Consultar estado atual</button> }
+      <div class="flex justify-end gap-2 mt-3">
+        <button type="button" class="btn btn-ghost" data-testid="edit-cancel" (click)="close()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" data-testid="edit-save" [disabled]="saving() || loading() || !!optionsError()">{{ saving() ? 'Salvando…' : 'Salvar' }}</button>
+      </div>
+    </form>
+  </section>
+</div>

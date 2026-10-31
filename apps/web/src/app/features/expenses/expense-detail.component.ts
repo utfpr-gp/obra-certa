@@ -1,3 +1,4 @@
+import { ExpenseEditModalComponent } from './components/expense-edit-modal/expense-edit-modal.component';
 import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -8,7 +9,7 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 
 @Component({
-  selector: 'app-expense-detail', standalone: true, imports: [RouterLink],
+  selector: 'app-expense-detail', standalone: true, imports: [RouterLink, ExpenseEditModalComponent],
   template: `
     <section class="mx-auto max-w-3xl p-4 sm:p-6">
       <h1 class="text-2xl font-bold mb-6">Despesa</h1>
@@ -27,6 +28,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
       @if (expense(); as expense) {
         <article class="card bg-base-100 border border-base-300 p-6">
           <h2 class="text-xl font-semibold">{{ expense.description }}</h2>
+          <button type="button" class="btn btn-outline my-3" data-testid="edit-expense" (click)="openEdit()">Editar</button>
           <span class="badge badge-success my-3">{{ expense.paid ? 'Quitada' : 'Pendente' }}</span>
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><dt class="font-semibold">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
@@ -63,6 +65,10 @@ import { ActiveProjectService } from '../../core/services/active-project.service
         </article>
         <p class="my-4">Despesa salva. Você pode voltar a esta consulta pelo endereço desta página.</p>
       }
+      @if (editing(); as edited) {
+        <app-expense-edit-modal [expense]="edited" (saved)="expenseSaved($event)"
+          (cancel)="editing.set(null)" (checkState)="checkCurrentState()" />
+      }
       <a class="btn btn-primary mt-4" routerLink="/contas/nova">Nova despesa</a>
       <a class="btn btn-ghost mt-4" routerLink="/orcamentos">Ver orçamento</a>
     </section>
@@ -75,6 +81,8 @@ export class ExpenseDetailComponent {
   private readonly projects = inject(ActiveProjectService);
   readonly activeProject = this.projects.activeProject;
   private contextVersion: number | null = this.activeProject() ? this.projects.contextVersion() : null;
+  readonly editing = signal<ExpenseResponse | null>(null);
+  private budgetRequestVersion = 0;
   readonly budgetExceeded = signal(false);
   readonly budgetError = signal('');
   readonly expense = signal<ExpenseResponse | null>(null);
@@ -99,6 +107,7 @@ export class ExpenseDetailComponent {
         return;
       }
       if (version !== this.contextVersion) untracked(() => {
+        this.editing.set(null);
         this.expense.set(null); this.loading.set(false); this.budgetExceeded.set(false); this.budgetError.set('');
         this.receiptFile.set(null); this.receiptError.set(''); this.uploading.set(false);
         this.downloading.set(false); this.uploadProgress.set(null);
@@ -116,19 +125,36 @@ export class ExpenseDetailComponent {
           this.loading.set(false); this.errorMessage.set('A despesa pertence a outra obra. Selecione a obra correspondente.'); return;
         }
         this.expense.set(expense); this.loading.set(false);
-        this.budgets.getOverview(expense.projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-          next: overview => {
-            if (this.isCurrentContext()) this.budgetExceeded.set(overview.categories.some(
-              category => category.categoryId === expense.categoryId && category.state === 'EXCEEDED'));
-          },
-          error: () => {
-            if (this.isCurrentContext()) this.budgetError.set('Não foi possível consultar o orçamento. A despesa está salva; confira o orçamento novamente.');
-          },
-        });
+        this.loadBudget(expense);
       },
       error: () => {
         if (!this.isCurrentContext()) return;
         this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false);
+      },
+    });
+  }
+  openEdit(): void {
+    if (this.isCurrentContext() && this.activeProject() && this.expense()) this.editing.set(this.expense());
+  }
+  expenseSaved(expense: ExpenseResponse): void {
+    if (!this.isCurrentContext() || expense.projectId !== this.activeProject()?.id) return;
+    this.editing.set(null); this.expense.set(expense); this.errorMessage.set(''); this.loadBudget(expense);
+  }
+  checkCurrentState(): void {
+    const expense = this.expense();
+    if (!this.isCurrentContext() || !expense) return;
+    this.editing.set(null); this.loading.set(true); this.loadExpense(expense.id);
+  }
+  private loadBudget(expense: ExpenseResponse): void {
+    const requestVersion = ++this.budgetRequestVersion;
+    this.budgetExceeded.set(false); this.budgetError.set('');
+    this.budgets.getOverview(expense.projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: overview => {
+        if (this.isCurrentContext() && requestVersion === this.budgetRequestVersion) this.budgetExceeded.set(overview.categories.some(
+          category => category.categoryId === expense.categoryId && category.plannedAmount > 0 && category.state === 'EXCEEDED'));
+      },
+      error: () => {
+        if (this.isCurrentContext() && requestVersion === this.budgetRequestVersion) this.budgetError.set('Não foi possível consultar o orçamento. A despesa está salva; confira o orçamento novamente.');
       },
     });
   }

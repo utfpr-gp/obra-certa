@@ -35,3 +35,6 @@ export interface ExpenseResponse {
   totalPrice: number;
   receiptState: 'NONE' | 'PENDING' | 'UPLOADED';
 }
+
+export type ExpenseUpdate = Pick<ExpenseCreate,
+  'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice'>;
