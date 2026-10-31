@@ -1,9 +1,50 @@
+@if (projectsLoadError()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section
+      data-testid="projects-load-error"
+      class="max-w-lg rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center"
+      role="alert"
+    >
+      <h1 class="text-xl font-bold text-rose-900">Não foi possível carregar suas obras</h1>
+      <p class="mt-3 text-rose-800">{{ projectsLoadError() }}</p>
+      <button
+        type="button"
+        data-testid="retry-load-projects"
+        class="btn mt-6"
+        (click)="reloadProjects()"
+      >
+        Tentar novamente
+      </button>
+    </section>
+  </main>
+} @else if (projectsLoading()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <p class="text-slate-500">Carregando suas obras...</p>
+  </main>
+} @else if (showOnboarding()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section class="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <h1 class="text-2xl font-bold text-slate-900">Vamos começar sua obra</h1>
+      <p class="mt-3 text-slate-600">
+        Cadastre sua primeira obra para organizar seus orçamentos e acompanhar o planejamento.
+      </p>
+      <button
+        type="button"
+        data-testid="onboarding-create-project"
+        class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        (click)="openProjectModal()"
+      >
+        Cadastrar primeira obra
+      </button>
+    </section>
+  </main>
+} @else if (activeObra(); as obra) {
 <!-- Optional Danger / Due Today Alert Banner -->
-@if (activeObra().alertaHoje) {
+@if (obra.alertaHoje) {
   <app-alert-banner
     type="danger"
-    [title]="activeObra().alertaHoje!.titulo"
-    [message]="activeObra().alertaHoje!.detalhe"
+    [title]="obra.alertaHoje!.titulo"
+    [message]="obra.alertaHoje!.detalhe"
     actionLabel="Ver Conta"
   />
 }
@@ -15,36 +56,92 @@
         <div>
           <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2.5">
             <svg lucideHome [size]="24" class="text-slate-700 shrink-0" />
-            <span>{{ activeObra().nome }}</span>
+            <span>{{ obra.nome }}</span>
           </h1>
           <p class="text-sm text-slate-500 mt-1">
             Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
           </p>
+          <p class="text-sm text-slate-600 mt-2">
+            Ainda não há dados financeiros disponíveis para esta obra.
+          </p>
+          @if (deleteError()) {
+            <div
+              data-testid="delete-project-error"
+              class="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
+              role="alert"
+            >
+              <p>{{ deleteError() }}</p>
+              <button
+                type="button"
+                data-testid="retry-delete-project"
+                class="btn btn-sm mt-2 border-rose-300 bg-white text-rose-700"
+                (click)="openDeleteModal()"
+              >
+                Tentar excluir novamente
+              </button>
+            </div>
+          }
+          @if (hasNoBudgets()) {
+            <div class="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4 max-w-xl">
+              <p class="font-semibold text-teal-900">Esta obra ainda não possui orçamentos</p>
+              <p class="mt-1 text-sm text-teal-800">
+                Defina os orçamentos da obra para acompanhar seu planejamento financeiro.
+              </p>
+              <a
+                data-testid="define-project-budgets"
+                routerLink="/orcamentos"
+                class="btn mt-3 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+              >
+                Definir Orçamentos da Obra
+              </a>
+            </div>
+          }
         </div>
 
+        <div class="flex items-center gap-2">
+        @if (hasNoBudgets()) {
+          <a
+            routerLink="/orcamentos"
+            data-testid="generate-budget"
+            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Gerar Orçamento</span>
+          </a>
+        } @else {
+          <button
+            type="button"
+            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Lançar Nova Despesa</span>
+          </button>
+        }
         <button
           type="button"
-          class="btn border-0 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+          data-testid="open-delete-project"
+          class="btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium px-4 py-2"
+          (click)="openDeleteModal()"
         >
-          <svg lucidePlusCircle [size]="18" />
-          <span>Lançar Nova Despesa</span>
+          Excluir obra
         </button>
+        </div>
       </div>
 
       <!-- KPI Summary Cards Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[270px_repeat(3,1fr)] gap-4">
         <!-- 1. Total Gasto Radial Gauge Component -->
         <app-radial-gauge
-          [percent]="activeObra().percentualGasto"
-          [currentValue]="formatBrl(activeObra().totalGasto)"
-          [totalValue]="formatBrl(activeObra().orcamentoTotal)"
+          [percent]="obra.percentualGasto"
+          [currentValue]="formatBrl(obra.totalGasto)"
+          [totalValue]="formatBrl(obra.orcamentoTotal)"
           label="Total Gasto"
         />
 
         <!-- 2. Saldo Disponível Card Component -->
         <app-kpi-card
           title="Saldo Disponível"
-          [value]="formatBrl(activeObra().saldoDisponivel)"
+          [value]="formatBrl(obra.saldoDisponivel)"
           icon="piggy-bank"
           iconBgClass="bg-amber-100/70 text-amber-700"
         />
@@ -52,7 +149,7 @@
         <!-- 3. Contas a Vencer Card Component -->
         <app-kpi-card
           title="Contas a Vencer"
-          [value]="activeObra().contasAVencerQtd + ' contas'"
+          [value]="obra.contasAVencerQtd + ' contas'"
           subtitle="/ 30 dias"
           icon="calendar-clock"
           iconBgClass="bg-amber-100/70 text-amber-700"
@@ -62,7 +159,7 @@
         <app-kpi-card
           title="Categorias em Risco"
           [value]="riskCategories().length.toString()"
-          [subtitle]="'de ' + activeObra().categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '')"
+          [subtitle]="'de ' + obra.categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '')"
           icon="triangle-alert"
           iconBgClass="bg-rose-100 text-rose-600"
           valueClass="text-rose-600"
@@ -73,7 +170,7 @@
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-bold text-slate-900">
-            Orçamento por categoria ({{ activeObra().categorias.length }})
+            Orçamento por categoria ({{ obra.categorias.length }})
           </h2>
           <a
             routerLink="/orcamentos"
@@ -86,7 +183,7 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
-          @for (cat of activeObra().categorias; track cat.id) {
+          @for (cat of obra.categorias; track cat.id) {
             <app-category-progress-card [category]="cat" />
           }
         </div>
@@ -99,7 +196,7 @@
           <div>
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-base font-bold text-slate-900">
-                Contas Próximas ({{ activeObra().contasProximas.length }})
+                Contas Próximas ({{ obra.contasProximas.length }})
               </h3>
               <a
                 routerLink="/contas"
@@ -112,7 +209,7 @@
             </div>
 
             <div class="divide-y divide-slate-100">
-              @for (conta of activeObra().contasProximas; track conta.id) {
+              @for (conta of obra.contasProximas; track conta.id) {
                 <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
                   <div class="flex items-center gap-2.5 min-w-0">
                     <svg
@@ -150,7 +247,7 @@
           <div>
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-base font-bold text-slate-900">
-                Últimos Gastos ({{ activeObra().ultimosGastos.length }})
+                Últimos Gastos ({{ obra.ultimosGastos.length }})
               </h3>
               <a
                 routerLink="/despesas"
@@ -163,7 +260,7 @@
             </div>
 
             <div class="divide-y divide-slate-100">
-              @for (gasto of activeObra().ultimosGastos; track gasto.id) {
+              @for (gasto of obra.ultimosGastos; track gasto.id) {
                 <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
                   <div class="flex items-center gap-2.5 min-w-0">
                     @if (gasto.status === 'pago') {
@@ -198,3 +295,32 @@
         </div>
       </div>
     </main>
+} @else {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section
+      data-testid="select-project-empty-state"
+      class="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
+    >
+      <h1 class="text-xl font-bold text-slate-900">Selecione uma obra</h1>
+      <p class="mt-3 text-slate-600">
+        Você possui obras cadastradas. Use o seletor da Navbar para escolher qual obra deseja acompanhar.
+      </p>
+    </section>
+  </main>
+}
+
+<app-project-modal
+  [isOpen]="projectModalOpen()"
+  (closed)="closeProjectModal()"
+  (saved)="onProjectSaved()"
+/>
+
+<app-confirm-modal
+  [isOpen]="deleteModalOpen()"
+  title="Excluir obra?"
+  [description]="deleteConfirmationMessage()"
+  confirmText="Excluir"
+  [isDestructive]="true"
+  (cancel)="closeDeleteModal()"
+  (confirm)="confirmDeleteProject()"
+/>

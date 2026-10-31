@@ -1,0 +1,17 @@
+# Parecer de Conformidade — Tarefa 7A — Rodada 1
+
+## Veredito
+APROVADO
+
+## Apontamentos
+Nenhum.
+
+## Verificação por critério
+
+- **CA4 — Exclusão lógica com confirmação:** O fluxo de sucesso limpa a obra ativa, remove a obra de `projects()` e fecha o modal somente depois do `next` do `DELETE` (`apps/web/src/app/features/home-page/home-page.ts:139-145`), provado por `home-page.spec.ts:265-275`. A exclusão da única obra cai no onboarding pela composição “lista vazia + `showOnboarding()`” (`home-page.ts:69-71` e `home-page.html:24-40`); não há teste dedicado a esse caminho específico nesta tarefa, mas ele não está no escopo de teste da 7A. A seleção automática da próxima obra foi explicitamente adiada pelo autor e não foi tratada como desvio. A inativação dos vínculos no banco é backend da Tarefa 4 e está fora deste diff.
+- **CA5 — Onboarding e obra sem orçamentos:** O onboarding só aparece com `!projectsLoading()`, sem erro de carga e com `projects().length === 0` (`home-page.ts:69-71`); a prova usa resposta real vazia (`of([])`) em `home-page.spec.ts:146-155`, e o CTA abre o modal existente (`home-page.spec.ts:157-167`, `home-page.html:31-38`). O card de “sem orçamentos” depende de estado explícito: `budgetAvailability` nasce `'unknown'` (`home-page.ts:56`) e o card exige `=== 'none'` (`home-page.ts:65-68`, `home-page.html:84-98`). Os testes distinguem `unknown`, `none` e `available` e provam que total zero não infere ausência de orçamento (`home-page.spec.ts:114-143`). A fonte real de orçamentos pertence à US07, coerente com o “Assume que” da spec; dentro do escopo aceito (estado explicitamente modelado), está atendido.
+- **CA8 — Cancelamento de exclusão:** O backdrop não possui handler de clique e o conteúdo perdeu o `stopPropagation` inútil (`confirm-modal.component.html:1-10`), com teste de clique no backdrop e no conteúdo sem emitir `confirm`/`cancel` (`confirm-modal.component.spec.ts:76-100`). `Cancelar`, `X` e `Escape` continuam emitindo cancelamento (`confirm-modal.component.html:21-44`, `confirm-modal.component.ts:23-28`), provados em `confirm-modal.component.spec.ts:48-74` e, no fluxo da Home, em `home-page.spec.ts:277-306`; nenhum deles chama `deleteProject()`.
+- **CA9 — Oscilação de rede:** Fora do diff desta tarefa: `project-modal` não foi alterado. O comportamento análogo de falha de rede no `DELETE` é tratado e provado: modal fecha, obra e lista permanecem, `clear()` não é chamado e há alerta com ação “Tentar excluir novamente” (`home-page.ts:146-151`, `home-page.html:67-83`, `home-page.spec.ts:234-263`), inclusive reabrindo a confirmação (`home-page.spec.ts:253-263`).
+- **Apontamentos da triagem:** (1) card condicionado a estado explícito — atendido; (2) erro de `DELETE` visível e acionável com estado coerente — atendido; (3) backdrop inerte com cancelamento explícito preservado — atendido; (4) onboarding com resposta vazia comprovada e testes sem dependência de ordem — atendido; não restam `buttons[n]`, `parentElement` ou cadeias equivalentes nos specs (`grep` em `apps/web/src` sem ocorrências). A distinção entre lista vazia e ausência de obra ativa também está provada pelo estado neutro “Selecione uma obra” (`home-page.spec.ts:178-189`, `home-page.html:287-298`).
+
+**Testes executados:** suíte Angular completa em `apps/web` (`npm.cmd test -- --watch=false --browsers=ChromeHeadless --no-progress`, equivalente ao comando pedido): **87/87 SUCCESS**.

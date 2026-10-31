@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +30,10 @@ public class Budget {
     @JoinColumn(name = "category_id", nullable = false)
     private ExpenseCategory category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
     @Column(name = "estimated_amount", precision = 15, scale = 2)
     private BigDecimal estimatedAmount;
 
@@ -39,6 +44,9 @@ public class Budget {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL)
     private List<Expense> expenses = new ArrayList<>();

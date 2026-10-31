@@ -8,6 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "expenses")
@@ -23,6 +24,10 @@ public class Expense {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "budget_id", nullable = false)
     private Budget budget;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -68,6 +73,9 @@ public class Expense {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
     
     @OneToOne(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
     private PendingPayment pendingPayment;

@@ -1,259 +1,62 @@
-<header class="bg-white border-b border-slate-200 h-16 px-4 md:px-6 flex items-center justify-between gap-4 sticky top-0 z-30 select-none">
-  <!-- Left Side: Mobile Menu Button + Obra Selector -->
+<header class="bg-white border-b border-slate-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
   <div class="flex items-center gap-3">
-    <!-- Hamburger for Mobile -->
-    <button
-      type="button"
-      (click)="onMenuClick()"
-      class="btn btn-ghost btn-sm btn-circle lg:hidden text-slate-600 hover:text-slate-900"
-      aria-label="Abrir menu lateral"
-    >
+    <button type="button" (click)="onMenuClick()" class="btn btn-ghost btn-sm btn-circle lg:hidden text-slate-600" aria-label="Abrir menu lateral">
       <svg lucideMenu [size]="20" />
     </button>
-
-    <!-- Obra Selector - Desktop Trigger -->
-    <div class="hidden sm:block relative">
-      <button
-        type="button"
-        (click)="toggleDeskDropdown($event)"
-        class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all text-left focus:outline-hidden"
-        [class.bg-slate-100]="deskDropdownOpen()"
-        aria-haspopup="true"
-        [attr.aria-expanded]="deskDropdownOpen()"
-      >
-        <div class="w-7 h-7 rounded-lg bg-[#E5F6F6] text-[#007A80] flex items-center justify-center shrink-0">
-          <svg lucideHome [size]="15" />
+    <div class="relative">
+      <button type="button" (click)="toggleDeskDropdown($event)" class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-slate-50 text-left">
+        <div class="w-7 h-7 rounded-lg bg-[#E5F6F6] text-[#007A80] flex items-center justify-center"><svg lucideHome [size]="15" /></div>
+        <div class="leading-tight">
+          <span class="block text-sm font-semibold text-slate-900">{{ activeProject()?.name || 'Selecionar obra' }}</span>
+          <span class="block text-xs text-slate-400">{{ activeProjectTypeLabel() }}</span>
         </div>
-        <div class="flex flex-col leading-tight">
-          <span class="text-sm font-semibold text-slate-900 line-clamp-1 max-w-[200px] md:max-w-[280px]">
-            {{ activeObra().nome }}
-          </span>
-          <span class="text-xs text-slate-400 font-normal">
-            {{ activeObra().tipo }}
-          </span>
-        </div>
-        <svg lucideChevronDown [size]="15" class="text-slate-400 transition-transform" [class.rotate-180]="deskDropdownOpen()" />
+        <svg lucideChevronDown [size]="15" class="text-slate-400" />
       </button>
-
-      <!-- Desktop Dropdown Panel -->
       @if (deskDropdownOpen()) {
-        <!-- Backdrop to close on click outside -->
-        <div class="fixed inset-0 z-40 bg-transparent" (click)="deskDropdownOpen.set(false)"></div>
-
-        <div class="absolute top-[calc(100%+8px)] left-0 w-88 md:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl p-2 z-50 animate-pop">
-          <div class="px-3 py-2 text-[11px] font-bold tracking-wider uppercase text-slate-400 border-b border-slate-100">
-            Suas Obras ({{ obras().length }})
-          </div>
-
-          <div class="max-h-[320px] overflow-y-auto divide-y divide-slate-100 py-1" data-oc-scroll>
-            @for (obra of obras(); track obra.id) {
-              <button
-                type="button"
-                (click)="selectObra(obra, $event)"
-                class="w-full text-left p-3 rounded-lg hover:bg-slate-50 transition-colors flex flex-col gap-1.5 focus:outline-hidden"
-                [ngClass]="{ 'bg-[#E5F6F6]/50 ring-1 ring-[#007A80]/30': obra.id === activeObra().id }"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm font-bold text-slate-800 line-clamp-1">
-                    {{ obra.nome }}
-                  </span>
-                  @if (obra.id === activeObra().id) {
-                    <span class="text-[#007A80] font-bold text-sm shrink-0">
-                      <svg lucideCheck [size]="16" />
-                    </span>
-                  }
-                </div>
-
-                <div class="flex items-center justify-between text-xs text-slate-500">
-                  <span>{{ obra.tipo }} · {{ obra.local }}</span>
-                  <span class="font-bold tabular-nums" [style.color]="getProgressBarColor(obra.percentualGasto)">
-                    {{ obra.percentualGasto }}%
-                  </span>
-                </div>
-
-                <!-- Mini progress bar -->
-                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    [style.width.%]="obra.percentualGasto > 100 ? 100 : obra.percentualGasto"
-                    [style.background-color]="getProgressBarColor(obra.percentualGasto)"
-                  ></div>
-                </div>
-
-                <div class="text-[11px] text-slate-500 font-medium tabular-nums">
-                  {{ formatBrl(obra.totalGasto) }} de {{ formatBrl(obra.orcamentoTotal) }}
-                </div>
+        <div class="fixed inset-0 z-40" (click)="deskDropdownOpen.set(false)"></div>
+        <div class="absolute top-[calc(100%+8px)] left-0 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl p-2 z-50">
+          <div class="px-3 py-2 text-[11px] font-bold uppercase text-slate-400 border-b border-slate-100">Suas Obras ({{ projects().length }})</div>
+          <div class="max-h-80 overflow-y-auto py-1">
+            @for (project of projects(); track project.id) {
+              <button type="button" (click)="selectProject(project, $event)" class="w-full text-left p-3 rounded-lg hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors">
+                <span class="text-sm font-bold text-slate-800">{{ project.name }}</span>
+                @if (project.id === activeProject()?.id) { <svg lucideCheck [size]="16" class="text-[#007A80]" /> }
               </button>
             }
           </div>
-
-          <div class="pt-2 border-t border-slate-100 mt-1">
-            <button
-              type="button"
-              class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium w-full flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors cursor-pointer"
-            >
-              <svg lucidePlus [size]="16" />
-              <span>Cadastrar nova obra</span>
-            </button>
-          </div>
+          <button type="button" (click)="openProjectModal()" class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 w-full flex gap-2">
+            <svg lucidePlus [size]="16" /> Cadastrar nova obra
+          </button>
+          @if (activeProject(); as project) {
+            <button type="button" (click)="openProjectModal(project)" class="w-full mt-2 py-2 text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007A80] focus-visible:ring-offset-2">Editar obra atual</button>
+          }
         </div>
       }
-    </div>
-
-    <!-- Obra Selector - Mobile Trigger -->
-    <div class="sm:hidden">
-      <button
-        type="button"
-        (click)="openMobileSheet()"
-        class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-left max-w-[200px]"
-      >
-        <div class="w-6 h-6 rounded-md bg-[#E5F6F6] text-[#007A80] flex items-center justify-center shrink-0">
-          <svg lucideHome [size]="13" />
-        </div>
-        <span class="text-xs font-semibold text-slate-900 truncate">
-          {{ activeObra().nome }}
-        </span>
-        <svg lucideChevronDown [size]="14" class="text-slate-400 shrink-0" />
-      </button>
     </div>
   </div>
-
-  <!-- Right Side: User Profile -->
-  <div class="flex items-center gap-3">
-    <!-- User Profile Dropdown -->
-    <div class="relative">
-      <button
-        type="button"
-        (click)="toggleUserMenu($event)"
-        class="flex items-center gap-2 rounded-full focus:outline-hidden ring-2 ring-transparent hover:ring-[#007A80]/30 transition-all"
-        aria-label="Menu do usuário"
-      >
-        <img
-          src="https://ui-avatars.com/api/?name=Leandro+Nunes&background=007A80&color=fff&size=36"
-          alt="Avatar Leandro Nunes"
-          class="w-9 h-9 rounded-full object-cover shadow-xs"
-        />
+  @if (projectsLoadError()) {
+    <div role="alert" class="flex items-center gap-2 text-sm text-rose-600">
+      <span>{{ projectsLoadError() }}</span>
+      <button type="button" class="btn btn-sm border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium" (click)="retryLoadProjects()">
+        Tentar novamente
       </button>
-
-      @if (userMenuOpen()) {
-        <div class="fixed inset-0 z-40 bg-transparent" (click)="userMenuOpen.set(false)"></div>
-        <div class="absolute top-[calc(100%+8px)] right-0 min-w-[210px] w-56 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-900/10 p-2 z-50 animate-pop">
-          <!-- User Info Header -->
-          <div class="px-3 py-2.5 mb-1 border-b border-slate-100">
-            <p class="font-semibold text-sm text-slate-800 leading-tight">Leandro Nunes</p>
-            <p class="text-xs text-slate-500 mt-0.5 truncate">leandro@exemplo.com</p>
-          </div>
-
-          <!-- Logout Action Button -->
-          <button
-            type="button"
-            (click)="onLogout()"
-            class="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-rose-600 hover:bg-rose-50/80 rounded-lg text-left transition-all duration-150 font-medium cursor-pointer active:scale-98"
-          >
-            <svg lucideLogOut [size]="15" class="shrink-0" />
-            <span>Sair do sistema</span>
-          </button>
-        </div>
-      }
     </div>
+  }
+  <div class="relative">
+    <button type="button" (click)="toggleUserMenu($event)" class="rounded-full" aria-label="Menu do usuário">
+      <img src="https://ui-avatars.com/api/?name=Leandro+Nunes&background=007A80&color=fff&size=36" alt="Avatar" class="w-9 h-9 rounded-full" />
+    </button>
+    @if (userMenuOpen()) {
+      <div class="absolute top-12 right-0 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50">
+        <button type="button" (click)="onLogout()" class="flex items-center gap-2 px-3 py-2 text-sm text-rose-600"><svg lucideLogOut [size]="15" /> Sair do sistema</button>
+      </div>
+    }
   </div>
 </header>
 
-<!-- Mobile Bottom Sheet for Obra Selection -->
-@if (mobileSheetOpen()) {
-  <div
-    class="fixed inset-0 bg-black/40 z-50 flex items-end animate-fade"
-    (click)="closeMobileSheet()"
-  >
-    <div
-      class="w-full max-h-[85vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-sheet"
-      (click)="$event.stopPropagation()"
-    >
-      <!-- Sheet Handle & Header -->
-      <div class="flex justify-center pt-3 pb-1">
-        <span class="w-10 h-1 rounded-full bg-slate-300"></span>
-      </div>
-
-      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-        <h3 class="text-base font-bold text-slate-900">Trocar de Obra</h3>
-        <button
-          type="button"
-          (click)="closeMobileSheet()"
-          class="btn btn-ghost btn-xs btn-circle text-slate-500"
-          aria-label="Fechar"
-        >
-          <svg lucideX [size]="18" />
-        </button>
-      </div>
-
-      <!-- Obra list in sheet -->
-      <div class="overflow-y-auto p-4 space-y-3 flex-1 divide-y divide-slate-100" data-oc-scroll>
-        @for (obra of obras(); track obra.id) {
-          <button
-            type="button"
-            (click)="selectObra(obra, $event)"
-            class="w-full text-left pt-3 first:pt-0 pb-1 rounded-xl focus:outline-hidden"
-          >
-            <div
-              class="p-3.5 rounded-xl border transition-all"
-              [ngClass]="{
-                'border-[#007A80] bg-[#E5F6F6]': obra.id === activeObra().id,
-                'border-slate-200 bg-white': obra.id !== activeObra().id
-              }"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2.5">
-                  <div
-                    class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    [ngClass]="{
-                      'bg-[#007A80] text-white': obra.id === activeObra().id,
-                      'bg-slate-100 text-slate-600': obra.id !== activeObra().id
-                    }"
-                  >
-                    <svg lucideHome [size]="16" />
-                  </div>
-                  <div>
-                    <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ obra.nome }}</h4>
-                    <p class="text-xs text-slate-500">{{ obra.tipo }} · {{ obra.local }}</p>
-                  </div>
-                </div>
-                @if (obra.id === activeObra().id) {
-                  <span class="text-[#007A80] font-bold">
-                    <svg lucideCheck [size]="18" />
-                  </span>
-                }
-              </div>
-
-              <!-- Bar -->
-              <div class="w-full h-1.5 bg-slate-200/60 rounded-full mt-3 overflow-hidden">
-                <div
-                  class="h-full rounded-full"
-                  [style.width.%]="obra.percentualGasto > 100 ? 100 : obra.percentualGasto"
-                  [style.background-color]="getProgressBarColor(obra.percentualGasto)"
-                ></div>
-              </div>
-
-              <div class="flex items-center justify-between text-xs mt-2 font-medium">
-                <span class="text-slate-600 tabular-nums">{{ formatBrl(obra.totalGasto) }} de {{ formatBrl(obra.orcamentoTotal) }}</span>
-                <span class="font-bold tabular-nums" [style.color]="getProgressBarColor(obra.percentualGasto)">
-                  {{ obra.percentualGasto }}%
-                </span>
-              </div>
-            </div>
-          </button>
-        }
-      </div>
-
-      <!-- Action Footer -->
-      <div class="p-4 border-t border-slate-100">
-        <button
-          type="button"
-          class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium w-full flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <svg lucidePlus [size]="18" />
-          <span>Cadastrar nova obra</span>
-        </button>
-      </div>
-    </div>
-  </div>
-}
+<app-project-modal
+  [isOpen]="projectModalOpen()"
+  [project]="projectBeingEdited()"
+  (closed)="closeProjectModal()"
+  (saved)="onProjectSaved($event)"
+/>

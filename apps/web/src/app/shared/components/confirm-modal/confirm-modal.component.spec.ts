@@ -5,6 +5,14 @@ describe('ConfirmModalComponent', () => {
   let component: ConfirmModalComponent;
   let fixture: ComponentFixture<ConfirmModalComponent>;
 
+  function page(): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  function query<T extends Element>(testId: string): T | null {
+    return page().querySelector<T>(`[data-testid="${testId}"]`);
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ConfirmModalComponent],
@@ -23,24 +31,71 @@ describe('ConfirmModalComponent', () => {
   });
 
   it('should display title and description when open', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Excluir Orçamento?');
-    expect(compiled.textContent).toContain('Esta ação é irreversível.');
+    expect(page().textContent).toContain('Excluir Orçamento?');
+    expect(page().textContent).toContain('Esta ação é irreversível.');
   });
 
   it('should emit confirm when confirm button is clicked', () => {
     spyOn(component.confirm, 'emit');
-    const buttons = fixture.nativeElement.querySelectorAll('button');
-    const confirmBtn = buttons[2]; // index 0 is close X, 1 is cancel, 2 is confirm
-    confirmBtn?.click();
+    const confirmBtn = query<HTMLButtonElement>('confirm-confirmation');
+    expect(confirmBtn).not.toBeNull();
+
+    confirmBtn!.click();
+
     expect(component.confirm.emit).toHaveBeenCalled();
   });
 
   it('should emit cancel when cancel button is clicked', () => {
     spyOn(component.cancel, 'emit');
-    const buttons = fixture.nativeElement.querySelectorAll('button');
-    const cancelBtn = buttons[1];
-    cancelBtn?.click();
+    const cancelBtn = query<HTMLButtonElement>('cancel-confirmation');
+    expect(cancelBtn).not.toBeNull();
+
+    cancelBtn!.click();
+
     expect(component.cancel.emit).toHaveBeenCalled();
+  });
+
+  it('should emit cancel when the close button is clicked', () => {
+    spyOn(component.cancel, 'emit');
+    const closeBtn = query<HTMLButtonElement>('close-confirmation');
+    expect(closeBtn).not.toBeNull();
+
+    closeBtn!.click();
+
+    expect(component.cancel.emit).toHaveBeenCalled();
+  });
+
+  it('should emit cancel when Escape is pressed', () => {
+    spyOn(component.cancel, 'emit');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(component.cancel.emit).toHaveBeenCalled();
+  });
+
+  it('does not confirm or cancel on an accidental backdrop click', () => {
+    spyOn(component.confirm, 'emit');
+    spyOn(component.cancel, 'emit');
+
+    const backdrop = query<HTMLElement>('confirm-modal-backdrop');
+    expect(backdrop).not.toBeNull();
+
+    backdrop!.click();
+
+    expect(component.confirm.emit).not.toHaveBeenCalled();
+    expect(component.cancel.emit).not.toHaveBeenCalled();
+  });
+
+  it('does not confirm or cancel when the dialog content is clicked', () => {
+    spyOn(component.confirm, 'emit');
+    spyOn(component.cancel, 'emit');
+
+    const content = query<HTMLElement>('confirm-modal-content');
+    expect(content).not.toBeNull();
+
+    content!.click();
+
+    expect(component.confirm.emit).not.toHaveBeenCalled();
+    expect(component.cancel.emit).not.toHaveBeenCalled();
   });
 });
