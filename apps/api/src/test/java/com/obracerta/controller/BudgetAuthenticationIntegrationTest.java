@@ -132,22 +132,6 @@ class BudgetAuthenticationIntegrationTest {
                 .findFirst().orElseThrow().getEstimatedAmount()).isEqualByComparingTo(expected);
     }
 
-    @Test
-    void authenticatedUserWithoutAdminPermissionStillReceives403() throws Exception {
-        mockMvc.perform(get("/api/users")
-                        .header("Authorization", "Bearer " + tokenService.generateToken(owner)))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminStillHasAccessToAuthorizedRoute() throws Exception {
-        owner.setUserRole(UserRole.ADMIN);
-        userRepository.saveAndFlush(owner);
-        mockMvc.perform(get("/api/users")
-                        .header("Authorization", "Bearer " + tokenService.generateToken(owner)))
-                .andExpect(status().isOk());
-    }
-
     @ParameterizedTest
     @EnumSource(Credential.class)
     void publicLoginAcceptsCredentialsWithoutAValidSession(Credential credential) throws Exception {

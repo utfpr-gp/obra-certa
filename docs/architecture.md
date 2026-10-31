@@ -318,7 +318,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 
 | Conceito de Negócio (PT-BR) | Entidade JPA / DTO (EN) | Tabela PostgreSQL | Coleção / Rota API |
 | :--- | :--- | :--- | :--- |
-| **Usuário** | `User` / `UserDTO` | `users` | `/api/auth`, `/api/users` |
+| **Usuário** | `User` / `RegisterUserDTO`, `AuthDTO` | `users` | `/api/auth` |
 | **Obra (Projeto)** | `Project` / `ProjectDTO` | `projects` | `/api/projects` |
 | **Categoria de Despesa** | `ExpenseCategory` / `CategoryResponseDTO` | `expense_categories` | `/api/expense-categories` |
 | **Fornecedor** | `Supplier` / `SupplierDTO` | `suppliers` | `/api/suppliers` |
