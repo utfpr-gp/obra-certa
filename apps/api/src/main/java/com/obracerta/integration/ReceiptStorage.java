@@ -6,4 +6,5 @@ import java.io.InputStream;
 public interface ReceiptStorage {
     void put(String key, InputStream content, long length, String contentType);
     InputStream get(String key);
+    void delete(String key);
 }

@@ -8,6 +8,7 @@ import com.obracerta.model.dto.expense.ExpenseResponseDTO;
 import com.obracerta.model.entity.Expense;
 import com.obracerta.repository.ExpenseRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +57,20 @@ public class ExpenseReceiptService {
         if (!"UPLOADED".equals(expense.getReceiptState())) throw new ResourceNotFoundException("Comprovante não encontrado");
         return new ReceiptDownload(storage.get(expense.getReceiptKey()),expense.getReceiptContentType(),
                 "comprovante-"+expense.getId()+"."+EXTENSIONS.get(expense.getReceiptContentType()),expense.getReceiptSize());
+    }
+    @Transactional
+    public ExpenseResponseDTO remove(String id) {
+        Expense expense=owned(id);
+        if (!"UPLOADED".equals(expense.getReceiptState())) return ExpenseMapper.toDTO(expense);
+        storage.delete(expense.getReceiptKey());
+        expense.setReceiptKey(null); expense.setReceiptContentType(null); expense.setReceiptSize(null);
+        expense.setReceiptState("NONE");
+        try { return ExpenseMapper.toDTO(expenses.saveAndFlush(expense)); }
+        catch (DataAccessException exception) {
+            // The database rollback cannot restore the object. A manual retry can delete an absent object.
+            throw new ReceiptException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "A remoção do comprovante não foi confirmada. Consulte o estado atual antes de tentar novamente.");
+        }
     }
     private Expense owned(String id) {
         return expenses.findActiveByIdAndOwner(id,identity.getAuthenticatedUser().getId())

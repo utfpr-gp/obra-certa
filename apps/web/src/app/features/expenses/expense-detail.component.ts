@@ -28,7 +28,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
       @if (expense(); as expense) {
         <article class="card bg-base-100 border border-base-300 p-6">
           <h2 class="text-xl font-semibold">{{ expense.description }}</h2>
-          <button type="button" class="btn btn-outline my-3" data-testid="edit-expense" (click)="openEdit()">Editar</button>
+          <button type="button" class="btn btn-outline my-3" data-testid="edit-expense" [disabled]="removingReceipt()" (click)="openEdit()">Editar</button>
           <span class="badge badge-success my-3">{{ expense.paid ? 'Quitada' : 'Pendente' }}</span>
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><dt class="font-semibold">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
@@ -46,7 +46,9 @@ import { ActiveProjectService } from '../../core/services/active-project.service
           </dl>
           @if (expense.receiptState === 'UPLOADED') {
             <button class="btn btn-outline mt-4" data-testid="download-receipt" type="button"
-              [disabled]="downloading()" (click)="downloadReceipt()">Consultar comprovante</button>
+              [disabled]="downloading() || removingReceipt()" (click)="downloadReceipt()">Consultar comprovante</button>
+            <button class="btn btn-outline mt-4" data-testid="remove-receipt" type="button"
+              [disabled]="removingReceipt() || downloading() || editing() !== null" (click)="removeReceipt()">{{ removingReceipt() ? 'Removendo comprovante…' : 'Remover comprovante' }}</button>
           } @else {
             <span class="badge badge-warning my-3" data-testid="no-receipt">Sem comprovante</span>
             <label class="form-control mt-4">
@@ -88,6 +90,7 @@ export class ExpenseDetailComponent {
   readonly expense = signal<ExpenseResponse | null>(null);
   readonly loading = signal(true);
   readonly downloading = signal(false);
+  readonly removingReceipt = signal(false);
   readonly errorMessage = signal('');
   readonly receiptFile = signal<File | null>(null);
   readonly receiptError = signal('');
@@ -110,7 +113,7 @@ export class ExpenseDetailComponent {
         this.editing.set(null);
         this.expense.set(null); this.loading.set(false); this.budgetExceeded.set(false); this.budgetError.set('');
         this.receiptFile.set(null); this.receiptError.set(''); this.uploading.set(false);
-        this.downloading.set(false); this.uploadProgress.set(null);
+        this.downloading.set(false); this.removingReceipt.set(false); this.uploadProgress.set(null);
         this.errorMessage.set(this.activeProject() ? 'A obra foi alterada. Abra uma despesa da obra selecionada.' : '');
       });
     });
@@ -134,7 +137,7 @@ export class ExpenseDetailComponent {
     });
   }
   openEdit(): void {
-    if (this.isCurrentContext() && this.activeProject() && this.expense()) this.editing.set(this.expense());
+    if (this.isCurrentContext() && this.activeProject() && this.expense() && !this.removingReceipt()) this.editing.set(this.expense());
   }
   expenseSaved(expense: ExpenseResponse): void {
     if (!this.isCurrentContext() || expense.projectId !== this.activeProject()?.id) return;
@@ -196,7 +199,7 @@ export class ExpenseDetailComponent {
   }
   downloadReceipt(): void {
     const expense = this.expense();
-    if (!this.isCurrentContext() || !expense || this.downloading()) return;
+    if (!this.isCurrentContext() || !expense || this.downloading() || this.removingReceipt()) return;
     this.downloading.set(true); this.errorMessage.set('');
     this.expenses.downloadReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: blob => {
@@ -211,6 +214,24 @@ export class ExpenseDetailComponent {
         this.downloading.set(false); this.errorMessage.set('Não foi possível consultar o comprovante. Tente novamente.');
       },
     });
-  }  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
+  }
+  removeReceipt(): void {
+    const expense = this.expense();
+    if (!this.isCurrentContext() || !expense || expense.receiptState !== 'UPLOADED'
+      || this.removingReceipt() || this.downloading() || this.editing()) return;
+    this.removingReceipt.set(true); this.errorMessage.set('');
+    this.expenses.removeReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: updated => {
+        if (!this.isCurrentContext()) return;
+        this.expense.set(updated); this.removingReceipt.set(false);
+      },
+      error: () => {
+        if (!this.isCurrentContext()) return;
+        this.removingReceipt.set(false);
+        this.errorMessage.set('A remoção do comprovante não foi confirmada. Consulte o estado atual antes de tentar novamente.');
+      },
+    });
+  }
+  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
   date(value: string): string { return value.substring(0, 10).split('-').reverse().join('/'); }
 }

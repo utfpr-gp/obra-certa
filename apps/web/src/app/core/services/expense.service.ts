@@ -36,4 +36,9 @@ export class ExpenseService {
 
   downloadReceipt(id: string): Observable<Blob> {
     return this.http.get(`${this.endpoint}/${encodeURIComponent(id)}/receipt`, {responseType: 'blob'});
-  }}
+  }
+
+  removeReceipt(id: string): Observable<ExpenseResponse> {
+    return this.http.delete<ExpenseResponse>(`${this.endpoint}/${encodeURIComponent(id)}/receipt`);
+  }
+}

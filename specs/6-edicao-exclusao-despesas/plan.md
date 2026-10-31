@@ -84,7 +84,7 @@ A remoção isolada da Tarefa 3 segue o fluxo simples descrito acima e não cria
     - `apps/api/src/test/java/com/obracerta/controller/ExpensePaymentUpdateIntegrationTest.java`
     - Modelos Angular, consulta individual, modal e testes de edição da Tarefa 1.
 
-- [ ] **Tarefa 3 — Remover comprovante com tentativa manual em caso de falha**
+- [x] **Tarefa 3 — Remover comprovante com tentativa manual em caso de falha**
   - Cobre: CA4; proteção de acesso ao anexo do CA9.
   - Teste primeiro:
     - JUnit: `S3ReceiptStorageTest` prova chamada de exclusão física, objeto ausente como sucesso e falhas reais propagadas sem falso sucesso.
