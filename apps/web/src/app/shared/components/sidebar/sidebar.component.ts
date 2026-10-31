@@ -43,7 +43,6 @@ export class SidebarComponent {
   navItems: NavMenuItem[] = [
     { id: 'resumo', label: 'Resumo da Obra', icon: 'pie-chart', route: '/home' },
     { id: 'orcamentos', label: 'Orçamentos', icon: 'wallet', route: '/orcamentos' },
-    { id: 'despesas', label: 'Despesas', icon: 'receipt', route: '/despesas' },
     { id: 'contas', label: 'Contas a Pagar', icon: 'calendar', route: '/contas' },
     { id: 'fornecedores', label: 'Fornecedores', icon: 'users', route: '/fornecedores' },
     { id: 'relatorios', label: 'Relatórios', icon: 'file-text', route: '/relatorios' }

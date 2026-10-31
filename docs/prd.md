@@ -102,19 +102,20 @@
 
 ---
 
-### ⚪ US03 — Cadastro de Despesas
+### 🟢 US03 — Cadastro de Despesas
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** ⚪ Draft  
-- **Dependências:** US14 (Obra ativa selecionada); Categorias pré-definidas  
+- **Status:** 🟢 Live
+- **Dependências:** US14 (Obra ativa selecionada); US07 (categorias, tetos e agregação de gastos)
+- **Rastreabilidade:** Referência local #5; [spec e plano](../specs/5-cadastro-despesas/). Entrega até a tarefa 8 implementada e aprovada nas revisões por tarefa. Auditoria final e integração por PR pendentes; este status não indica implantação em produção. Por decisão do autor, idempotência da criação e recuperação após sessão expirada não integram esta entrega. O vínculo com a Issue remota ainda não foi confirmado.
 - **História:** Como proprietário com uma obra selecionada, quero cadastrar despesas por categoria pré-definida com cálculo de valores, controle de quitação e anexo de comprovante, para manter a gestão financeira fiel ao realizado e ao planejado.
 - **Regras de Negócio Associadas:** RN01, RN04, RN05, RN07
 
 **Critérios de Aceitação:**
 1. **Caminho Feliz (Despesa quitada por cálculo ou valor direto):**
    - **Dado** que o proprietário está na área de lançamento de uma obra de sua propriedade,
-   - **Quando** informa descrição, data da despesa (presente, passada ou futura planejada), seleciona uma categoria pré-definida, seleciona um fornecedor existente ou cadastra um novo inline (com nome e CNPJ), assinala como quitada e preenche:
+   - **Quando** informa descrição, data da despesa (presente, passada ou futura planejada), seleciona uma categoria pré-definida, seleciona um fornecedor existente ou cadastra um novo inline (nome obrigatório e CNPJ opcional, com máscara `00.000.000/0000-00` e validação de 14 dígitos quando preenchido), assinala como quitada e preenche:
      - ou `quantidade > 0` e `valor unitário > 0` (sistema calcula o total automaticamente);
      - ou `valor total > 0` diretamente;
    - **Então** o sistema grava a despesa associada à obra e atualiza o montante consumido da categoria correspondente.
@@ -125,7 +126,7 @@
 3. **Caminho Feliz (Anexo de comprovante válido):**
    - **Dado** que o formulário exibe a indicação dos formatos permitidos (JPEG, PNG e PDF até 10MB),
    - **Quando** o proprietário seleciona um arquivo válido dentro dessas regras,
-   - **Então** o sistema anexa o comprovante à despesa para consulta futura.
+   - **Então** o sistema apresenta progresso e envia o comprovante após confirmar a gravação financeira, disponibilizando-o ao proprietário pela consulta individual. A validação considera MIME declarado, extensão correspondente e tamanho de até 10 MiB (10 × 1024 × 1024 bytes), recusando arquivo vazio, sem inspeção do conteúdo interno.
 4. **Caminho Feliz com Alerta (Despesa em categoria sem teto orçado):**
    - **Dado** que o proprietário seleciona uma categoria que não possui orçamento definido na obra,
    - **Quando** preenche os dados da despesa,
@@ -137,7 +138,7 @@
 6. **Caminho Alternativo (Upload de comprovante em rede instável):**
    - **Dado** que o envio do anexo sofre oscilação de sinal ou timeout no canteiro de obras,
    - **Quando** a transferência do arquivo falha,
-   - **Então** o sistema persiste os dados da despesa com sucesso, sinaliza o comprovante como pendente e disponibiliza ação de reenvio (Retry) sem exigir redigitação do lançamento.
+   - **Então** a despesa e seu eventual pagamento permanecem salvos, e a tela informa: “Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.” A própria despesa exibe “Sem comprovante” enquanto não houver arquivo confirmado, inclusive quando criada sem anexo. Ao reabrir a consulta, o proprietário pode selecionar um arquivo e reenviar na mesma despesa, sem novo gasto ou pagamento. Sucesso remove a tag; nova falha a mantém. Não há seção separada de comprovantes pendentes.
 7. **Caminho Triste (Tentativa de registrar em obra de terceiro / Anti-IDOR):**
    - **Dado** que há tentativa de gravar despesa informando identificador de obra pertencente a outro usuário,
    - **Quando** a operação é solicitada,
@@ -154,6 +155,10 @@
     - **Dado** que faltam dados obrigatórios (descrição, categoria, fornecedor ou data) ou que quantidade, valor unitário ou valor total sejam menores ou iguais a zero,
     - **Quando** solicita a gravação,
     - **Então** o sistema impede o salvamento e destaca as validações no formulário.
+11. **Cancelamento e troca de obra:**
+    - **Dado** um formulário ainda não enviado,
+    - **Quando** o proprietário cancela, fecha a página ou troca de obra,
+    - **Então** nenhuma despesa é criada por essa ação. A troca descarta o contexto anterior e impede contaminação por respostas atrasadas, inclusive A → B → A; atualizar metadados da mesma obra não descarta os campos. Sem obra selecionada, o cadastro orienta a selecionar ou cadastrar uma obra. Uma operação já recebida pelo servidor pode concluir na obra original.
 
 ---
 

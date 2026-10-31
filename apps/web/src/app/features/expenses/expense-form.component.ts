@@ -1,0 +1,311 @@
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
+import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
+import { ActiveProjectService } from '../../core/services/active-project.service';
+import { ExpenseService } from '../../core/services/expense.service';
+import { SupplierService } from '../../core/services/supplier.service';
+import { CategoryService } from '../../core/services/category.service';
+import { ExpenseCategory } from '../../core/models/expense-category.model';
+import { ExpenseCreate, ExpenseSupplier } from '../../core/models/expense-registration.model';
+import { BudgetService } from '../../core/services/budget.service';
+import { BudgetCategory } from '../../core/models/budget.model';
+import { BudgetFormModalComponent } from '../budgets-page/components/budget-form-modal/budget-form-modal.component';
+
+@Component({
+  selector: 'app-expense-form', standalone: true,
+  imports: [ReactiveFormsModule, RouterLink, BudgetFormModalComponent],
+  templateUrl: './expense-form.component.html',
+})
+export class ExpenseFormComponent {
+  private readonly fb = inject(FormBuilder);
+  private readonly expenses = inject(ExpenseService);
+  private readonly supplierService = inject(SupplierService);
+  private readonly categoryService = inject(CategoryService);
+  private readonly budgetService = inject(BudgetService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly projects = inject(ActiveProjectService);
+  readonly activeProject = this.projects.activeProject;
+  private contextVersion = this.projects.contextVersion();
+  private budgetRequestVersion = 0;
+  private readonly receiptInput = viewChild<ElementRef<HTMLInputElement>>('receiptInput');
+  readonly categories = signal<ExpenseCategory[]>([]);
+  readonly suppliers = signal<ExpenseSupplier[]>([]);
+  readonly loading = signal(true);
+  readonly errorMessage = signal('');
+  readonly saving = signal(false);
+  readonly receiptFile = signal<File | null>(null);
+  readonly receiptError = signal('');
+  readonly uploadProgress = signal<number | null>(null);
+  readonly savedExpenseId = signal<string | null>(null);
+  private readonly savedCategoryId = signal<string | null>(null);
+  readonly inlineSupplier = signal(false);
+  readonly budgetCategories = signal<BudgetCategory[] | null>(null);
+  readonly budgetError = signal('');
+  readonly budgetContext = signal<{projectId: string; categoryId: string} | null>(null);
+  readonly budgetExceeded = computed(() => {
+    if (!this.savedExpenseId()) return false;
+    const category = this.budgetCategories()?.find(item => item.categoryId === this.savedCategoryId());
+    return !!category && category.plannedAmount > 0 && category.state === 'EXCEEDED';
+  });
+  readonly form = this.fb.nonNullable.group({
+    description: ['', [Validators.required, Validators.pattern(/\S/)]],
+    purchaseDate: ['', Validators.required],
+    paid: [true], dueDate: [''],
+    categoryId: ['', Validators.required],
+    supplierId: ['', Validators.required],
+    supplierName: [''], supplierDocument: [''],
+    valueMode: ['DIRECT' as 'DIRECT' | 'CALCULATED'],
+    totalPrice: [null as number | null, [Validators.required, positiveDecimal(13)]],
+    quantity: [null as number | null], unitPrice: [null as number | null],
+  });
+  private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+  readonly categoryWithoutBudget = computed(() => {
+    const categoryId = this.values().categoryId;
+    const categories = this.budgetCategories();
+    if (!categoryId || categories === null) return false;
+    const category = categories.find(item => item.categoryId === categoryId);
+    return !category?.hasBudget || category.plannedAmount === 0;
+  });
+  readonly calculatedTotal = computed(() => {
+    const value = this.values();
+    if (!value.quantity || !value.unitPrice || !Number.isFinite(value.quantity) || !Number.isFinite(value.unitPrice)) return 0;
+    // Integer hundredths keep the preview's HALF_UP rounding aligned with BigDecimal.
+    const quantity = BigInt(Math.round(value.quantity * 100));
+    const cents = BigInt(Math.round(value.unitPrice * 100));
+    return Number((quantity * cents + 50n) / 100n) / 100;
+  });
+
+  constructor() {
+    this.form.controls.valueMode.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.configureFields());
+    this.form.controls.paid.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.configureFields());
+    this.form.controls.purchaseDate.valueChanges.pipe(takeUntilDestroyed()).subscribe(() =>
+      this.form.controls.dueDate.updateValueAndValidity({ emitEvent: false }));
+    this.loadOptions();
+    this.loadBudgets();
+    effect(() => {
+      const version = this.projects.contextVersion();
+      untracked(() => this.synchronizeContext(version));
+    });
+  }
+
+  private synchronizeContext(version = this.projects.contextVersion()): void {
+    if (this.contextVersion === version) return;
+    this.contextVersion = version;
+    this.form.reset(); this.inlineSupplier.set(false); this.configureFields();
+    this.receiptFile.set(null); this.receiptError.set(''); this.uploadProgress.set(null);
+    const input = this.receiptInput()?.nativeElement;
+    if (input) input.value = '';
+    this.savedExpenseId.set(null); this.savedCategoryId.set(null); this.saving.set(false); this.errorMessage.set('');
+    this.budgetContext.set(null); this.budgetCategories.set(null); this.budgetError.set('');
+    this.loadBudgets();
+  }
+
+  cancel(): void {
+    void this.router.navigate(['/orcamentos']);
+  }
+
+  loadBudgets(): void {
+    const version = this.projects.contextVersion();
+    const projectId = this.activeProject()?.id;
+    if (!projectId) return;
+    const requestVersion = ++this.budgetRequestVersion;
+    this.budgetCategories.set(null);
+    this.budgetError.set('');
+    this.budgetService.getOverview(projectId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: overview => {
+        if (this.projects.contextVersion() === version && this.budgetRequestVersion === requestVersion)
+          this.budgetCategories.set(overview.categories);
+      },
+      error: () => {
+        if (this.projects.contextVersion() === version && this.budgetRequestVersion === requestVersion)
+          this.budgetError.set('Não foi possível consultar o teto da categoria. Tente novamente.');
+      },
+    });
+  }
+
+  openBudget(): void {
+    const projectId = this.activeProject()?.id;
+    const categoryId = this.form.controls.categoryId.value;
+    if (projectId && categoryId) this.budgetContext.set({projectId, categoryId});
+  }
+
+  budgetSaved(category: BudgetCategory): void {
+    this.synchronizeContext();
+    if (this.budgetContext()?.projectId === this.activeProject()?.id) {
+      this.budgetCategories.update(categories => [
+        ...(categories ?? []).filter(item => item.categoryId !== category.categoryId), category,
+      ]);
+    }
+    this.budgetContext.set(null);
+  }
+
+  loadOptions(): void {
+    this.loading.set(true);
+    this.errorMessage.set('');
+    forkJoin({ categories: this.categoryService.getCategories(), suppliers: this.supplierService.getSuppliers() })
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: options => {
+          this.categories.set(options.categories); this.suppliers.set(options.suppliers); this.loading.set(false);
+        },
+        error: () => { this.loading.set(false); this.errorMessage.set('Não foi possível carregar categorias e fornecedores. Tente novamente.'); },
+      });
+  }
+
+  toggleSupplier(): void {
+    this.inlineSupplier.update(value => !value);
+    this.configureFields();
+  }
+
+  private configureFields(): void {
+    const calculated = this.form.controls.valueMode.value === 'CALCULATED';
+    const controls = this.form.controls;
+    controls.dueDate.setValidators(controls.paid.value ? [] : [Validators.required, control =>
+      control.value && controls.purchaseDate.value && control.value < controls.purchaseDate.value
+        ? {beforePurchase: true} : null]);
+    controls.totalPrice.setValidators(calculated ? [] : [Validators.required, positiveDecimal(13)]);
+    controls.quantity.setValidators(calculated ? [Validators.required, positiveDecimal(8)] : []);
+    controls.unitPrice.setValidators(calculated ? [Validators.required, positiveDecimal(13)] : []);
+    controls.supplierId.setValidators(this.inlineSupplier() ? [] : [Validators.required]);
+    controls.supplierName.setValidators(this.inlineSupplier() ? [Validators.required, Validators.pattern(/\S/), Validators.maxLength(255)] : []);
+    controls.supplierDocument.setValidators(this.inlineSupplier() ? [cnpjFormat] : []);
+    for (const control of Object.values(controls)) control.updateValueAndValidity({ emitEvent: false });
+  }
+
+  invalid(name: keyof typeof this.form.controls): boolean {
+    const control = this.form.controls[name];
+    return control.touched && control.invalid;
+  }
+
+  money(value: number | null): string {
+    return value === null ? '' : new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(value);
+  }
+
+  onMoneyInput(event: Event, field: 'totalPrice' | 'unitPrice'): void {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '');
+    const cents = Number(digits);
+    if (!Number.isSafeInteger(cents)) { input.value = this.money(this.form.controls[field].value); return; }
+    this.form.controls[field].setValue(digits ? cents / 100 : null);
+    this.form.controls[field].markAsDirty();
+    input.value = this.money(this.form.controls[field].value);
+  }
+
+  onCnpjInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const caret = input.selectionStart ?? input.value.length;
+    let digitsBeforeCaret = input.value.slice(0,caret).replace(/\D/g,'').length;
+    let digits = input.value.replace(/\D/g,'').slice(0,14);
+    const format = (value: string) => value.replace(/^(\d{2})(\d)/,'$1.$2')
+      .replace(/^(\d{2}\.\d{3})(\d)/,'$1.$2')
+      .replace(/^(\d{2}\.\d{3}\.\d{3})(\d)/,'$1/$2')
+      .replace(/(\/\d{4})(\d)/,'$1-$2');
+    // Backspace over a separator also removes the preceding digit, so the mask cannot trap the cursor.
+    if ((event as InputEvent).inputType === 'deleteContentBackward' && caret > 0
+        && /[./-]/.test(format(digits).charAt(caret)) && !/[./-]/.test(input.value.charAt(caret))) {
+      digits = digits.slice(0,digitsBeforeCaret-1) + digits.slice(digitsBeforeCaret);
+      digitsBeforeCaret--;
+    }
+    const formatted = format(digits);
+    this.form.controls.supplierDocument.setValue(formatted);
+    this.form.controls.supplierDocument.markAsDirty();
+    input.value = formatted;
+    let position = 0;
+    for (let count = 0; position < formatted.length && count < digitsBeforeCaret; position++)
+      if (/\d/.test(formatted[position])) count++;
+    input.setSelectionRange(position,position);
+  }
+
+  selectReceipt(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.item(0);
+    this.receiptFile.set(null);
+    this.receiptError.set('');
+    if (!file) return;
+    const reject = () => {
+      input.value = '';
+      this.receiptError.set(ExpenseService.receiptGuidance);
+    };
+    if (!ExpenseService.validReceipt(file)) { reject(); return; }
+    this.receiptFile.set(file);
+  }
+
+  private uploadReceipt(id: string, file: File, version: number): void {
+    this.uploadProgress.set(0);
+    this.expenses.uploadReceipt(id, file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: event => {
+        if (this.projects.contextVersion() !== version) return;
+        if (event.type === HttpEventType.UploadProgress && event.total)
+          this.uploadProgress.set(Math.round(100 * event.loaded / event.total));
+        if (event.type === HttpEventType.Response) {
+          this.saving.set(false); this.uploadProgress.set(null);
+          void this.router.navigate(['/despesas',id]);
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        if (this.projects.contextVersion() !== version) return;
+        this.saving.set(false); this.uploadProgress.set(null);
+        if (error.status === 400 || error.status === 413)
+          this.receiptError.set(ExpenseService.receiptGuidance);
+        this.errorMessage.set('Despesa salva, mas o comprovante não foi enviado. Você pode tentar novamente.');
+      },
+    });
+  }
+
+  save(): void {
+    this.synchronizeContext();
+    if (this.saving() || this.loading() || this.savedExpenseId()) return;
+    this.form.markAllAsTouched();
+    const projectId = this.activeProject()?.id;
+    if (this.form.invalid || !projectId) return;
+    const value = this.form.getRawValue();
+    const calculated = value.valueMode === 'CALCULATED';
+    if (calculated && (this.calculatedTotal() <= 0 || this.calculatedTotal() >= 1e13)) {
+      this.errorMessage.set('O total calculado deve ser positivo e estar dentro do limite permitido.'); return;
+    }
+    const request: ExpenseCreate = {
+      ...(this.receiptFile() ? {receiptExpected:true} : {}),
+      projectId, description: value.description.trim(), purchaseDate: value.purchaseDate,
+      categoryId: value.categoryId, paid: value.paid, valueMode: value.valueMode,
+      ...(!value.paid ? {dueDate: value.dueDate} : {}),
+      ...(this.inlineSupplier() ? { newSupplier: {name: value.supplierName.trim(), document: value.supplierDocument} }
+        : { supplierId: value.supplierId }),
+      ...(calculated ? {quantity: value.quantity!, unitPrice: value.unitPrice!} : {totalPrice: value.totalPrice!}),
+    };
+    const version = this.projects.contextVersion();
+    const file = this.receiptFile();
+    this.saving.set(true); this.errorMessage.set('');
+    this.expenses.create(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: expense => {
+        if (this.projects.contextVersion() !== version) return;
+        this.savedExpenseId.set(expense.id);
+        this.savedCategoryId.set(request.categoryId);
+        if (file) {
+          this.loadBudgets();
+          this.uploadReceipt(expense.id,file,version);
+        }
+        else { this.saving.set(false); void this.router.navigate(['/despesas',expense.id]); }
+      },
+      error: () => {
+        if (this.projects.contextVersion() !== version) return;
+        this.saving.set(false); this.errorMessage.set('Não foi possível confirmar o salvamento. Confira os dados e tente novamente.');
+      },
+    });
+  }
+}
+
+function positiveDecimal(integers: number) {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    if (value === null || value === '') return null;
+    return Number.isFinite(value) && value > 0 && value < 10 ** integers && /^\d+(\.\d{1,2})?$/.test(String(value))
+      ? null : {invalidAmount: true};
+  };
+}
+function cnpjFormat(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '');
+  return !value.trim() || /^\d{14}$/.test(value.replace(/[./\s-]/g,'')) ? null : {invalidCnpj: true};
+}

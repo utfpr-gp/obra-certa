@@ -5,6 +5,9 @@ import { MainLayoutComponent } from './shared/layouts/main-layout/main-layout.co
 import { HomePage } from './features/home-page/home-page';
 import { BudgetsPageComponent } from './features/budgets-page/budgets-page.component';
 import { authGuard } from './core/guards/auth-guard';
+import { ExpenseFormComponent } from './features/expenses/expense-form.component';
+import { ExpenseDetailComponent } from './features/expenses/expense-detail.component';
+import { AccountsPageComponent } from './features/expenses/accounts-page.component';
 
 export const routes: Routes = [
   {
@@ -24,6 +27,10 @@ export const routes: Routes = [
     component: MainLayoutComponent,
     canActivate: [authGuard],
     children: [
+      { path: 'contas', component: AccountsPageComponent },
+      { path: 'contas/nova', component: ExpenseFormComponent },
+      { path: 'despesas/nova', redirectTo: 'contas/nova', pathMatch: 'full' },
+      { path: 'despesas/:id', component: ExpenseDetailComponent },
       {
         path: 'home',
         component: HomePage,

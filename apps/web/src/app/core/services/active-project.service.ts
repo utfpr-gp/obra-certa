@@ -6,14 +6,17 @@ import { Project } from '../models/project.model';
   providedIn: 'root',
 })
 export class ActiveProjectService {
-  readonly activeProject = signal<Project | null>(null);
+  private readonly selectedProject = signal<Project | null>(null);
+  readonly activeProject = this.selectedProject.asReadonly();
+  private readonly version = signal(0);
+  readonly contextVersion = this.version.asReadonly();
 
   private readonly platformId = inject(PLATFORM_ID);
   private readonly storageKeyPrefix = 'active-project:';
 
   initialize(projects: Project[], userId: string | null): void {
     if (!userId) {
-      this.activeProject.set(null);
+      this.clear();
       return;
     }
     const cachedId = this.readCachedId(userId);
@@ -36,11 +39,11 @@ export class ActiveProjectService {
   }
 
   clear(): void {
-    this.activeProject.set(null);
+    this.updateProject(null);
   }
 
   private setProject(project: Project | null, userId: string): void {
-    this.activeProject.set(project);
+    this.updateProject(project);
 
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -52,6 +55,12 @@ export class ActiveProjectService {
     } else {
       localStorage.removeItem(key);
     }
+  }
+
+  private updateProject(project: Project | null): void {
+    // Count every ID transition synchronously, including A → B → A between effects.
+    if (this.selectedProject()?.id !== project?.id) this.version.update(value => value + 1);
+    this.selectedProject.set(project);
   }
 
   private readCachedId(userId: string): string | null {

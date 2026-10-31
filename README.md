@@ -27,6 +27,7 @@ Toda a especificação formal do sistema segue a metodologia **Spec-Driven Devel
 
 - 📄 **[PRD (Product Requirements Document)](./docs/prd.md):** Visão do produto, glossário ubíquo, atores e histórias de usuário com status explícitos.
 - 📐 **[Arquitetura do Sistema](./docs/architecture.md):** Estrutura do monorepo, modelo de dados (ER), padrões arquiteturais, segurança e contratos da API.
+- 📎 **[Supabase Storage para comprovantes](./docs/supabase-storage.md):** Buckets privados por ambiente e campos a preencher no `.env` da raiz para execução nativa ou via Compose.
 - 🔄 **[Jornadas do Usuário (User Flows)](./docs/user-flows.md):** Fluxos de navegação, decisões do sistema e mitigação de pontos de desistência/falha.
 - 🎨 **[Tokens de Design & Protótipo](./docs/design-tokens.md):** Paleta de cores, tipografia, estados de botões e especificação das telas principais.
 - 📑 **[Especificações por Issue](./specs/README.md):** Índice de especificações técnicas das histórias em desenvolvimento.
@@ -108,7 +109,7 @@ CREATE DATABASE obracerta;
    ```bash
    cd apps/api
    ```
-2. Configure as variáveis de ambiente necessárias ou use as configurações padrão de `src/main/resources/application-dev.properties`.
+2. Configure as variáveis de ambiente necessárias ou use as configurações padrão de `src/main/resources/application-dev.properties`. Para comprovantes, preencha manualmente `RECEIPT_STORAGE_*` no `.env` da raiz conforme o [roteiro Supabase](./docs/supabase-storage.md); o Spring carrega esse arquivo ao executar de `apps/api` ou da raiz.
 3. Execute o servidor de desenvolvimento:
    ```bash
    ./mvnw spring-boot:run

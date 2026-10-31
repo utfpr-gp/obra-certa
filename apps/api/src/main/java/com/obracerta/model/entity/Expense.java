@@ -22,7 +22,7 @@ public class Expense {
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "budget_id", nullable = false)
+    @JoinColumn(name = "budget_id")
     private Budget budget;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -59,6 +59,23 @@ public class Expense {
 
     @Column(name = "purchase_date")
     private LocalDate purchaseDate;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean paid = true;
+
+    @Column(name = "receipt_state", nullable = false, length = 16)
+    @Builder.Default
+    private String receiptState = "NONE";
+
+    @Column(name = "receipt_key")
+    private String receiptKey;
+
+    @Column(name = "receipt_content_type", length = 64)
+    private String receiptContentType;
+
+    @Column(name = "receipt_size")
+    private Long receiptSize;
 
     @Column(name = "receipt_url")
     private String receiptUrl;

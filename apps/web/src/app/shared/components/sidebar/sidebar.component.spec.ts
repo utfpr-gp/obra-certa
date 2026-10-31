@@ -22,8 +22,15 @@ describe('SidebarComponent', () => {
   });
 
   it('should list all main navigation items', () => {
-    expect(component.navItems.length).toBe(6);
+    expect(component.navItems.length).toBe(5);
     expect(component.navItems[0].label).toBe('Resumo da Obra');
+  });
+
+  it('keeps accounts as the entry to registration without a standalone registration item', () => {
+    const menu = fixture.nativeElement as HTMLElement;
+    expect(menu.textContent).not.toContain('Cadastrar despesa');
+    expect(menu.querySelector('a[href="/contas/nova"]')).toBeNull();
+    expect(menu.querySelector('a[href="/contas"]')?.textContent).toContain('Contas a Pagar');
   });
 
   it('should emit closeDrawer when onClose is called', () => {

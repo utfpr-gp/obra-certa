@@ -68,27 +68,29 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A(["«pessoa» acessa /despesas e clica em 'Nova Despesa'"]) --> B{"Usuário possui orçamento<br/>definido para a obra?"}
+    A(["«pessoa» acessa Contas a pagar e clica em 'Cadastrar conta'<br/>/contas/nova"]) --> B{"Categoria possui teto<br/>definido na obra?"}
     
-    B -->|"não"| X1[["🔴 Regra na porta:<br/>Bloquear e mandar para orçamentos ou permitir lançamento avulso?"]]
-    B -->|"sim"| C["«pessoa» preenche: Categoria, Descrição,<br/>Quantidade, Preço Unitário e Fornecedor"]
+    B -->|"não ou zerado"| X1[["Aviso não bloqueante e atalho Definir teto"]] --> C
+    B -->|"sim"| C["«pessoa» preenche categoria, descrição, data e fornecedor;<br/>escolhe valor direto ou quantidade e preço unitário"]
     
-    C --> D["Sistema calcula automaticamente:<br/>Valor Total = Quantidade * Preço Unitário"]
-    D --> E{"Valor Total ultrapassa<br/>o teto da Categoria?"}
-    
-    E -->|"sim (>100%)"| E1["Sistema exibe alerta âmbar/vermelho:<br/>'Atenção: Este lançamento excederá o orçamento em R$ X'"] --> F
-    E -->|"atinge 90%"| E2["Sistema exibe alerta amarelo:<br/>'Atenção: Categoria próxima do limite orçado'"] --> F
-    E -->|"dentro do teto"| F["«pessoa» seleciona o Status de Pagamento"]
+    C --> D["Sistema apresenta o total;<br/>no modo calculado, quantidade * preço unitário"]
+    D --> F["«pessoa» seleciona o Status de Pagamento"]
     
     F --> G{"Status escolhido"}
-    G -->|"Já Pago"| H["Define data de pagamento atual"] --> J
-    G -->|"A Pagar (Pendente)"| I["«pessoa» informa a Data de Vencimento"] --> J
+    G -->|"Já Pago"| H["Despesa quitada, sem pagamento pendente"] --> J
+    G -->|"A Pagar (Pendente)"| I["«pessoa» informa vencimento igual ou posterior à compra"] --> J
     
     J["«pessoa» clica em 'Salvar'"] --> K{"Token JWT expirou<br/>durante o preenchimento?"}
-    K -->|"sim (401)"| X2[["🔴 Sessão expirada no envio:<br/>Perde todo o formulário preenchido?"]]
+    K -->|"sim (401)"| X2[["Sessão encerrada; login sem recuperação dos campos"]]
     K -->|"não"| L["Backend abre transação: grava Expense<br/>e PendingPayment (se pendente)"]
     
-    L --> M(["✅ Despesa registrada, saldo atualizado<br/>e alerta adicionado à Home se pendente"])
+    L --> E{"Gasto atingiu 100% ou mais<br/>de um teto positivo?"}
+    E -->|"sim"| E1["Alerta para revisão do orçamento, sem desfazer a despesa"] --> R
+    E -->|"não"| R{"Há comprovante selecionado?"}
+    R -->|"sim"| U["Enviar arquivo após confirmar a despesa"] --> V{"Envio confirmado?"}
+    V -->|"sim"| M(["Consulta da despesa com comprovante"])
+    V -->|"não"| P(["Despesa salva; alerta, tag Sem comprovante<br/>e reenvio posterior na mesma despesa"])
+    R -->|"não"| N(["Consulta com tag Sem comprovante, sem alerta de falha"])
 
     style X1 fill:#ffe0e0,stroke:#c62828
     style X2 fill:#ffe0e0,stroke:#c62828
@@ -97,7 +99,7 @@ flowchart TD
 ### 🛡️ Decisões de Projeto para os Nós Vermelhos da Jornada 2:
 
 - **Nó 🔴 X1 (Regra na porta - Sem orçamento cadastrado):** Aplicando a diretriz do SDD de checagem na porta (e não na saída após preencher tudo), se o usuário não tiver nenhum orçamento configurado, a interface não bloqueia agressivamente com erro 400. Ela apresenta um banner superior explicativo: *"Você ainda não definiu um teto para esta categoria. [Definir Orçamento Agora]"*. A despesa pode ser salva como custo avulso, garantindo que o usuário nunca seja impedido de registrar um gasto real imediato.
-- **Nó 🔴 X2 (Sessão expirada durante o formulário):** Para impedir a perda de formulários detalhados (com upload de comprovante), o `authInterceptor` no Angular intercepta o erro `401 Unauthorized`, retém a requisição pendente na memória, salva os dados do formulário e abre um modal de reautenticação rápida (*"Sua sessão expirou. Confirme sua senha para salvar"*). Após a autenticação com sucesso, a requisição de salvamento original é reenviada automaticamente sem redirecionamento para fora da página.
+- **Nó 🔴 X2 (Sessão expirada durante o formulário):** Na entrega da US03 até a tarefa 8, `authInterceptor` encerra a sessão ao receber `401` e direciona ao login. Não há recuperação dos campos nem reenvio automático. Idempotência da criação e restauração após login foram retiradas pelo autor em 2026-10-30; uma resposta de criação perdida não garante ausência de gravação nem repetição sem duplicação.
 
 ---
 
@@ -107,10 +109,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A(["«pessoa» clica em link direto protegido<br/>ex: /despesas/nova"]) --> B{"authGuard verifica:<br/>Existe Token JWT válido?"}
+    A(["«pessoa» clica em link direto protegido<br/>ex: /contas/nova"]) --> B{"authGuard verifica:<br/>Existe Token JWT válido?"}
     
     B -->|"sim"| C["Acesso liberado diretamente à tela"]
-    B -->|"não"| D["authGuard salva rota de destino<br/>(returnUrl = /despesas/nova)"]
+    B -->|"não"| D["authGuard salva rota de destino<br/>(returnUrl = /contas/nova)"]
     
     D --> E["Redireciona para /login"]
     E --> F["«pessoa» informa E-mail e Senha"]
@@ -121,7 +123,7 @@ flowchart TD
     G -->|"sim"| H["Armazena Token JWT"]
     
     H --> I{"Existe returnUrl salva?"}
-    I -->|"sim"| J(["Redireciona para returnUrl<br/>(/despesas/nova)"])
+    I -->|"sim"| J(["Redireciona para returnUrl<br/>(/contas/nova)"])
     I -->|"não"| K(["Redireciona para /home (Dashboard)"])
 
     style X1 fill:#ffe0e0,stroke:#c62828
@@ -129,4 +131,4 @@ flowchart TD
 
 ### 🛡️ Decisões de Projeto para o Nó Vermelho da Jornada 3:
 
-- **Nó 🔴 X1 (Usuário não cadastrado e perda de destino):** Ao clicar em *"Criar Conta"* a partir da tela de login, o parâmetro `?returnUrl=/despesas/nova` é propagado para a rota `/register`. Após concluir o cadastro com sucesso e realizar o primeiro login, o sistema recupera o parâmetro e entrega o usuário exatamente na tela onde ele queria chegar inicialmente, garantindo uma experiência contínua e sem atritos.
+- **Nó 🔴 X1 (Usuário não cadastrado e perda de destino):** Ao clicar em *"Criar Conta"* a partir da tela de login, o parâmetro `?returnUrl=/contas/nova` é propagado para a rota `/register`. Após concluir o cadastro com sucesso e realizar o primeiro login, o sistema recupera o parâmetro e entrega o usuário exatamente na tela onde ele queria chegar inicialmente, garantindo uma experiência contínua e sem atritos.

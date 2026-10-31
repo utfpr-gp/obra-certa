@@ -13,6 +13,34 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ApiErrorResponse handleMultipartSize(HttpServletRequest request) {
+        return new ApiErrorResponse(Instant.now(),413,HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase(),
+                ReceiptException.FILE_GUIDANCE,request.getRequestURI(),List.of());
+    }
+
+    @ExceptionHandler(ReceiptException.class)
+    public org.springframework.http.ResponseEntity<ApiErrorResponse> handleReceipt(
+            ReceiptException exception, HttpServletRequest request) {
+        var status=exception.status();
+        return org.springframework.http.ResponseEntity.status(status).body(new ApiErrorResponse(
+                Instant.now(),status.value(),status.getReasonPhrase(),exception.getMessage(),request.getRequestURI(),List.of()));
+    }
+
+    @ExceptionHandler(ExpenseValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleExpenseValidation(
+            ExpenseValidationException exception,
+            HttpServletRequest request) {
+        return new ApiErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
 
     @ExceptionHandler(BudgetBelowSpentException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
