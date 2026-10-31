@@ -4,6 +4,12 @@ export interface ExpenseSupplier {
   document: string | null;
 }
 
+export interface ExpenseDeleteResponse {
+  id: string;
+  deleted: boolean;
+  receiptDeletionFailed: boolean;
+}
+
 export interface ExpenseCreate {
   projectId: string;
   description: string;

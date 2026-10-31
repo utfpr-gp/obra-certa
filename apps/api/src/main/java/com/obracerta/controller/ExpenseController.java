@@ -22,4 +22,7 @@ public class ExpenseController {
     }
     @GetMapping("/{id}")
     public ExpenseResponseDTO get(@PathVariable String id) { return service.get(id); }
+
+    @DeleteMapping("/{id}")
+    public ExpenseDeleteResponseDTO delete(@PathVariable String id) { return service.delete(id); }
 }

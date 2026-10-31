@@ -2,7 +2,7 @@ import { HttpClient, HttpEvent } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ExpenseCreate, ExpenseResponse, ExpenseUpdate } from '../models/expense-registration.model';
+import { ExpenseCreate, ExpenseDeleteResponse, ExpenseResponse, ExpenseUpdate } from '../models/expense-registration.model';
 
 @Injectable({ providedIn: 'root' })
 export class ExpenseService {
@@ -27,6 +27,9 @@ export class ExpenseService {
 
   get(id: string): Observable<ExpenseResponse> {
     return this.http.get<ExpenseResponse>(`${this.endpoint}/${encodeURIComponent(id)}`);
+  }
+  delete(id: string): Observable<ExpenseDeleteResponse> {
+    return this.http.delete<ExpenseDeleteResponse>(`${this.endpoint}/${encodeURIComponent(id)}`);
   }
   uploadReceipt(id: string, file: File): Observable<HttpEvent<ExpenseResponse>> {
     const form = new FormData(); form.append('file', file);

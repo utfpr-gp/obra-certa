@@ -1,4 +1,5 @@
 import { ExpenseEditModalComponent } from './components/expense-edit-modal/expense-edit-modal.component';
+import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,7 +10,7 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 
 @Component({
-  selector: 'app-expense-detail', standalone: true, imports: [RouterLink, ExpenseEditModalComponent],
+  selector: 'app-expense-detail', standalone: true, imports: [RouterLink, ExpenseEditModalComponent, ConfirmModalComponent],
   template: `
     <section class="mx-auto max-w-3xl p-4 sm:p-6">
       <h1 class="text-2xl font-bold mb-6">Despesa</h1>
@@ -18,6 +19,13 @@ import { ActiveProjectService } from '../../core/services/active-project.service
       }
       @if (loading()) { <p role="status">Carregando despesa…</p> }
       @if (errorMessage()) { <p class="alert alert-error" role="alert">{{ errorMessage() }}</p> }
+      @if (deletionUncertain()) {
+        <button type="button" class="btn btn-outline" data-testid="check-delete-state" (click)="checkCurrentState()">Consultar estado atual</button>
+      }
+      @if (deletionMessage()) {
+        <p class="alert" [class.alert-warning]="deletionWarning()" [class.alert-success]="!deletionWarning()" role="status">{{ deletionMessage() }}</p>
+        <a class="btn btn-primary mt-4" data-testid="return-to-accounts" routerLink="/contas">Voltar a Contas a Pagar</a>
+      }
       @if (receiptWarning()) { <p class="alert alert-warning" role="alert">{{ receiptWarning() }}</p> }
       @if (budgetExceeded()) {
         <div class="alert alert-warning my-4" role="alert" data-testid="budget-ceiling-alert">
@@ -29,7 +37,9 @@ import { ActiveProjectService } from '../../core/services/active-project.service
       @if (expense(); as expense) {
         <article class="card bg-base-100 border border-base-300 p-6">
           <h2 class="text-xl font-semibold">{{ expense.description }}</h2>
-          <button type="button" class="btn btn-outline my-3" data-testid="edit-expense" [disabled]="removingReceipt() || uploading()" (click)="openEdit()">Editar</button>
+          <button type="button" class="btn btn-outline my-3" data-testid="edit-expense" [disabled]="removingReceipt() || uploading() || deleting() || deleteConfirmation()" (click)="openEdit()">Editar</button>
+          <button type="button" class="btn btn-outline btn-error my-3" data-testid="delete-expense"
+            [disabled]="deleting() || removingReceipt() || uploading() || downloading() || editing() !== null" (click)="openDelete()">Excluir</button>
           <span class="badge badge-success my-3">{{ expense.paid ? 'Quitada' : 'Pendente' }}</span>
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><dt class="font-semibold">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
@@ -47,16 +57,16 @@ import { ActiveProjectService } from '../../core/services/active-project.service
           </dl>
           @if (expense.receiptState === 'UPLOADED') {
             <button class="btn btn-outline mt-4" data-testid="download-receipt" type="button"
-              [disabled]="downloading() || removingReceipt() || uploading()" (click)="downloadReceipt()">Consultar comprovante</button>
+              [disabled]="downloading() || removingReceipt() || uploading() || deleting() || deleteConfirmation()" (click)="downloadReceipt()">Consultar comprovante</button>
             <button class="btn btn-outline mt-4" data-testid="remove-receipt" type="button"
-              [disabled]="removingReceipt() || downloading() || uploading() || editing() !== null" (click)="removeReceipt()">{{ removingReceipt() ? 'Removendo comprovante…' : 'Remover comprovante' }}</button>
+              [disabled]="removingReceipt() || downloading() || uploading() || editing() !== null || deleting() || deleteConfirmation()" (click)="removeReceipt()">{{ removingReceipt() ? 'Removendo comprovante…' : 'Remover comprovante' }}</button>
           } @else {
             <span class="badge badge-warning my-3" data-testid="no-receipt">Sem comprovante</span>
           }
             <label class="form-control mt-4">
               <span>{{ expense.receiptState === 'UPLOADED' ? 'Substituir comprovante' : 'Comprovante' }} (JPEG, PNG e PDF, até 10 MB — 10 MiB)</span>
               <input class="file-input file-input-bordered" data-testid="receipt-file" type="file"
-                accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" [disabled]="uploading() || removingReceipt() || downloading() || editing() !== null"
+                accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" [disabled]="uploading() || removingReceipt() || downloading() || editing() !== null || deleting() || deleteConfirmation()"
                 (change)="selectReceipt($event)" />
             </label>
             @if (receiptError()) { <p class="text-error" role="alert" data-testid="receipt-error">{{ receiptError() }}</p> }
@@ -64,7 +74,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
               <progress class="progress progress-primary mt-3" max="100" [value]="uploadProgress()" aria-label="Progresso do comprovante"></progress>
             }
             <button class="btn btn-outline mt-4" data-testid="upload-receipt" type="button"
-              [disabled]="uploading() || removingReceipt() || downloading() || editing() !== null || !receiptFile()" (click)="uploadReceipt()">{{ expense.receiptState === 'UPLOADED' ? 'Substituir comprovante' : 'Enviar comprovante' }}</button>
+              [disabled]="uploading() || removingReceipt() || downloading() || editing() !== null || !receiptFile() || deleting() || deleteConfirmation()" (click)="uploadReceipt()">{{ expense.receiptState === 'UPLOADED' ? 'Substituir comprovante' : 'Enviar comprovante' }}</button>
         </article>
         <p class="my-4">Despesa salva. Você pode voltar a esta consulta pelo endereço desta página.</p>
       }
@@ -72,6 +82,9 @@ import { ActiveProjectService } from '../../core/services/active-project.service
         <app-expense-edit-modal [expense]="edited" (saved)="expenseSaved($event)"
           (cancel)="editing.set(null)" (checkState)="checkCurrentState()" />
       }
+      <app-confirm-modal [isOpen]="deleteConfirmation()" title="Excluir despesa" confirmText="Excluir"
+        [description]="'Deseja excluir a despesa ' + (expense()?.description || '') + '?'"
+        [saving]="deleting()" (confirm)="confirmDelete()" (cancel)="deleteConfirmation.set(false)" />
       <a class="btn btn-primary mt-4" routerLink="/contas/nova">Nova despesa</a>
       <a class="btn btn-ghost mt-4" routerLink="/orcamentos">Ver orçamento</a>
     </section>
@@ -85,6 +98,11 @@ export class ExpenseDetailComponent {
   readonly activeProject = this.projects.activeProject;
   private contextVersion: number | null = this.activeProject() ? this.projects.contextVersion() : null;
   readonly editing = signal<ExpenseResponse | null>(null);
+  readonly deleteConfirmation = signal(false);
+  readonly deleting = signal(false);
+  readonly deletionMessage = signal('');
+  readonly deletionWarning = signal(false);
+  readonly deletionUncertain = signal(false);
   private budgetRequestVersion = 0;
   readonly budgetExceeded = signal(false);
   readonly budgetError = signal('');
@@ -113,6 +131,8 @@ export class ExpenseDetailComponent {
       }
       if (version !== this.contextVersion) untracked(() => {
         this.editing.set(null);
+        this.deleteConfirmation.set(false); this.deleting.set(false);
+        this.deletionMessage.set(''); this.deletionWarning.set(false); this.deletionUncertain.set(false);
         this.expense.set(null); this.loading.set(false); this.budgetExceeded.set(false); this.budgetError.set('');
         this.receiptFile.set(null); this.receiptError.set(''); this.uploading.set(false);
         this.receiptWarning.set('');
@@ -140,7 +160,40 @@ export class ExpenseDetailComponent {
     });
   }
   openEdit(): void {
-    if (this.isCurrentContext() && this.activeProject() && this.expense() && !this.removingReceipt() && !this.uploading()) this.editing.set(this.expense());
+    if (this.isCurrentContext() && this.activeProject() && this.expense() && !this.removingReceipt() && !this.uploading()
+      && !this.deleting() && !this.deleteConfirmation()) this.editing.set(this.expense());
+  }
+  openDelete(): void {
+    if (!this.isCurrentContext() || !this.expense() || !this.activeProject() || this.deleting()
+      || this.editing() || this.removingReceipt() || this.uploading() || this.downloading()) return;
+    this.deleteConfirmation.set(true);
+  }
+  confirmDelete(): void {
+    const expense = this.expense();
+    if (!this.isCurrentContext() || !expense || !this.deleteConfirmation() || this.deleting()
+      || this.editing() || this.removingReceipt() || this.uploading() || this.downloading()) return;
+    this.deleting.set(true); this.errorMessage.set(''); this.deletionUncertain.set(false);
+    this.expenses.delete(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: result => {
+        if (!this.isCurrentContext()) return;
+        this.deleting.set(false); this.deleteConfirmation.set(false);
+        if (!result.deleted || result.id !== expense.id) { this.deleteNotConfirmed(); return; }
+        this.expense.set(null); this.editing.set(null); this.receiptFile.set(null); this.receiptError.set('');
+        this.receiptWarning.set(''); this.budgetExceeded.set(false); this.budgetError.set('');
+        ++this.budgetRequestVersion;
+        this.deletionWarning.set(result.receiptDeletionFailed);
+        this.deletionMessage.set(result.receiptDeletionFailed
+          ? 'Despesa excluída, mas não foi possível apagar o comprovante.' : 'Despesa excluída.');
+      },
+      error: () => {
+        if (!this.isCurrentContext()) return;
+        this.deleting.set(false); this.deleteNotConfirmed();
+      },
+    });
+  }
+  private deleteNotConfirmed(): void {
+    this.deletionUncertain.set(true);
+    this.errorMessage.set('A exclusão da despesa não foi confirmada. Consulte o estado atual antes de tentar novamente.');
   }
   expenseSaved(expense: ExpenseResponse): void {
     if (!this.isCurrentContext() || expense.projectId !== this.activeProject()?.id) return;
@@ -148,8 +201,9 @@ export class ExpenseDetailComponent {
   }
   checkCurrentState(): void {
     const expense = this.expense();
-    if (!this.isCurrentContext() || !expense) return;
-    this.editing.set(null); this.loading.set(true); this.loadExpense(expense.id);
+    if (!this.isCurrentContext() || !expense || this.deleting()) return;
+    this.editing.set(null); this.deleteConfirmation.set(false); this.deletionUncertain.set(false);
+    this.errorMessage.set(''); this.loading.set(true); this.loadExpense(expense.id);
   }
   private loadBudget(expense: ExpenseResponse): void {
     const requestVersion = ++this.budgetRequestVersion;
@@ -168,7 +222,7 @@ export class ExpenseDetailComponent {
     return this.projects.contextVersion() === this.contextVersion;
   }
   selectReceipt(event: Event): void {
-    if (!this.isCurrentContext() || this.uploading() || this.removingReceipt() || this.downloading() || this.editing()) return;
+    if (!this.isCurrentContext() || this.uploading() || this.removingReceipt() || this.downloading() || this.editing() || this.deleting() || this.deleteConfirmation()) return;
     const input=event.target as HTMLInputElement;
     const file=input.files?.item(0);
     this.receiptFile.set(null); this.receiptError.set('');
@@ -180,7 +234,7 @@ export class ExpenseDetailComponent {
   }
   uploadReceipt(): void {
     const expense=this.expense(), file=this.receiptFile();
-    if (!this.isCurrentContext() || !expense || !file || this.uploading() || this.removingReceipt() || this.downloading() || this.editing()) return;
+    if (!this.isCurrentContext() || !expense || !file || this.uploading() || this.removingReceipt() || this.downloading() || this.editing() || this.deleting() || this.deleteConfirmation()) return;
     this.uploading.set(true); this.uploadProgress.set(0); this.errorMessage.set(''); this.receiptError.set('');
     this.receiptWarning.set('');
     this.expenses.uploadReceipt(expense.id,file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -209,7 +263,7 @@ export class ExpenseDetailComponent {
   }
   downloadReceipt(): void {
     const expense = this.expense();
-    if (!this.isCurrentContext() || !expense || this.downloading() || this.removingReceipt() || this.uploading()) return;
+    if (!this.isCurrentContext() || !expense || this.downloading() || this.removingReceipt() || this.uploading() || this.deleting() || this.deleteConfirmation()) return;
     this.downloading.set(true); this.errorMessage.set('');
     this.expenses.downloadReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: blob => {
@@ -228,7 +282,7 @@ export class ExpenseDetailComponent {
   removeReceipt(): void {
     const expense = this.expense();
     if (!this.isCurrentContext() || !expense || expense.receiptState !== 'UPLOADED'
-      || this.removingReceipt() || this.downloading() || this.uploading() || this.editing()) return;
+      || this.removingReceipt() || this.downloading() || this.uploading() || this.editing() || this.deleting() || this.deleteConfirmation()) return;
     this.removingReceipt.set(true); this.errorMessage.set('');
     this.expenses.removeReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: updated => {

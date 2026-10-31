@@ -106,7 +106,7 @@ Revisão de escopo determinada pelo autor: remover da Tarefa 4 todo o mecanismo 
   - Migration: nenhuma.
   - Arquivos previstos: `ExpenseReceiptService` e, somente se necessário para delimitar o commit, colaborador transacional de persistência; `ExpenseResponseDTO` e `ExpenseMapper`; `ExpenseReceiptReplacementIntegrationTest` e testes existentes de upload da US03; serviço e modelos Angular, consulta individual e `expense-receipt-edit.spec.ts`. Preservar os demais contratos da US03 e a remoção isolada simples da Tarefa 3. Nenhuma tabela, entidade de trabalho, repositório de limpeza, processador, scheduler, migration ou configuração de intervalo será criada.
 
-- [ ] **Tarefa 5 — Excluir logicamente a despesa mediante confirmação**
+- [x] **Tarefa 5 — Excluir logicamente a despesa mediante confirmação**
   - Cobre: CA6; cancelamento e duplo envio da exclusão do CA7; isolamento da exclusão do CA9.
   - Teste primeiro:
     - JUnit/PostgreSQL: `ExpenseDeletionIntegrationTest` prova linhas preservadas com `deleted_at`, pagamento inativado, gasto removido dos agregados, teto intacto e tentativa de remoção física posterior ao commit. Simular falha do storage com exclusão financeira concluída e `receiptDeletionFailed=true`, sem trabalho durável; falha ao gravar no banco não pode apagar o comprovante. Provar 404 em repetição e em recurso alheio/excluído, inclusive leitura/edição/download/upload após a exclusão.
