@@ -6,39 +6,44 @@ Este plano implementa a spec aprovada da US04 em sete tarefas. A consulta indivi
 
 Plano aprovado pelo autor em 31/10/2026, com a condição de revisar antes de iniciar cada tarefa. Essa revisão prévia confere os critérios cobertos, o código existente, os arquivos previstos, as dependências e os riscos; apresenta o que será alterado e o que os testes devem provar antes de despachar a implementação. Não substitui o tutor antes do código nem as duas revisões independentes posteriores previstas em `utf-task`. Mudanças de escopo ou dúvidas encontradas voltam ao autor antes de qualquer implementação.
 
+Revisão aprovada pelo autor em 31/10/2026: simplificar apenas a Tarefa 3, com exclusão física imediata e repetição manual em caso de falha. O autor confirmou manter por enquanto as decisões das Tarefas 4 e 5. A infraestrutura durável antes prevista na Tarefa 3 passa à Tarefa 4, onde continua necessária para os contratos de substituição e exclusão já aprovados. Tarefas 1 e 2 concluídas permanecem inalteradas.
+
 ### Backend (`apps/api`)
 
 - `PUT /api/expenses/{id}` → `200 ExpenseResponseDTO`: atualiza a despesa ativa do usuário autenticado. `ExpenseUpdateDTO` contém descrição, data, categoria e os campos de valor direto/calculado; na Tarefa 2 recebe também situação de pagamento e vencimento. Não recebe alteração de obra, fornecedor ou comprovante. Se um cliente enviar um identificador de obra extra, ele nunca altera a obra persistida. Todos os vínculos continuam conforme a US03 atual.
 - Reutilizar o cálculo com `BigDecimal` e limites da criação. Alterar categoria ajusta o vínculo opcional ao orçamento da categoria de destino; despesa sem teto continua permitida. Os gastos são agregados de despesas ativas, sem manter contadores monetários paralelos ou modificar tetos. A atualização retorna a mesma despesa e a tela consulta o orçamento após o sucesso para apresentar o alerta.
-- `ExpenseResponseDTO` recebe `paidAt` nullable na Tarefa 2 e `receiptCleanupPending` na Tarefa 3, com espelhos no Angular e mapeamento centralizado em `ExpenseMapper`. Campos novos não removem os contratos da US03.
+- `ExpenseResponseDTO` recebe `paidAt` nullable na Tarefa 2 e `receiptCleanupPending` na Tarefa 4, com espelhos no Angular e mapeamento centralizado em `ExpenseMapper`. A Tarefa 3 usa o DTO atual, sem campo de limpeza pendente. Campos novos não removem os contratos da US03.
 - `PendingPayment` mantém a relação um para um. Acrescentar `PaymentStatus` (`PENDING`, `PAID`) e `paidAt` (`Instant`, nullable). Pendente → paga atualiza a mesma linha, status e data; paga → pendente reutiliza a linha, atualiza vencimento e limpa `paidAt`, que representa a quitação atual. Não criar histórico separado de ciclos nem remover o pagamento ao quitar. Criar uma linha somente quando ainda não houver pagamento. Na criação de despesa a prazo, inicializar `PENDING`; despesa criada já paga sem compromisso prévio pode continuar sem linha de pagamento. Usar o `Clock` existente para datas e instantes.
-- `DELETE /api/expenses/{id}/receipt` → `200 ExpenseResponseDTO`: remove a associação ao comprovante e devolve o estado `NONE`, registrando a limpeza física antes de perder a chave antiga. Sem anexo confirmado, pode devolver o estado atual sem criar trabalho repetido.
+- `DELETE /api/expenses/{id}/receipt` → `200 ExpenseResponseDTO`: autoriza a despesa, solicita a exclusão física e, após confirmação, limpa chave, MIME e tamanho, define `NONE` e persiste. Objeto já ausente é sucesso. Falha do armazenamento mantém o vínculo e retorna erro para tentativa manual, sem fila ou agendamento. Se a exclusão física concluir e apenas o banco falhar, retornar erro sem anunciar sucesso; a repetição manual reconhece o objeto ausente e conclui a retirada dos metadados. Não prometer que rollback do banco recupera o arquivo. Sem anexo confirmado, devolver o estado atual sem acessar storage nem criar trabalho. Uma futura pendência de substituição/exclusão continua regida pelas Tarefas 4 e 5.
 - `PUT /api/expenses/{id}/receipt`: estender o endpoint multipart existente para substituir também um anexo `UPLOADED`. Validar antes de qualquer mudança. Um novo envio usa chave privada diferente da atual; nunca sobrescrever o arquivo confirmado em uso. Confirmar o envio, persistir a nova associação e a limpeza pendente da chave anterior na mesma transação, e só depois apagar o anterior. Falha no envio preserva os metadados e o arquivo atual. Falha na associação não autoriza apagar o arquivo antigo; o objeto novo sem associação deve ser encaminhado à limpeza, sem confundi-lo com o comprovante confirmado.
 - `DELETE /api/expenses/{id}` → `200 ExpenseDeleteResponseDTO` com `id`, `deleted` e `receiptCleanupPending`. A transação grava `deleted_at` na despesa e no pagamento existente, preserva as linhas e registra a limpeza do comprovante. A resposta só confirma exclusão depois do commit. Nenhum erro do armazenamento desfaz uma exclusão financeira já confirmada. Repetir a chamada a uma despesa já excluída devolve `404 Despesa não encontrada`; o cliente consulta o resultado após resposta perdida, sem reenvio automático.
 - Toda operação resolve primeiro despesa ativa e obra ativa pelo proprietário, usando a consulta de posse existente; não acessar armazenamento antes dessa autorização. Identificadores alheios/inexistentes/excluídos retornam 404 no formato atual. Segurança mantém autenticação obrigatória e o interceptor existente trata 401. Nenhuma rota pública nova.
 - A extensão de `ReceiptStorage` inclui exclusão física por chave. `S3ReceiptStorage` usa a operação de exclusão de objeto, tratando arquivo já ausente como limpeza concluída. Não simular exclusão lógica de arquivos nem manter versões no produto.
 
-### Limpeza física e recuperação
+### Limpeza física e recuperação das Tarefas 4 e 5
+
+A remoção isolada da Tarefa 3 segue o fluxo simples descrito acima e não cria pendências. A infraestrutura abaixo será introduzida na Tarefa 4 para preservar as regras aprovadas do CA5 e CA6; sua entrega não é pré-condição da Tarefa 3.
 
 - Criar uma tabela simples de pendências `receipt_cleanup_tasks`, sem serviço de filas externo, com identificador, referência à despesa, chave privada única, data de criação, quantidade de tentativas, próxima tentativa e data de conclusão nullable. A chave não é exposta nos DTOs públicos nem os erros incluem credenciais.
-- Remoção de anexo, substituição e exclusão financeira gravam a pendência na mesma transação da mudança correspondente. O apagamento da chave antiga só começa após commit. Para a resposta inicial, consultar o resultado da tentativa imediata e informar corretamente se a limpeza continua pendente. Falha ao apagar ou ao confirmar a limpeza conserva a pendência; nova exclusão do mesmo objeto é segura.
+- Substituição de anexo e exclusão financeira gravam a pendência na mesma transação da mudança correspondente. O apagamento da chave antiga só começa após commit. Para a resposta inicial, consultar o resultado da tentativa imediata e informar corretamente se a limpeza continua pendente. Falha ao apagar ou ao confirmar a limpeza conserva a pendência; nova exclusão do mesmo objeto é segura. A remoção isolada não participa desse mecanismo.
 - Um processador agendado retoma pendências vencidas a cada 60 segundos, inclusive depois de reiniciar a API. Usar `Clock` e parâmetros configuráveis, sem espera real nos testes. Falhas continuam agendadas, sem limite que abandone silenciosamente um arquivo; não é necessário nova exclusão pelo usuário.
 - O processador não depende de a despesa continuar ativa. Antes de apagar uma chave, verificar que ela não é o comprovante confirmado de uma despesa ativa; nunca apagar a chave atual durante a substituição. A Tarefa 4 deve tratar explicitamente o objeto recém-enviado cuja associação falha e testar sua recuperação.
-- A operação financeira e a chamada ao armazenamento são etapas distintas: nenhum rollback de PostgreSQL recupera um arquivo já apagado. Separar os limites transacionais e os colaboradores de commit/limpeza, sem confiar em chamadas internas a métodos `@Transactional` da mesma instância. Os testes integrados verificam a ordem de commit e os estados duráveis.
+- Na substituição e na exclusão financeira, a gravação e a chamada ao armazenamento são etapas distintas: nenhum rollback de PostgreSQL recupera um arquivo já apagado. Separar os limites transacionais e os colaboradores de commit/limpeza, sem confiar em chamadas internas a métodos `@Transactional` da mesma instância. Os testes integrados verificam a ordem de commit e os estados duráveis. Na remoção isolada, aplica-se a ordem storage → retirada dos metadados, com a falha parcial e a repetição manual explicitadas no CA4.
 - `receiptCleanupPending` informa somente se existe limpeza ainda pendente para aquela despesa; nunca afirma que o arquivo foi apagado antes da confirmação. Após exclusão, a tela pode exibir “Despesa excluída. A limpeza do comprovante está pendente.” sem manter acesso à despesa excluída.
 
 ### Migração de schema
 
-- Última migration conferida no início do plano: V9. Confirmar novamente antes de implementar; as versões abaixo são reservadas nesta sequência local, não autorizam editar migrations aplicadas.
+- Última migration conferida após a Tarefa 2: V10. Confirmar novamente antes de implementar; as versões abaixo são reservadas nesta sequência local, não autorizam editar migrations aplicadas.
 - Tarefa 2: `V10__add_payment_status_and_paid_at.sql`. Acrescentar status e data de quitação, preservando a unicidade por despesa e os dados existentes. Inicializar status pela situação persistida de `expenses.paid`. Não inventar data de quitação para registros legados que não a possuem; permitir `paidAt` nulo nesse legado. Validar coerência dos novos registros na aplicação.
-- Tarefa 3: `V11__create_receipt_cleanup_tasks.sql`. Criar as pendências duráveis e índices para a chave única, despesa e busca de trabalhos vencidos. Manter a constraint da V9: despesa `NONE/PENDING` não conserva chave ativa; a chave antiga necessária à limpeza vive na nova tabela.
-- Tarefas 1 e 4 a 7 não preveem migration adicional. Manter `ddl-auto=validate` em todos os perfis.
+- Tarefa 3: nenhuma migration, tabela ou agendamento. Manter a constraint da V9 limpando os metadados juntos ao passar para NONE.
+- Tarefa 4: `V11__create_receipt_cleanup_tasks.sql`. Criar as pendências duráveis e índices para a chave única, despesa e busca de trabalhos vencidos. Manter a constraint da V9: despesa `NONE/PENDING` não conserva chave ativa; a chave antiga necessária à limpeza da substituição/exclusão vive na nova tabela.
+- Tarefas 1 e 5 a 7 não preveem migration adicional. Manter `ddl-auto=validate` em todos os perfis.
 
 ### Frontend (`apps/web`)
 
 - Adicionar “Editar” e “Excluir” à consulta individual existente. A edição abre um modal próprio `expense-edit-modal`, preenchido a partir de `ExpenseResponse`, com `ReactiveFormsModule`; descrição, data, categoria, modo de valor e campos monetários seguem as validações da US03. A situação financeira e o vencimento entram na Tarefa 2. Não exibir controle editável de obra ou fornecedor.
 - `ExpenseService` concentra as operações HTTP; componentes não injetam `HttpClient`. Modelos de atualização e exclusão ficam em `expense-registration.model.ts`. A resposta salva atualiza a consulta e recarrega o orçamento da mesma obra; falha nessa leitura complementar não transforma uma edição confirmada em falha de gravação.
-- Remoção e substituição de anexo usam a consulta individual, seleção de arquivo e progresso existentes, estendidos na respectiva tarefa. “Sem comprovante” aparece após remoção. Apresentar a diferença entre novo anexo confirmado e limpeza antiga pendente, sem oferecer o arquivo antigo.
+- Remoção e substituição de anexo usam a consulta individual, seleção de arquivo e progresso existentes, estendidos na respectiva tarefa. Na remoção isolada, “Sem comprovante” aparece apenas após resposta confirmada; erro mantém o estado da tela e oferece repetição manual, sem mensagem de pendência automática. Na substituição da Tarefa 4, apresentar a diferença entre novo anexo confirmado e limpeza antiga pendente, sem oferecer o arquivo antigo.
 - Exclusão reutiliza `ConfirmModalComponent`, com nome/descrição da despesa e `saving` durante o envio. Após sucesso, retirar a despesa da tela e mostrar confirmação com retorno a `/contas`; não depender de listagem ainda ausente nem deixar dados antigos visíveis como ativos.
 - Modal de edição e confirmação ignoram clique no backdrop. Cancelar, X e Escape antes do envio fecham sem gravação. Durante a requisição, confirmação não pode ser repetida; fechar ou trocar obra não significa cancelar uma operação já recebida pelo servidor.
 - Signals locais para carregamento, envio, mensagens e rascunho. Toda callback verifica a versão de contexto do `ActiveProjectService`; uma troca A → B → A não aceita respostas do primeiro A. Atualização de metadados da mesma obra não deve descartar o rascunho sem troca real de contexto.
@@ -79,31 +84,33 @@ Plano aprovado pelo autor em 31/10/2026, com a condição de revisar antes de in
     - `apps/api/src/test/java/com/obracerta/controller/ExpensePaymentUpdateIntegrationTest.java`
     - Modelos Angular, consulta individual, modal e testes de edição da Tarefa 1.
 
-- [ ] **Tarefa 3 — Remover comprovante com limpeza física recuperável**
+- [ ] **Tarefa 3 — Remover comprovante com tentativa manual em caso de falha**
   - Cobre: CA4; proteção de acesso ao anexo do CA9.
   - Teste primeiro:
-    - JUnit: `S3ReceiptStorageTest` prova chamada de exclusão física e objeto ausente como sucesso. `ReceiptCleanupServiceTest` prova retentativa por relógio, falha sem perda da pendência, processamento após reinício e proteção de chave ainda ativa.
-    - Integração PostgreSQL: `ExpenseReceiptRemovalIntegrationTest` prova retirada dos metadados, estado NONE, outbox gravada na mesma transação, tentativa de limpeza somente após commit, retorno correto de pendência, cancelamento da transação sem apagar o arquivo e 404 sem acesso ao storage para recurso alheio/excluído. `ReceiptCleanupSchemaMigrationTest` verifica estrutura e unicidade.
-    - Angular: `expense-receipt-edit.spec.ts` prova remoção, “Sem comprovante” e mensagem distinta de limpeza pendente, preservando os dados financeiros. Antes da tarefa, não existe DELETE de anexo nem operação de apagar no storage.
-  - Migration: `V11__create_receipt_cleanup_tasks.sql`.
+    - JUnit: `S3ReceiptStorageTest` prova chamada de exclusão física, objeto ausente como sucesso e falhas reais propagadas sem falso sucesso.
+    - Integração PostgreSQL: `ExpenseReceiptRemovalIntegrationTest` prova autorização antes do storage, exclusão física antes de limpar os metadados, estado NONE somente após sucesso persistido e preservação dos dados financeiros. Falha no storage mantém o vínculo e permite repetição manual. Falha do banco após exclusão física retorna erro; nova tentativa aceita o objeto ausente e conclui a retirada do vínculo. Provar 404 sem storage para despesa alheia/inexistente/excluída ou obra excluída e ausência de chamada ao storage quando já não há anexo confirmado. Não exigir a garantia antiga de arquivo intacto após rollback do banco.
+    - Angular: `expense-receipt-edit.spec.ts` prova ação de remover, envio único enquanto em andamento, “Sem comprovante” após sucesso e erro sem anúncio de remoção, mantendo possibilidade de nova tentativa manual. Despesa, pagamentos e valores permanecem. Antes da tarefa, não existe DELETE de anexo nem operação de apagar no storage.
+  - Migration: nenhuma.
   - Arquivos previstos:
-    - Migration acima em `apps/api/src/main/resources/db/migration/`.
-    - `apps/api/src/main/java/com/obracerta/model/entity/ReceiptCleanupTask.java`
-    - `apps/api/src/main/java/com/obracerta/repository/ReceiptCleanupTaskRepository.java`
-    - `apps/api/src/main/java/com/obracerta/service/ReceiptCleanupService.java`
-    - `apps/api/src/main/java/com/obracerta/configuration/ReceiptCleanupConfiguration.java`
-    - `ExpenseReceiptService`, `ExpenseReceiptController`, `ReceiptStorage`, `S3ReceiptStorage`, `ExpenseResponseDTO`, `ExpenseMapper` e `ExpenseRepository` nos pacotes existentes, com colaboradores transacionais de limpeza no pacote `service/` se necessários.
-    - `apps/api/src/main/resources/application.properties` e `application-test.properties` para intervalo e controle do agendamento nos testes.
-    - Testes JUnit citados, nos respectivos pacotes `integration/`, `service/`, `controller/` e `migration/`.
-    - Serviço e modelos Angular, consulta individual e `apps/web/src/app/features/expenses/expense-receipt-edit.spec.ts`.
+    - `apps/api/src/main/java/com/obracerta/service/ExpenseReceiptService.java`
+    - `apps/api/src/main/java/com/obracerta/controller/ExpenseReceiptController.java`
+    - `apps/api/src/main/java/com/obracerta/integration/ReceiptStorage.java`
+    - `apps/api/src/main/java/com/obracerta/integration/S3ReceiptStorage.java`
+    - `apps/api/src/test/java/com/obracerta/integration/S3ReceiptStorageTest.java`
+    - `apps/api/src/test/java/com/obracerta/controller/ExpenseReceiptRemovalIntegrationTest.java`
+    - `apps/web/src/app/core/services/expense.service.ts`
+    - `apps/web/src/app/features/expenses/expense-detail.component.ts`
+    - `apps/web/src/app/features/expenses/expense-receipt-edit.spec.ts`
+  - Não criar entidade, repositório, serviço, tabela, scheduler ou campo de resposta de limpeza pendente nesta tarefa. Não modificar as migrations existentes.
 
 - [ ] **Tarefa 4 — Substituir comprovante preservando o atual até a confirmação**
   - Cobre: CA5; validações de arquivo e isolamento do CA9.
   - Teste primeiro:
+    - Infraestrutura durável adiada da Tarefa 3: `ReceiptCleanupServiceTest` prova repetição por relógio, falha sem perda da pendência, processamento após reinício e proteção de chave ainda ativa. `ReceiptCleanupSchemaMigrationTest` verifica estrutura e unicidade no PostgreSQL. Os testes integrados desta tarefa provam gravação da pendência na mesma transação da substituição e limpeza somente após commit, inclusive rollback sem apagar o antigo.
     - JUnit: `ExpenseReceiptReplacementIntegrationTest` prova chave nova, envio confirmado antes de trocar a associação, commit antes de apagar o antigo e limpeza durável em caso de falha. Novo envio inválido/falho conserva o atual. Falha na persistência conserva o antigo e encaminha o novo órfão para limpeza. Exercitar sequência de substituições com a chave correta e impedir remoção do comprovante atual pelo processador. Cobrir MIME, extensão, vazio, limite de 10 MiB e 404 antes de acessar storage.
     - Angular: `expense-receipt-edit.spec.ts` prova seleção, progresso, consulta do novo confirmado, preservação do antigo em falha de envio e mensagem de limpeza pendente sem oferecer versão anterior.
-  - Migration: nenhuma; usar a estrutura da Tarefa 3.
-  - Arquivos previstos: `ExpenseReceiptService`, colaboradores de limpeza, testes `ExpenseReceiptReplacementIntegrationTest` e `ReceiptCleanupServiceTest`; `ExpenseService` Angular, consulta individual e `expense-receipt-edit.spec.ts`. Ajustar os testes existentes de upload da US03 para o novo comportamento de substituição explicitamente previsto pela US04, preservando os demais contratos.
+  - Migration: `V11__create_receipt_cleanup_tasks.sql`; confirmar numeração antes de implementar.
+  - Arquivos previstos: migration V11; `ReceiptCleanupTask`, `ReceiptCleanupTaskRepository`, `ReceiptCleanupService`, `ReceiptCleanupConfiguration`, `ExpenseRepository`, `ExpenseResponseDTO`, `ExpenseMapper`, `application.properties` e `application-test.properties` nos pacotes existentes; `ExpenseReceiptService` e colaboradores transacionais de limpeza; testes `ExpenseReceiptReplacementIntegrationTest`, `ReceiptCleanupServiceTest` e `ReceiptCleanupSchemaMigrationTest`; serviço e modelos Angular, consulta individual e `expense-receipt-edit.spec.ts`. Ajustar os testes existentes de upload da US03 para o novo comportamento de substituição explicitamente previsto pela US04, preservando os demais contratos. Não incluir a remoção isolada na fila: manter o contrato simples do CA4. Revisar o tamanho desta tarefa antes de iniciá-la, pois agora concentra a infraestrutura necessária aos contratos mantidos de CA5 e CA6.
 
 - [ ] **Tarefa 5 — Excluir logicamente a despesa mediante confirmação**
   - Cobre: CA6; cancelamento e duplo envio da exclusão do CA7; isolamento da exclusão do CA9.
