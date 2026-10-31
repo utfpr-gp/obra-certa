@@ -189,7 +189,8 @@ describe('Expense registration and individual consultation', () => {
       http.expectOne(`${api}/expenses/saved/receipt`).flush({...detailExpense,receiptState:'UPLOADED'}); harness.detectChanges();
       expect(harness.routeNativeElement!.querySelector('[data-testid="no-receipt"]')).toBeNull();
       expect(harness.routeNativeElement!.querySelector('[data-testid="download-receipt"]')).not.toBeNull();
-      expect(harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]')).toBeNull();
+      const replacementInput=harness.routeNativeElement!.querySelector('[data-testid="receipt-file"]') as HTMLInputElement;
+      expect(replacementInput).not.toBeNull(); expect(replacementInput.disabled).toBeFalse();
       expect(harness.routeNativeElement!.textContent).not.toContain('mas o comprovante não foi enviado');
       http.expectNone(request => request.method==='POST');
     });

@@ -19,5 +19,6 @@ public record ExpenseResponseDTO(
         BigDecimal totalPrice,
         LocalDate dueDate,
         String receiptState,
-        Instant paidAt
+        Instant paidAt,
+        boolean receiptDeletionFailed
 ) {}

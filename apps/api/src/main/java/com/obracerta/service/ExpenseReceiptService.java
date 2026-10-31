@@ -11,11 +11,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class ExpenseReceiptService {
@@ -24,32 +28,59 @@ public class ExpenseReceiptService {
     private final ExpenseRepository expenses;
     private final UserContextHelper identity;
     private final ReceiptStorage storage;
-    public ExpenseReceiptService(ExpenseRepository expenses,UserContextHelper identity,ReceiptStorage storage) {
+    private final TransactionTemplate transactions;
+    public ExpenseReceiptService(ExpenseRepository expenses,UserContextHelper identity,ReceiptStorage storage,
+                                 PlatformTransactionManager transactionManager) {
         this.expenses=expenses; this.identity=identity; this.storage=storage;
+        this.transactions=new TransactionTemplate(transactionManager);
+        this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
-    @Transactional(noRollbackFor=ReceiptException.class)
     public ExpenseResponseDTO upload(String id,MultipartFile file) {
-        Expense expense=owned(id);
-        if ("UPLOADED".equals(expense.getReceiptState()))
-            throw new ReceiptException(HttpStatus.CONFLICT,"Este comprovante já foi enviado. Consulte a despesa.");
+        String previousKey=transactions.execute(status -> {
+            Expense expense=owned(id);
+            validate(file);
+            if ("UPLOADED".equals(expense.getReceiptState())) return expense.getReceiptKey();
+            // Keep the original US03 retry intent even when the upload fails.
+            expense.setReceiptState("PENDING");
+            expenses.saveAndFlush(expense);
+            return null;
+        });
+        String type=file.getContentType().toLowerCase(Locale.ROOT);
+        String key="expenses/"+id+"/"+UUID.randomUUID()+"."+EXTENSIONS.get(type);
+        try (InputStream input=file.getInputStream()) {
+            storage.put(key,input,file.getSize(),type);
+        } catch (IOException exception) {
+            throw new ReceiptException(HttpStatus.SERVICE_UNAVAILABLE,"Não foi possível enviar o comprovante. Tente novamente.");
+        }
+        ExpenseResponseDTO result;
+        try {
+            result=transactions.execute(status -> {
+                Expense expense=owned(id);
+                expense.setReceiptKey(key); expense.setReceiptContentType(type); expense.setReceiptSize(file.getSize());
+                expense.setReceiptState("UPLOADED");
+                return ExpenseMapper.toDTO(expenses.saveAndFlush(expense));
+            });
+        } catch (RuntimeException exception) {
+            // The association rolled back. Make just one immediate attempt to discard the unlinked upload.
+            String message="A substituição do comprovante não foi confirmada. Consulte o estado atual antes de tentar novamente.";
+            try { storage.delete(key); }
+            catch (RuntimeException deletionFailure) { message+=" O arquivo novo não pôde ser apagado."; }
+            throw new ReceiptException(HttpStatus.SERVICE_UNAVAILABLE,message);
+        }
+        // execute returns only after the new association has committed.
+        if (previousKey!=null) {
+            try { storage.delete(previousKey); }
+            catch (RuntimeException exception) { return ExpenseMapper.withReceiptDeletionFailed(result,true); }
+        }
+        return result;
+    }
+    private static void validate(MultipartFile file) {
         String type=file.getContentType()==null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
         if (file.isEmpty() || !EXTENSIONS.containsKey(type)) invalid();
         if (file.getSize()>MAX_BYTES) throw new ReceiptException(HttpStatus.PAYLOAD_TOO_LARGE,ReceiptException.FILE_GUIDANCE);
         String name=file.getOriginalFilename()==null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
         boolean extension=name.endsWith("."+EXTENSIONS.get(type)) || (type.equals("image/jpeg") && name.endsWith(".jpeg"));
         if (!extension) invalid();
-        // Keep the retry intent even when the private storage rejects this attempt.
-        expense.setReceiptState("PENDING");
-        // Deterministic private key lets a pending retry overwrite only its own unconfirmed object.
-        String key="expenses/"+expense.getId()+"/receipt";
-        try (InputStream input=file.getInputStream()) {
-            storage.put(key,input,file.getSize(),type);
-        } catch (IOException exception) {
-            throw new ReceiptException(HttpStatus.SERVICE_UNAVAILABLE,"Não foi possível enviar o comprovante. Tente novamente.");
-        }
-        expense.setReceiptKey(key); expense.setReceiptContentType(type); expense.setReceiptSize(file.getSize());
-        expense.setReceiptState("UPLOADED");
-        return ExpenseMapper.toDTO(expenses.save(expense));
     }
     @Transactional(readOnly=true)
     public ReceiptDownload download(String id) {

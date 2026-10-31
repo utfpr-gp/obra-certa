@@ -98,7 +98,7 @@ Revisão de escopo determinada pelo autor: remover da Tarefa 4 todo o mecanismo 
     - `apps/web/src/app/features/expenses/expense-receipt-edit.spec.ts`
   - Não criar entidade, repositório, serviço, tabela, scheduler ou campo de resposta de limpeza pendente nesta tarefa. Não modificar as migrations existentes.
 
-- [ ] **Tarefa 4 — Substituir comprovante preservando o atual até a confirmação**
+- [x] **Tarefa 4 — Substituir comprovante preservando o atual até a confirmação**
   - Cobre: CA5; validações de arquivo e isolamento do CA9.
   - Teste primeiro:
     - JUnit: `ExpenseReceiptReplacementIntegrationTest` prova chave nova, envio confirmado antes da associação, commit antes de apagar o antigo e uma única tentativa de exclusão. Arquivo inválido ou falha no envio conserva o atual. Falha na persistência conserva o antigo e provoca uma tentativa imediata de apagar o novo sem vínculo; se ela falhar, informar sem prometer recuperação. Falha ao apagar o antigo mantém o novo confirmado e retorna `receiptDeletionFailed=true`. Exercitar sequência de substituições sem apagar o atual. Cobrir MIME, extensão, vazio, limite de 10 MiB e 404 antes do storage. Não testar fila, persistência de trabalhos ou retomada agendada.

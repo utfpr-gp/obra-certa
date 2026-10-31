@@ -17,7 +17,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.*;
@@ -26,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @SpringBootTest @ActiveProfiles("test") @AutoConfigureMockMvc(addFilters=false)
-@Transactional
+// Independent HTTP transactions exercise the committed upload association.
 class ExpenseReceiptIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -60,6 +59,13 @@ class ExpenseReceiptIntegrationTest {
     }
     User user() { return users.saveAndFlush(User.builder().name("Dono").email(UUID.randomUUID()+"@test.local")
             .password("test").userRole(UserRole.USER).build()); }
+    @AfterEach void cleanup() {
+        jdbc.update("delete from pending_payments where expense_id in (select id from expenses where project_id=?)",project.getId());
+        jdbc.update("delete from expenses where project_id=?",project.getId());
+        jdbc.update("delete from suppliers where user_id=?",owner.getId());
+        projects.deleteById(project.getId());
+        users.deleteById(owner.getId()); users.deleteById(other.getId());
+    }
     ObjectNode body() {
         var body = json.createObjectNode().put("projectId",project.getId()).put("categoryId",categoryId)
                 .put("description","Cimento").put("purchaseDate","2030-01-01").put("paid",true)
@@ -151,9 +157,7 @@ class ExpenseReceiptIntegrationTest {
         org.mockito.Mockito.verifyNoInteractions(storage);
     }
     @ParameterizedTest @ValueSource(booleans={false, true})
-    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void retryPersistsPendingAcrossRequestsWithoutDuplicatingFinancialRecords(boolean expected) throws Exception {
-        try {
             var request=body().put("receiptExpected",expected).put("paid",false).put("dueDate","2030-01-02");
             var response=mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(request.toString()))
                     .andExpect(status().isCreated()).andReturn().getResponse();
@@ -193,15 +197,8 @@ class ExpenseReceiptIntegrationTest {
             mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
                     .andExpect(status().isNotFound());
             org.mockito.Mockito.verifyNoInteractions(storage);
-        } finally {
-            jdbc.update("delete from pending_payments where expense_id in (select id from expenses where project_id=?)",project.getId());
-            jdbc.update("delete from expenses where project_id=?",project.getId());
-            jdbc.update("delete from suppliers where user_id=?",owner.getId());
-            projects.deleteById(project.getId());
-            users.deleteById(owner.getId()); users.deleteById(other.getId());
-        }
     }
-    @Test void failureNeverConfirmsUploadAndRetryUsesSamePrivateObjectAndFinancialRecord() throws Exception {
+    @Test void failureNeverConfirmsUploadAndRetryPreservesFinancialRecordThenAllowsReplacement() throws Exception {
         String id=create(body().put("receiptExpected",true));
         org.mockito.Mockito.doThrow(new com.obracerta.exception.ReceiptException(
                 org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento indisponível."))
@@ -215,9 +212,11 @@ class ExpenseReceiptIntegrationTest {
         mvc.perform(get("/api/expenses/"+id)).andExpect(jsonPath("$.receiptState").value("PENDING"));
         mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.receiptState").value("UPLOADED"));
-        assertThat(expenses.count()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from expenses where project_id=?",Long.class,project.getId())).isEqualTo(1);
         org.mockito.Mockito.clearInvocations(storage);
         mvc.perform(multipart("/api/expenses/"+id+"/receipt").file(file).with(r -> {r.setMethod("PUT"); return r;}))
-                .andExpect(status().isConflict());
-        org.mockito.Mockito.verifyNoInteractions(storage);
+                .andExpect(status().isOk()).andExpect(jsonPath("$.receiptState").value("UPLOADED"));
+        org.mockito.Mockito.verify(storage).put(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(storage).delete(org.mockito.ArgumentMatchers.anyString());
     }}

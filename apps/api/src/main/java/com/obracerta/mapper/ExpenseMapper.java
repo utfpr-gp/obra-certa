@@ -27,7 +27,14 @@ public final class ExpenseMapper {
                 expense.getTotalPrice(),
                 expense.getPendingPayment() == null ? null : expense.getPendingPayment().getDueDate(),
                 expense.getReceiptState(),
-                expense.getPendingPayment() == null ? null : expense.getPendingPayment().getPaidAt()
+                expense.getPendingPayment() == null ? null : expense.getPendingPayment().getPaidAt(),
+                false
         );
+    }
+
+    public static ExpenseResponseDTO withReceiptDeletionFailed(ExpenseResponseDTO expense, boolean failed) {
+        return new ExpenseResponseDTO(expense.id(),expense.projectId(),expense.description(),expense.purchaseDate(),
+                expense.categoryId(),expense.categoryName(),expense.supplier(),expense.paid(),expense.quantity(),
+                expense.unitPrice(),expense.totalPrice(),expense.dueDate(),expense.receiptState(),expense.paidAt(),failed);
     }
 }

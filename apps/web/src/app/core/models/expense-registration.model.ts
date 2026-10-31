@@ -35,6 +35,7 @@ export interface ExpenseResponse {
   totalPrice: number;
   receiptState: 'NONE' | 'PENDING' | 'UPLOADED';
   paidAt?: string | null;
+  receiptDeletionFailed?: boolean;
 }
 
 export type ExpenseUpdate = Pick<ExpenseCreate,
