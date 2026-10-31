@@ -16,6 +16,18 @@
         <option value="">Selecione</option>@for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
       </select></label>
       @if (invalid('categoryId')) { <p class="text-error" data-testid="edit-categoryId-error">Selecione a categoria.</p> }
+      <label>Pagamento<select class="select select-bordered w-full" data-testid="edit-paid" formControlName="paid">
+        <option [ngValue]="true">Quitada</option>
+        <option [ngValue]="false">Não quitada</option>
+      </select></label>
+      @if (!form.controls.paid.value) {
+        <label>Vencimento<input type="date" class="input input-bordered w-full" data-testid="edit-dueDate" formControlName="dueDate" [min]="form.controls.purchaseDate.value" [attr.aria-invalid]="invalid('dueDate')" /></label>
+        @if (invalid('dueDate')) {
+          <p class="text-error" data-testid="edit-dueDate-error">
+            {{ form.controls.dueDate.hasError('required') ? 'Informe o vencimento.' : 'O vencimento não pode ser anterior à data da despesa.' }}
+          </p>
+        }
+      }
       <label>Modo de valor<select class="select select-bordered w-full" data-testid="edit-valueMode" formControlName="valueMode"><option value="DIRECT">Total direto</option><option value="CALCULATED">Quantidade × valor unitário</option></select></label>
       @if (form.controls.valueMode.value === 'DIRECT') {
         <label>Total (R$)<input inputmode="numeric" class="input input-bordered w-full" data-testid="edit-totalPrice" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" (blur)="form.controls.totalPrice.markAsTouched()" [attr.aria-invalid]="invalid('totalPrice')" /></label>

@@ -212,5 +212,5 @@ export class ExpenseDetailComponent {
       },
     });
   }  money(value: number): string { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value); }
-  date(value: string): string { return value.split('-').reverse().join('/'); }
+  date(value: string): string { return value.substring(0, 10).split('-').reverse().join('/'); }
 }

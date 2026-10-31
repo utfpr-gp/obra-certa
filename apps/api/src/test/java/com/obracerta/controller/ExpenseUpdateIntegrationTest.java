@@ -54,7 +54,7 @@ class ExpenseUpdateIntegrationTest {
     User user() { return users.saveAndFlush(User.builder().name("Dono").email(UUID.randomUUID()+"@test.local")
         .password("test").userRole(UserRole.USER).build()); }
     ObjectNode body() { return json.createObjectNode().put("description","Corrigida").put("purchaseDate","2030-01-02")
-        .put("categoryId",destination.getId()).put("valueMode","DIRECT").put("totalPrice",100.25); }
+        .put("categoryId",destination.getId()).put("valueMode","DIRECT").put("totalPrice",100.25).put("paid",true); }
     void update(ObjectNode body, int status) throws Exception {
         mvc.perform(put("/api/expenses/"+expense.getId()).contentType(APPLICATION_JSON).content(body.toString()))
             .andExpect(status().is(status));
@@ -63,7 +63,7 @@ class ExpenseUpdateIntegrationTest {
         for (var category : java.util.List.of(expense.getCategory(),destination))
             budgets.saveAndFlush(Budget.builder().user(owner).project(project).category(category).estimatedAmount(new BigDecimal("100")).build());
         long count=expenses.count(); String supplier=expense.getSupplier().getId();
-        update(body().put("projectId","another").put("supplierId","another").put("paid",false).put("receiptState","UPLOADED"),200);
+        update(body().put("projectId","another").put("supplierId","another").put("receiptState","UPLOADED"),200);
         expenses.flush();
         assertThat(expenses.count()).isEqualTo(count);
         assertThat(expense.getProject().getId()).isEqualTo(project.getId());
@@ -84,7 +84,7 @@ class ExpenseUpdateIntegrationTest {
         assertThat(expense.getTotalPrice()).isEqualByComparingTo("1.52"); assertThat(expense.getBudget()).isNull();
         update(body(),200); assertThat(expense.getQuantity()).isNull(); assertThat(expense.getUnitPrice()).isNull();
     }
-    @ParameterizedTest @ValueSource(strings={"description","categoryId","purchaseDate","valueMode","totalPrice"})
+    @ParameterizedTest @ValueSource(strings={"description","categoryId","purchaseDate","valueMode","totalPrice","paid"})
     void rejectsMissingRequiredFieldsAtomically(String field) throws Exception {
         var body=body(); body.remove(field); update(body,400); assertOriginal();
     }
@@ -99,10 +99,10 @@ class ExpenseUpdateIntegrationTest {
         update(body().put("categoryId","missing"),404); assertOriginal();
     }
     @Test void validatesExistingPendingDueDateAndAllowsEquality() throws Exception {
-        expense.setPaid(false); expense.setPendingPayment(PendingPayment.builder().expense(expense).dueDate(java.time.LocalDate.parse("2030-01-02")).build());
+        expense.setPaid(false); expense.setPendingPayment(PendingPayment.builder().expense(expense).status(PaymentStatus.PENDING).dueDate(java.time.LocalDate.parse("2030-01-02")).build());
         expenses.saveAndFlush(expense);
-        update(body().put("purchaseDate","2030-01-03"),400); assertOriginal();
-        update(body(),200); assertThat(expense.isPaid()).isFalse();
+        update(body().put("purchaseDate","2030-01-03").put("paid",false).put("dueDate","2030-01-02"),400); assertOriginal();
+        update(body().put("paid",false).put("dueDate","2030-01-02"),200); assertThat(expense.isPaid()).isFalse();
         assertThat(expense.getPendingPayment().getDueDate()).isEqualTo(java.time.LocalDate.parse("2030-01-02"));
     }
     @ParameterizedTest @ValueSource(strings={"foreign","deletedExpense","deletedProject","foreignProject","missing"})

@@ -34,7 +34,8 @@ export interface ExpenseResponse {
   unitPrice: number | null;
   totalPrice: number;
   receiptState: 'NONE' | 'PENDING' | 'UPLOADED';
+  paidAt?: string | null;
 }
 
 export type ExpenseUpdate = Pick<ExpenseCreate,
-  'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice'>;
+  'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;

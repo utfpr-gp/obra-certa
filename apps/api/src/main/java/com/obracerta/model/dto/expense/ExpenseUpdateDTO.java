@@ -4,6 +4,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import jakarta.validation.constraints.*;
 
-public record ExpenseUpdateDTO(@NotBlank String description, @NotNull LocalDate purchaseDate,
-        @NotBlank String categoryId, @NotBlank String valueMode,
-        BigDecimal quantity, BigDecimal unitPrice, BigDecimal totalPrice) {}
+public record ExpenseUpdateDTO(
+        @NotBlank String description,
+        @NotNull LocalDate purchaseDate,
+        @NotBlank String categoryId,
+        @NotBlank String valueMode,
+        BigDecimal quantity,
+        BigDecimal unitPrice,
+        BigDecimal totalPrice,
+        @NotNull Boolean paid,
+        LocalDate dueDate
+) {}

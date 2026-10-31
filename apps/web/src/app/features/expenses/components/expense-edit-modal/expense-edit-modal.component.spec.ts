@@ -27,7 +27,7 @@ describe('Expense edit modal', () => {
     expect((fixture.nativeElement.querySelector('[data-testid="edit-unitPrice"]') as HTMLInputElement).value.replace(/\s/g,' ')).toBe('R$ 12,50');
     modal.save(); modal.save();
     const request=http.expectOne(`${api}/expenses/expense`);
-    expect(request.request.body).toEqual({description:'Cimento',purchaseDate:'2030-01-01',categoryId:'category',valueMode:'CALCULATED',quantity:2,unitPrice:12.5});
+    expect(request.request.body).toEqual({description:'Cimento',purchaseDate:'2030-01-01',categoryId:'category',valueMode:'CALCULATED',paid:false,dueDate:'2030-01-10',quantity:2,unitPrice:12.5});
     request.flush(expense);
   });
   it('masks unit price digits as BRL and keeps the numeric value in reais', () => {
@@ -68,8 +68,18 @@ describe('Expense edit modal', () => {
   it('rejects dates after the existing due date and accepts equality', () => {
     const modal=fixture.componentInstance;
     modal.form.controls.purchaseDate.setValue('2030-01-11'); modal.save();
-    expect(modal.form.controls.purchaseDate.invalid).toBeTrue(); http.expectNone(r=>r.method==='PUT');
-    modal.form.controls.purchaseDate.setValue('2030-01-10'); modal.save(); http.expectOne(`${api}/expenses/expense`).flush(expense);
+    fixture.detectChanges();
+    expect(modal.form.controls.dueDate.hasError('beforePurchase')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('[data-testid="edit-dueDate-error"]').textContent)
+      .toContain('O vencimento não pode ser anterior à data da despesa.');
+    http.expectNone(r=>r.method==='PUT');
+    modal.form.controls.purchaseDate.setValue('2030-01-10');
+    expect(modal.form.controls.dueDate.valid).toBeTrue();
+    modal.save();
+    const request=http.expectOne(`${api}/expenses/expense`);
+    expect(request.request.body.purchaseDate).toBe('2030-01-10');
+    expect(request.request.body.dueDate).toBe('2030-01-10');
+    request.flush(expense);
   });
   it('preserves fields on failure and allows an explicit state check', () => {
     const modal=fixture.componentInstance; const checked=jasmine.createSpy(); modal.checkState.subscribe(checked);

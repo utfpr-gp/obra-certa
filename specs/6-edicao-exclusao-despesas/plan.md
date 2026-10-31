@@ -64,7 +64,7 @@ Plano aprovado pelo autor em 31/10/2026, com a condição de revisar antes de in
     - `apps/web/src/app/features/expenses/components/expense-edit-modal/expense-edit-modal.component.{ts,html,spec.ts}`
     - `apps/web/src/app/features/expenses/expense-edit.spec.ts`
 
-- [ ] **Tarefa 2 — Alternar entre pagamento quitado e futuro**
+- [x] **Tarefa 2 — Alternar entre pagamento quitado e futuro**
   - Cobre: CA3; validação temporal do CA9.
   - Teste primeiro:
     - JUnit/PostgreSQL: `ExpensePaymentUpdateIntegrationTest` prova paga → pendente com criação somente se necessário, vencimento obrigatório, igualdade de datas permitida, pendente → paga com `Clock` fixo e ciclos repetidos preservando o mesmo identificador de pagamento. Reabertura limpa a quitação atual; quitação não remove a linha; falha desfaz a edição inteira. `PaymentSchemaMigrationTest` prova backfill sem inventar data de quitação e Hibernate validate.
