@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
@@ -93,11 +93,12 @@ export class AccountsPageComponent {
   private readonly size = 15;
   private lastProjectId: string | undefined;
   private lastPage = 0;
+  private tabVersion = 0;
 
   constructor() {
     effect(() => {
       const project = this.activeProject.activeProject();
-      if (project) this.loadPage(0, project.id);
+      if (project) untracked(() => this.loadPage(0, project.id));
       else {
         this.expenses.set([]);
         this.error.set(null);
@@ -109,17 +110,18 @@ export class AccountsPageComponent {
     if (!projectId || page < 0) return;
     this.lastProjectId = projectId;
     this.lastPage = page;
+    const tabVersion = this.tabVersion;
     this.error.set(null);
     this.expenses.set([]);
     this.expenseService.list(projectId, page, this.size, this.tab()).subscribe({
       next: response => {
-        if (this.activeProject.activeProject()?.id !== projectId) return;
+        if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
         this.page.set(response.page);
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
       },
       error: () => {
-        if (this.activeProject.activeProject()?.id !== projectId) return;
+        if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
         this.error.set('Não foi possível carregar as despesas. Tente novamente.');
       },
     });
@@ -127,7 +129,9 @@ export class AccountsPageComponent {
 
   selectTab(tab: ExpenseTab): void {
     if (this.tab() === tab) return;
+    this.tabVersion++;
     this.tab.set(tab);
+    this.page.set(0);
     this.loadPage(0);
   }
 

@@ -5,8 +5,57 @@ import { TestBed } from '@angular/core/testing';
 import { AccountsPageComponent } from './accounts-page.component';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { environment } from '../../../environments/environment';
+import { registerLocaleData } from '@angular/common';
+import localePt from '@angular/common/locales/pt';
+import { ExpenseResponse } from '../../core/models/expense-registration.model';
+
+const expense: ExpenseResponse = {
+  id: 'expense-1', projectId: 'project', description: 'Cimento',
+  categoryId: 'category', categoryName: 'Material',
+  supplier: { id: 'supplier', name: 'Loja', document: null },
+  purchaseDate: '2026-01-01', dueDate: null, totalPrice: 125.5,
+  paid: true, quantity: null, unitPrice: null, receiptState: 'NONE',
+};
 
 describe('AccountsPageComponent', () => {
+  beforeAll(() => registerLocaleData(localePt));
+  for (const lateResponse of ['success', 'error'] as const) {
+    it(`ignores delayed ${lateResponse} from the previous tab after returning to its first page`, () => {
+      TestBed.configureTestingModule({
+        imports: [AccountsPageComponent],
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      });
+      TestBed.inject(ActiveProjectService).setActiveProject({
+        id: 'project', name: 'Casa', type: 'RENOVATION', status: 'IN_PROGRESS',
+        location: null, createdAt: '', updatedAt: '',
+      }, 'owner');
+      const fixture = TestBed.createComponent(AccountsPageComponent);
+      fixture.detectChanges();
+      const http = TestBed.inject(HttpTestingController);
+      const url = `${environment.apiUrl}/api/expenses?projectId=project`;
+      http.expectOne(`${url}&page=0&size=15&tab=ALL`).flush({
+        content: [], page: 0, size: 15, totalElements: 60, totalPages: 4,
+      });
+      fixture.componentInstance.loadPage(3);
+      const previous = http.expectOne(`${url}&page=3&size=15&tab=ALL`);
+      fixture.componentInstance.selectTab('PAID');
+      http.expectOne(`${url}&page=0&size=15&tab=PAID`).flush({
+        content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1,
+      });
+      if (lateResponse === 'success') {
+        previous.flush({ content: [], page: 3, size: 15, totalElements: 60, totalPages: 4 });
+      } else {
+        previous.flush({}, { status: 503, statusText: 'Unavailable' });
+      }
+      fixture.detectChanges();
+      expect(fixture.componentInstance.page()).toBe(0);
+      expect(fixture.componentInstance.totalPages()).toBe(1);
+      expect(fixture.componentInstance.expenses()).toEqual([expense]);
+      expect(fixture.componentInstance.error()).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="expense-tab-PAID"]').getAttribute('aria-selected')).toBe('true');
+      http.verify();
+    });
+  }
   it('keeps all four situation tabs available, changes tab and resets to first page', () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
@@ -49,9 +98,7 @@ describe('AccountsPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
       .flush({
-        content: [{ id: 'expense-1', description: 'Cimento', categoryName: 'Material',
-          supplier: { name: 'Loja' }, purchaseDate: '2026-01-01', dueDate: null,
-          totalPrice: 125.5, paid: true }],
+        content: [expense],
         page: 0, size: 15, totalElements: 1, totalPages: 1,
       });
     fixture.detectChanges();
@@ -76,7 +123,7 @@ describe('AccountsPageComponent', () => {
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     const first = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`);
-    first.flush({ content: [{ id: 'old', description: 'Antiga' }], page: 0, size: 15,
+    first.flush({ content: [{ ...expense, id: 'old', description: 'Antiga' }], page: 0, size: 15,
       totalElements: 1, totalPages: 1 });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Antiga');

@@ -25,13 +25,15 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Consultar despesas paginadas da obra**
+- [x] **Tarefa 1 — Consultar despesas paginadas da obra**
+  - Rastreabilidade: implementação registrada no commit `e1cddbf`; os bloqueios remanescentes das duas rodadas continuam pendentes na Tarefa 8. Esta marca reconcilia o checklist com a entrega já registrada e não declara encerrados esses bloqueios.
   - Cobre: CA1 e CA8.
   - Teste primeiro: JUnit de integração para consulta por obra própria, exclusão lógica, paginação de até 15 registros, despesa paga sem pagamento pendente e 404 para obra inexistente, excluída ou alheia; `.spec.ts` Angular para renderizar os campos, paginação, link da consulta individual e botão “Cadastrar conta”.
   - Migration: nenhuma.
   - Arquivos previstos: DTOs, repository, service, mapper e controller de despesas em `apps/api`; testes de integração; modelo e service HTTP de despesas, componente/HTML da listagem, rota e testes em `apps/web`.
 
-- [ ] **Tarefa 2 — Classificar a situação nas quatro abas**
+- [x] **Tarefa 2 — Classificar a situação nas quatro abas**
+  - Rastreabilidade: implementação e pareceres em `749f317`; falhas de execução da retomada corrigidas e revisadas na Tarefa 9.
   - Cobre: CA2.
   - Teste primeiro: JUnit para Todas, Pendentes, Vencidas e Pagas, incluindo vencimento nulo, vencimento na data de referência, vencimento anterior e despesas excluídas; `.spec.ts` para troca de aba, retorno à primeira página e disponibilidade das quatro abas em resultado vazio.
   - Migration: nenhuma.
@@ -74,6 +76,14 @@
   - Teste primeiro: `.spec.ts` com asserções para todos os campos exigidos pelo CA1 e cenários de respostas atrasadas A → B → A e paginação concorrente; manter os testes de integração existentes da Tarefa 1.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/features/expenses/accounts-page.component.ts`, `accounts-page.component.spec.ts` e, se necessário, os modelos/serviços diretamente envolvidos; não alterar backend nem introduzir filtros, abas, ordenação ou totalizadores.
+
+- [x] **Tarefa 9 — Corrigir as falhas de validação na retomada das abas**
+  - Cobre: CA2 e restauração da validação dos testes de listagem existentes, sem novos critérios de aceite.
+  - Autorização: o autor solicitou “realize os ajustes” após receber as falhas registradas em `reviews/tarefa-02-validacao-retomada.md`.
+  - Teste primeiro: reproduzir os três testes Angular falhando; corrigir os dados simulados para respeitar o contrato e provar o retorno à página inicial ao trocar aba, incluindo resposta atrasada. Executar o teste integrado de situação com a configuração de testes prevista no projeto.
+  - Entrega: ajustar somente as causas demonstradas pelos testes. Investigar o H2/Flyway e utilizar a configuração existente apropriada; não editar migrations aplicadas, não alterar `ddl-auto` para `update`/`create` nem desativar validações como atalho. Problema estrutural que exija nova infraestrutura será relatado separadamente.
+  - Migration: nenhuma.
+  - Arquivos previstos: teste e componente `accounts-page` em `apps/web`; teste integrado de situação em `apps/api` somente se houver divergência do padrão de testes existente; registro da execução em `reviews/`.
 
 ## Critérios sem tarefa
 
