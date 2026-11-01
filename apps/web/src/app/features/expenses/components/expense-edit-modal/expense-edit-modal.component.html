@@ -1,7 +1,7 @@
 <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" data-testid="expense-edit-backdrop">
   <section role="dialog" aria-modal="true" aria-labelledby="edit-title" class="bg-white rounded-2xl border border-slate-200 p-4 md:p-6 max-w-2xl min-w-0 w-full max-h-[90dvh] overflow-y-auto text-sm text-slate-600 shadow-xl" data-testid="expense-edit-modal">
     <div class="flex justify-between items-center gap-4 mb-6">
-      <h2 id="edit-title" class="text-xl font-semibold text-slate-900">Editar despesa</h2>
+      <h2 id="edit-title" class="text-xl font-semibold text-slate-800">Editar despesa</h2>
       <button type="button" class="btn-oc-ghost min-h-11 min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" aria-label="Fechar edição" data-testid="edit-close" (click)="close()">✕</button>
     </div>
     <label class="block min-w-0 mb-6 text-sm font-medium text-slate-700">Obra<input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-slate-50 text-slate-500 disabled:cursor-not-allowed" data-testid="edit-project" [value]="project()?.name" disabled /></label>

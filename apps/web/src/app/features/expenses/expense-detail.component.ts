@@ -15,7 +15,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
     <main class="p-4 md:p-6 lg:p-8 space-y-6 text-sm text-slate-600">
       <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div class="min-w-0">
-          <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Despesa</h1>
+          <h1 class="text-2xl font-bold text-slate-800">Despesa</h1>
           @if (activeProject(); as project) {
             <p class="mt-1 text-sm text-slate-500 break-words">{{ project.name }}</p>
           }
@@ -49,7 +49,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
         <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm space-y-6">
           <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div class="min-w-0 space-y-3">
-              <h2 class="text-xl font-semibold text-slate-900 break-words">{{ expense.description }}</h2>
+              <h2 class="text-xl font-semibold text-slate-800 break-words">{{ expense.description }}</h2>
               <span class="inline-flex rounded-md px-2.5 py-1 text-xs font-medium" [class]="expense.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">{{ expense.paid ? 'Quitada' : 'Pendente' }}</span>
             </div>
             <div class="flex flex-col gap-3 md:flex-row md:shrink-0">
@@ -76,7 +76,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
             <dd class="mt-1 break-words text-2xl md:text-3xl font-bold tabular-nums">{{ money(expense.totalPrice) }}</dd>
           </dl>
           <section aria-labelledby="detail-receipt-title" class="min-w-0 border-t border-slate-200 pt-6 space-y-4">
-            <h3 id="detail-receipt-title" class="text-lg font-semibold text-slate-900">Comprovante</h3>
+            <h3 id="detail-receipt-title" class="text-base font-semibold text-slate-700">Comprovante</h3>
           @if (expense.receiptState === 'UPLOADED') {
             <div class="flex flex-col gap-3 md:flex-row md:flex-wrap">
             <button class="btn-oc-outline min-h-11 h-auto whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" data-testid="download-receipt" type="button"
