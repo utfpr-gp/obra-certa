@@ -45,7 +45,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: projeção/agregação do repository ou service, DTO de resumo e mapper na API; modelo, cards/templates e testes web.
 
-- [ ] **Tarefa 4 — Aplicar filtros combinados e validar intervalos**
+- [x] **Tarefa 4 — Aplicar filtros combinados e validar intervalos**
   - Cobre: CA4 e CA7.
   - Teste primeiro: JUnit para períodos inclusivos, filtro de vencimento sem vencimento, múltiplas categorias, fornecedor autorizado, combinações, intervalos invertidos e parâmetros inválidos; `.spec.ts` para aplicar/limpar filtros, validação antes do HTTP, primeira página e preservação da aba.
   - Migration: nenhuma.

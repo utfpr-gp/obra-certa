@@ -65,3 +65,12 @@ export type ExpenseTab = 'ALL' | 'PENDING' | 'OVERDUE' | 'PAID';
 
 export type ExpenseUpdate = Pick<ExpenseCreate,
   'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;
+
+export interface ExpenseFilters {
+  purchaseDateFrom?: string;
+  purchaseDateTo?: string;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  categoryIds?: string[];
+  supplierId?: string;
+}

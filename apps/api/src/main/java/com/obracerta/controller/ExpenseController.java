@@ -6,9 +6,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import com.obracerta.enums.ExpenseTab;
 
 @RestController @RequestMapping("/api/expenses")
 public class ExpenseController {
@@ -27,12 +24,8 @@ public class ExpenseController {
     public ExpenseResponseDTO get(@PathVariable String id) { return service.get(id); }
 
     @GetMapping
-    public com.obracerta.model.dto.expense.ExpensePageResponseDTO list(
-            @RequestParam String projectId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "15") @Min(1) @Max(15) int size,
-            @RequestParam(defaultValue = "ALL") ExpenseTab tab) {
-        return service.list(projectId, page, size, tab);
+    public ExpensePageResponseDTO list(@RequestParam org.springframework.util.MultiValueMap<String, String> parameters) {
+        return service.list(parameters);
     }
 
     @DeleteMapping("/{id}")

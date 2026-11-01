@@ -32,6 +32,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
 import com.obracerta.model.dto.expense.ExpenseTotalsDTO;
+import com.obracerta.model.dto.expense.ExpenseListQueryDTO;
+import org.springframework.util.MultiValueMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class ExpenseService {
@@ -235,18 +240,77 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public ExpensePageResponseDTO list(String projectId, int page, int size, ExpenseTab tab) {
+        return list(new ExpenseListQueryDTO(projectId, page, size, tab, null, null, null, null, List.of(), null));
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(MultiValueMap<String, String> parameters) {
+        return list(parseQuery(parameters));
+    }
+
+    private ExpensePageResponseDTO list(ExpenseListQueryDTO query) {
         User owner = identity.getAuthenticatedUser();
-        projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, owner.getId())
+        projects.findByIdAndUserIdAndDeletedAtIsNull(query.projectId(), owner.getId())
                 .orElseThrow(ResourceNotFoundException::new);
-        int effectiveSize = Math.min(size, 15);
+        if (query.supplierId() != null)
+            suppliers.findByIdAndUserId(query.supplierId(), owner.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Fornecedor não encontrado"));
+        for (String categoryId : query.categoryIds()) {
+            if (!categories.existsById(categoryId)) invalid("Categoria de filtro inválida.");
+        }
         LocalDate referenceDate = LocalDate.now(clock);
-        var result = expenses.findActiveByProjectOwnerAndTab(projectId, owner.getId(), tab.name(), referenceDate,
-                PageRequest.of(page, effectiveSize, Sort.by(Sort.Direction.DESC, "purchaseDate")
+        var result = expenses.findActiveByFilters(query, owner.getId(), referenceDate,
+                PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "purchaseDate")
                         .and(Sort.by(Sort.Direction.ASC, "id"))));
-        var totals = expenses.sumActiveByProjectOwnerAndTab(projectId, owner.getId(), tab.name(), referenceDate);
+        var totals = expenses.sumActiveByFilters(query, owner.getId(), referenceDate);
         var summary = new ExpenseTotalsDTO(totals.getTotalPaid(), totals.getTotalPending(),
                 totals.getTotalPaid().add(totals.getTotalPending()));
         return ExpenseMapper.toPageDTO(result, referenceDate, summary);
+    }
+
+    private static ExpenseListQueryDTO parseQuery(MultiValueMap<String, String> parameters) {
+        Set<String> allowed = Set.of("projectId", "page", "size", "tab", "purchaseDateFrom", "purchaseDateTo",
+                "dueDateFrom", "dueDateTo", "categoryIds", "supplierId");
+        for (var entry : parameters.entrySet()) {
+            if (!allowed.contains(entry.getKey()) || entry.getValue().isEmpty()
+                    || (!entry.getKey().equals("categoryIds") && entry.getValue().size() != 1)
+                    || entry.getValue().stream().anyMatch(value -> value == null || value.isBlank()))
+                invalid("Parâmetro de consulta inválido: " + entry.getKey());
+        }
+        try {
+            String projectId = validQueryId(parameters.getFirst("projectId"));
+            int page = Integer.parseInt(parameters.getFirst("page") == null ? "0" : parameters.getFirst("page"));
+            int size = Integer.parseInt(parameters.getFirst("size") == null ? "15" : parameters.getFirst("size"));
+            if (page < 0 || size < 1 || size > 15) invalid("Página ou tamanho inválido.");
+            ExpenseTab tab = ExpenseTab.valueOf(parameters.getFirst("tab") == null ? "ALL" : parameters.getFirst("tab"));
+            LocalDate purchaseFrom = queryDate(parameters.getFirst("purchaseDateFrom"));
+            LocalDate purchaseTo = queryDate(parameters.getFirst("purchaseDateTo"));
+            LocalDate dueFrom = queryDate(parameters.getFirst("dueDateFrom"));
+            LocalDate dueTo = queryDate(parameters.getFirst("dueDateTo"));
+            if (purchaseFrom != null && purchaseTo != null && purchaseFrom.isAfter(purchaseTo))
+                invalid("A data inicial da compra não pode ser posterior à final.");
+            if (dueFrom != null && dueTo != null && dueFrom.isAfter(dueTo))
+                invalid("A data inicial do vencimento não pode ser posterior à final.");
+            List<String> categoryIds = parameters.getOrDefault("categoryIds", List.of()).stream()
+                    .map(ExpenseService::validQueryId).distinct().toList();
+            String supplierId = parameters.containsKey("supplierId") ? validQueryId(parameters.getFirst("supplierId")) : null;
+            return new ExpenseListQueryDTO(projectId, page, size, tab, purchaseFrom, purchaseTo,
+                    dueFrom, dueTo, categoryIds, supplierId);
+        } catch (IllegalArgumentException | java.time.format.DateTimeParseException exception) {
+            throw new ExpenseValidationException("Parâmetros de consulta inválidos.");
+        }
+    }
+
+    private static LocalDate queryDate(String value) {
+        if (value == null) return null;
+        if (!value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) invalid("Data de filtro inválida.");
+        return LocalDate.parse(value);
+    }
+
+    private static String validQueryId(String value) {
+        if (value == null || !UUID.fromString(value).toString().equalsIgnoreCase(value))
+            throw new IllegalArgumentException("Identificador inválido");
+        return value;
     }
 
     private static void validateNumber(BigDecimal number, int integers, String field) {
