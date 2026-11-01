@@ -85,6 +85,15 @@
   - Migration: nenhuma.
   - Arquivos previstos: teste e componente `accounts-page` em `apps/web`; teste integrado de situação em `apps/api` somente se houver divergência do padrão de testes existente; registro da execução em `reviews/`.
 
+- [ ] **Tarefa 10 — Consolidar correções da Tarefa 6 após o limite de revisão**
+  - Autorização: o autor aprovou este encaminhamento e solicitou a correção: “Pode aprovar e corrigir”. Os pareceres da Tarefa 6 permanecem preservados; esta é a primeira rodada da Tarefa 10.
+  - Cobre: correções de CA6 e CA11 que permaneceram bloqueantes após duas rodadas da Tarefa 6, sem alterar os critérios de aceite.
+  - Origem: a Tarefa 6 atingiu o limite de duas rodadas com falhas na suíte frontend, cobertura insuficiente de viewport mobile e regressões nos testes existentes, registradas em `reviews/tarefa-06-conformidade-r2.md` e `reviews/tarefa-06-codigo-r2.md`.
+  - Entrega: corrigir os testes e a implementação de estados vazios, carregamento, erro e responsividade; preservar a navegação e os comportamentos já entregues; manter a semântica acessível das abas; não antecipar retry, invalidação de respostas ou preservação de contexto da Tarefa 7.
+  - Teste primeiro: reproduzir as 5 falhas da suíte `accounts-page.component.spec.ts`; adicionar cobertura verificável para viewport mobile, estados vazios, totais zerados, loading, erro, limpeza de filtros e abas; executar também a suíte frontend relacionada à navegação para confirmar ausência de regressões.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/web/src/app/features/expenses/accounts-page.component.ts`, `accounts-page.component.spec.ts` e estilos/arquivos diretamente relacionados, sem alterar backend, migrations, `spec.md` ou documentos de arquitetura.
+
 ## Critérios sem tarefa
 
 -
