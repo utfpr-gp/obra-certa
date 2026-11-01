@@ -1,6 +1,6 @@
 ---
 issue: 7
-status: rascunho
+status: aprovada
 ---
 
 # US05 — Visualização e Filtros de Despesas
