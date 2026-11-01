@@ -6,6 +6,7 @@ import com.obracerta.model.entity.Expense;
 import com.obracerta.model.entity.Supplier;
 import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
 import org.springframework.data.domain.Page;
+import java.time.LocalDate;
 
 public final class ExpenseMapper {
     private ExpenseMapper() {}
@@ -34,9 +35,10 @@ public final class ExpenseMapper {
         );
     }
 
-    public static ExpensePageResponseDTO toPageDTO(Page<Expense> page) {
+    public static ExpensePageResponseDTO toPageDTO(Page<Expense> page, LocalDate referenceDate) {
         return new ExpensePageResponseDTO(page.getContent().stream().map(ExpenseMapper::toDTO).toList(),
-                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isLast());
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isLast(),
+                referenceDate);
     }
 
     public static ExpenseResponseDTO withReceiptDeletionFailed(ExpenseResponseDTO expense, boolean failed) {

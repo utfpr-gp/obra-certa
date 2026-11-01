@@ -1,6 +1,7 @@
 package com.obracerta.model.dto.expense;
 
 import java.util.List;
+import java.time.LocalDate;
 
 public record ExpensePageResponseDTO(
         List<ExpenseResponseDTO> content,
@@ -8,5 +9,6 @@ public record ExpensePageResponseDTO(
         int size,
         long totalElements,
         int totalPages,
-        boolean last
+        boolean last,
+        LocalDate referenceDate
 ) {}

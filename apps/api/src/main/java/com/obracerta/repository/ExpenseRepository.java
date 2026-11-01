@@ -17,6 +17,30 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
 
     @Query("""
             select e from Expense e
+            left join e.pendingPayment pp
+            where e.project.id = :projectId
+              and e.project.user.id = :userId
+              and e.project.deletedAt is null
+              and e.deletedAt is null
+              and (
+                :tab = 'ALL'
+                or (:tab = 'PENDING' and e.paid = false)
+                or (:tab = 'OVERDUE' and e.paid = false
+                    and pp is not null
+                    and pp.deletedAt is null
+                    and pp.dueDate < :referenceDate)
+                or (:tab = 'PAID' and e.paid = true)
+              )
+            """)
+    @EntityGraph(attributePaths = {"category", "supplier", "pendingPayment"})
+    Page<Expense> findActiveByProjectOwnerAndTab(@Param("projectId") String projectId,
+                                                  @Param("userId") String userId,
+                                                  @Param("tab") String tab,
+                                                  @Param("referenceDate") java.time.LocalDate referenceDate,
+                                                  Pageable pageable);
+
+    @Query("""
+            select e from Expense e
             where e.project.id = :projectId
               and e.project.user.id = :userId
               and e.project.deletedAt is null

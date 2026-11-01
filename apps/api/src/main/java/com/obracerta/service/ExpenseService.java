@@ -1,6 +1,7 @@
 package com.obracerta.service;
 
 import com.obracerta.enums.PaymentStatus;
+import com.obracerta.enums.ExpenseTab;
 import com.obracerta.model.dto.expense.ExpenseCreateDTO;
 import com.obracerta.model.dto.expense.ExpenseUpdateDTO;
 import com.obracerta.model.dto.expense.ExpenseDeleteResponseDTO;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.LocalDate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
@@ -227,14 +229,20 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public ExpensePageResponseDTO list(String projectId, int page, int size) {
+        return list(projectId, page, size, ExpenseTab.ALL);
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(String projectId, int page, int size, ExpenseTab tab) {
         User owner = identity.getAuthenticatedUser();
         projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, owner.getId())
                 .orElseThrow(ResourceNotFoundException::new);
         int effectiveSize = Math.min(size, 15);
-        var result = expenses.findActiveByProjectAndOwner(projectId, owner.getId(),
+        LocalDate referenceDate = LocalDate.now(clock);
+        var result = expenses.findActiveByProjectOwnerAndTab(projectId, owner.getId(), tab.name(), referenceDate,
                 PageRequest.of(page, effectiveSize, Sort.by(Sort.Direction.DESC, "purchaseDate")
                         .and(Sort.by(Sort.Direction.ASC, "id"))));
-        return ExpenseMapper.toPageDTO(result);
+        return ExpenseMapper.toPageDTO(result, referenceDate);
     }
 
     private static void validateNumber(BigDecimal number, int integers, String field) {

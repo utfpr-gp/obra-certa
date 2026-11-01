@@ -51,7 +51,10 @@ export interface ExpensePageResponse {
   totalElements: number;
   totalPages: number;
   last?: boolean;
+  referenceDate?: string;
 }
+
+export type ExpenseTab = 'ALL' | 'PENDING' | 'OVERDUE' | 'PAID';
 
 export type ExpenseUpdate = Pick<ExpenseCreate,
   'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;

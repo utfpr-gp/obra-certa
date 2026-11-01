@@ -3,7 +3,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
-import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { ExpenseResponse, ExpenseTab } from '../../core/models/expense-registration.model';
 
 @Component({
   selector: 'app-accounts-page',
@@ -30,6 +30,13 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
       </section>
       <section aria-labelledby="accounts-list-title" class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h2 id="accounts-list-title" class="sr-only">Despesas cadastradas</h2>
+        <nav aria-label="Situação das despesas" class="flex gap-2 border-b border-slate-200 p-4">
+          @for (option of tabs; track option.value) {
+            <button type="button" [attr.data-testid]="'expense-tab-' + option.value"
+              [attr.aria-selected]="tab() === option.value" (click)="selectTab(option.value)"
+              class="rounded-lg px-3 py-2 text-sm">{{ option.label }}</button>
+          }
+        </nav>
         @if (error()) {
           <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
             <p>{{ error() }}</p>
@@ -75,6 +82,13 @@ export class AccountsPageComponent {
   readonly expenses = signal<ExpenseResponse[]>([]);
   readonly page = signal(0);
   readonly totalPages = signal(1);
+  readonly tab = signal<ExpenseTab>('ALL');
+  readonly tabs: { value: ExpenseTab; label: string }[] = [
+    { value: 'ALL', label: 'Todas' },
+    { value: 'PENDING', label: 'Pendentes' },
+    { value: 'OVERDUE', label: 'Vencidas' },
+    { value: 'PAID', label: 'Pagas' },
+  ];
   readonly error = signal<string | null>(null);
   private readonly size = 15;
   private lastProjectId: string | undefined;
@@ -97,7 +111,7 @@ export class AccountsPageComponent {
     this.lastPage = page;
     this.error.set(null);
     this.expenses.set([]);
-    this.expenseService.list(projectId, page, this.size).subscribe({
+    this.expenseService.list(projectId, page, this.size, this.tab()).subscribe({
       next: response => {
         if (this.activeProject.activeProject()?.id !== projectId) return;
         this.page.set(response.page);
@@ -109,6 +123,12 @@ export class AccountsPageComponent {
         this.error.set('Não foi possível carregar as despesas. Tente novamente.');
       },
     });
+  }
+
+  selectTab(tab: ExpenseTab): void {
+    if (this.tab() === tab) return;
+    this.tab.set(tab);
+    this.loadPage(0);
   }
 
   retry(): void {
