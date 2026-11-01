@@ -167,7 +167,7 @@
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
 - **Status:** 🟢 Live  
-- **Rastreabilidade:** [Issue #6](https://github.com/utfpr-gp/obra-certa/issues/6), [spec aprovada e plano concluído](../specs/6-edicao-exclusao-despesas/). Sete tarefas implementadas, com revisões e ajustes visuais registrados. Acesso pela consulta individual `/despesas/:id`, com retorno para `/contas`; listagem permanece na US05. Auditoria final e integração por PR em fechamento; Live indica implementação local, sem declarar implantação em produção.
+- **Rastreabilidade:** [Issue #6](https://github.com/utfpr-gp/obra-certa/issues/6), [spec aprovada e plano concluído](../specs/6-edicao-exclusao-despesas/). Sete tarefas implementadas, com revisões e ajustes visuais registrados. Acesso pela consulta individual `/despesas/:id`, com retorno para `/contas`; listagem permanece na US05. Auditoria final aprovada em 01/11/2026; integração por PR pendente. Live indica implementação local, sem declarar implantação em produção.
 - **Dependências:** US03 (Cadastro de Despesas)  
 - **História:** Como proprietário com uma obra selecionada, quero editar ou excluir despesas registradas da minha obra, para corrigir divergências, gerenciar status de pagamento ou remover despesas canceladas preservando a integridade dos orçamentos.
 - **Regras de Negócio Associadas:** RN01, RN04, RN05, RN06, RN07
