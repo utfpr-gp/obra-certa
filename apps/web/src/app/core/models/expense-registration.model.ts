@@ -61,6 +61,8 @@ export interface ExpensePageResponse {
   referenceDate?: string;
 }
 
+export type ExpenseSort = 'PURCHASE_DATE_DESC' | 'PURCHASE_DATE_ASC' | 'AMOUNT_DESC' | 'AMOUNT_ASC';
+
 export type ExpenseTab = 'ALL' | 'PENDING' | 'OVERDUE' | 'PAID';
 
 export type ExpenseUpdate = Pick<ExpenseCreate,

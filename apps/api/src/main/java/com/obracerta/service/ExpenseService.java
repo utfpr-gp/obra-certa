@@ -2,6 +2,7 @@ package com.obracerta.service;
 
 import com.obracerta.enums.PaymentStatus;
 import com.obracerta.enums.ExpenseTab;
+import com.obracerta.enums.ExpenseSort;
 import com.obracerta.model.dto.expense.ExpenseCreateDTO;
 import com.obracerta.model.dto.expense.ExpenseUpdateDTO;
 import com.obracerta.model.dto.expense.ExpenseDeleteResponseDTO;
@@ -240,7 +241,7 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public ExpensePageResponseDTO list(String projectId, int page, int size, ExpenseTab tab) {
-        return list(new ExpenseListQueryDTO(projectId, page, size, tab, null, null, null, null, List.of(), null));
+        return list(new ExpenseListQueryDTO(projectId, page, size, tab, null, null, null, null, List.of(), null, ExpenseSort.PURCHASE_DATE_DESC));
     }
 
     @Transactional(readOnly = true)
@@ -260,8 +261,7 @@ public class ExpenseService {
         }
         LocalDate referenceDate = LocalDate.now(clock);
         var result = expenses.findActiveByFilters(query, owner.getId(), referenceDate,
-                PageRequest.of(query.page(), query.size(), Sort.by(Sort.Direction.DESC, "purchaseDate")
-                        .and(Sort.by(Sort.Direction.ASC, "id"))));
+                PageRequest.of(query.page(), query.size(), sortFor(query.sort())));
         var totals = expenses.sumActiveByFilters(query, owner.getId(), referenceDate);
         var summary = new ExpenseTotalsDTO(totals.getTotalPaid(), totals.getTotalPending(),
                 totals.getTotalPaid().add(totals.getTotalPending()));
@@ -270,7 +270,7 @@ public class ExpenseService {
 
     private static ExpenseListQueryDTO parseQuery(MultiValueMap<String, String> parameters) {
         Set<String> allowed = Set.of("projectId", "page", "size", "tab", "purchaseDateFrom", "purchaseDateTo",
-                "dueDateFrom", "dueDateTo", "categoryIds", "supplierId");
+                "dueDateFrom", "dueDateTo", "categoryIds", "supplierId", "sort");
         for (var entry : parameters.entrySet()) {
             if (!allowed.contains(entry.getKey()) || entry.getValue().isEmpty()
                     || (!entry.getKey().equals("categoryIds") && entry.getValue().size() != 1)
@@ -283,6 +283,8 @@ public class ExpenseService {
             int size = Integer.parseInt(parameters.getFirst("size") == null ? "15" : parameters.getFirst("size"));
             if (page < 0 || size < 1 || size > 15) invalid("Página ou tamanho inválido.");
             ExpenseTab tab = ExpenseTab.valueOf(parameters.getFirst("tab") == null ? "ALL" : parameters.getFirst("tab"));
+            ExpenseSort sort = ExpenseSort.valueOf(parameters.getFirst("sort") == null
+                    ? "PURCHASE_DATE_DESC" : parameters.getFirst("sort"));
             LocalDate purchaseFrom = queryDate(parameters.getFirst("purchaseDateFrom"));
             LocalDate purchaseTo = queryDate(parameters.getFirst("purchaseDateTo"));
             LocalDate dueFrom = queryDate(parameters.getFirst("dueDateFrom"));
@@ -295,10 +297,20 @@ public class ExpenseService {
                     .map(ExpenseService::validQueryId).distinct().toList();
             String supplierId = parameters.containsKey("supplierId") ? validQueryId(parameters.getFirst("supplierId")) : null;
             return new ExpenseListQueryDTO(projectId, page, size, tab, purchaseFrom, purchaseTo,
-                    dueFrom, dueTo, categoryIds, supplierId);
+                    dueFrom, dueTo, categoryIds, supplierId, sort);
         } catch (IllegalArgumentException | java.time.format.DateTimeParseException exception) {
             throw new ExpenseValidationException("Parâmetros de consulta inválidos.");
         }
+    }
+
+    private static Sort sortFor(ExpenseSort sort) {
+        Sort primary = switch (sort) {
+            case PURCHASE_DATE_DESC -> Sort.by(Sort.Direction.DESC, "purchaseDate");
+            case PURCHASE_DATE_ASC -> Sort.by(Sort.Direction.ASC, "purchaseDate");
+            case AMOUNT_DESC -> Sort.by(Sort.Direction.DESC, "totalPrice");
+            case AMOUNT_ASC -> Sort.by(Sort.Direction.ASC, "totalPrice");
+        };
+        return primary.and(Sort.by(Sort.Direction.ASC, "id"));
     }
 
     private static LocalDate queryDate(String value) {

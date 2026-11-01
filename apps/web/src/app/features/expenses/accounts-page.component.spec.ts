@@ -33,13 +33,13 @@ describe('AccountsPageComponent', () => {
       fixture.detectChanges();
       const http = TestBed.inject(HttpTestingController);
       const url = `${environment.apiUrl}/api/expenses?projectId=project`;
-      http.expectOne(`${url}&page=0&size=15&tab=ALL`).flush({
+      http.expectOne(`${url}&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`).flush({
         content: [], page: 0, size: 15, totalElements: 60, totalPages: 4, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 },
       });
       fixture.componentInstance.loadPage(3);
-      const previous = http.expectOne(`${url}&page=3&size=15&tab=ALL`);
+      const previous = http.expectOne(`${url}&page=3&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`);
       fixture.componentInstance.selectTab('PAID');
-      http.expectOne(`${url}&page=0&size=15&tab=PAID`).flush({
+      http.expectOne(`${url}&page=0&size=15&tab=PAID&sort=PURCHASE_DATE_DESC`).flush({
         content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1, totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 },
       });
       if (lateResponse === 'success') {
@@ -67,15 +67,15 @@ describe('AccountsPageComponent', () => {
     const fixture = TestBed.createComponent(AccountsPageComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
       .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 }, referenceDate: '2026-11-01' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('[data-testid^="expense-tab-"]').length).toBe(4);
     fixture.componentInstance.loadPage(3);
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=3&size=15&tab=ALL`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=3&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
       .flush({ content: [], page: 3, size: 15, totalElements: 0, totalPages: 1, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.componentInstance.selectTab('OVERDUE');
-    const request = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=OVERDUE`);
+    const request = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=OVERDUE&sort=PURCHASE_DATE_DESC`);
     expect(fixture.componentInstance.page()).toBe(0);
     request.flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     expect(fixture.nativeElement.textContent).toContain('Todas');
@@ -97,7 +97,7 @@ describe('AccountsPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     const totals = { totalPaid: 1601.60, totalPending: 900.90, totalGeneral: 2502.50 };
     const flushPage = (page: number) => {
-      http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=${page}&size=15&tab=ALL`)
+      http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=${page}&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
         .flush({ content: page === 0 ? [expense] : [], page, size: 15, totalElements: 19, totalPages: 2, totals });
       fixture.detectChanges();
     };
@@ -117,7 +117,7 @@ describe('AccountsPageComponent', () => {
     expect(cardText('pending')).toBe('Total a Pagar R$ 900,90');
     expect(cardText('general')).toBe('Total Geral R$ 2.502,50');
     fixture.componentInstance.selectTab('PAID');
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=PAID`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=PAID&sort=PURCHASE_DATE_DESC`)
       .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0,
         totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.detectChanges();
@@ -136,7 +136,7 @@ describe('AccountsPageComponent', () => {
     const fixture = TestBed.createComponent(AccountsPageComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
       .flush({
         content: [expense],
         page: 0, size: 15, totalElements: 1, totalPages: 1, totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 },
@@ -162,14 +162,14 @@ describe('AccountsPageComponent', () => {
     const fixture = TestBed.createComponent(AccountsPageComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
-    const first = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`);
+    const first = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`);
     first.flush({ content: [{ ...expense, id: 'old', description: 'Antiga' }], page: 0, size: 15,
       totalElements: 1, totalPages: 1, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Antiga');
 
     fixture.componentInstance.loadPage(0);
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
       .flush({ message: 'falha' }, { status: 503, statusText: 'Unavailable' });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Antiga');
@@ -177,7 +177,7 @@ describe('AccountsPageComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="retry-expenses"]')).not.toBeNull();
 
     fixture.componentInstance.retry();
-    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL&sort=PURCHASE_DATE_DESC`)
       .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Não foi possível carregar as despesas');
@@ -247,9 +247,60 @@ describe('AccountsPageComponent', () => {
     const clear = fixture.nativeElement.querySelector('[data-testid="clear-filters"]');
     expect(clear).not.toBeNull(); if(clear) clear.click();
     const cleared=http.expectOne(r=>r.url.endsWith('/api/expenses'));
-    expect(cleared.request.params.keys()).toEqual(['projectId','page','size','tab']);
+    expect(cleared.request.params.keys()).toEqual(['projectId','page','size','tab','sort']);
     expect(cleared.request.params.get('tab')).toBe('PENDING'); expect(cleared.request.params.get('page')).toBe('0');
     cleared.flush(empty); http.verify();
   });
+
+  for (const order of ['PURCHASE_DATE_ASC', 'AMOUNT_DESC', 'AMOUNT_ASC', 'PURCHASE_DATE_DESC']) {
+    it(`selects ${order} on first page while retaining tab and applied filters`, () => {
+      TestBed.configureTestingModule({ imports: [AccountsPageComponent],
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
+      TestBed.inject(ActiveProjectService).setActiveProject({ id: 'project', name: 'Casa', type: 'RENOVATION',
+        status: 'IN_PROGRESS', location: null, createdAt: '', updatedAt: '' }, 'owner');
+      const fixture = TestBed.createComponent(AccountsPageComponent); fixture.detectChanges();
+      const http = TestBed.inject(HttpTestingController);
+      const empty = {content: [], page: 0, totalPages: 3, totals: {totalPaid: 0, totalPending: 0, totalGeneral: 0}};
+      const initial = http.expectOne(r => r.url.endsWith('/api/expenses'));
+      expect(initial.request.params.get('sort')).toBe('PURCHASE_DATE_DESC'); initial.flush(empty);
+      const control = fixture.nativeElement.querySelector('[data-testid="expense-sort"]') as HTMLSelectElement | null;
+      expect(control).not.toBeNull();
+      if (!control) { http.verify(); return; }
+      expect(control.value).toBe('PURCHASE_DATE_DESC');
+      expect(Array.from(control.options).map(o => o.value)).toEqual([
+        'PURCHASE_DATE_DESC', 'PURCHASE_DATE_ASC', 'AMOUNT_DESC', 'AMOUNT_ASC']);
+      expect(fixture.nativeElement.querySelector('label[for="expense-sort"]').textContent).toContain('Ordenar por');
+      fixture.componentInstance.selectTab('PENDING'); http.expectOne(r => r.url.endsWith('/api/expenses')).flush(empty);
+      fixture.componentInstance.filterForm.patchValue({purchaseDateFrom:'2026-10-01',purchaseDateTo:'2026-10-31',
+        dueDateFrom:'2026-11-01',dueDateTo:'2026-11-30',categoryIds:['c1','c2'],supplierId:'s1'});
+      fixture.componentInstance.applyFilters(); http.expectOne(r => r.url.endsWith('/api/expenses')).flush(empty);
+      if (order === 'PURCHASE_DATE_DESC') {
+        control.value = 'AMOUNT_ASC'; control.dispatchEvent(new Event('change'));
+        http.expectOne(r => r.url.endsWith('/api/expenses')).flush(empty);
+      }
+      fixture.componentInstance.loadPage(2);
+      const obsolete = http.expectOne(r => r.url.endsWith('/api/expenses'));
+      obsolete.flush({...empty,page:2});
+      fixture.componentInstance.loadPage(1);
+      const delayed = http.expectOne(r => r.url.endsWith('/api/expenses'));
+      control.value = order; control.dispatchEvent(new Event('change'));
+      expect(fixture.componentInstance.page()).toBe(0);
+      const current = http.expectOne(r => r.url.endsWith('/api/expenses'));
+      expect(current.request.params.get('sort')).toBe(order);
+      expect(current.request.params.get('page')).toBe('0'); expect(current.request.params.get('tab')).toBe('PENDING');
+      for (const [key,value] of Object.entries({purchaseDateFrom:'2026-10-01',purchaseDateTo:'2026-10-31',
+        dueDateFrom:'2026-11-01',dueDateTo:'2026-11-30',supplierId:'s1'})) expect(current.request.params.get(key)).toBe(value);
+      expect(current.request.params.getAll('categoryIds')).toEqual(['c1','c2']);
+      current.flush({...empty,content:[expense],totals:{totalPaid:125.5,totalPending:0,totalGeneral:125.5}});
+      delayed.flush({...empty,page:1}); fixture.detectChanges();
+      expect(fixture.componentInstance.page()).toBe(0); expect(fixture.componentInstance.expenses()).toEqual([expense]);
+      expect(control.value).toBe(order);
+      expect(fixture.nativeElement.querySelector('[data-testid="expense-tab-PENDING"]').getAttribute('aria-selected')).toBe('true');
+      fixture.componentInstance.loadPage(1);
+      const next = http.expectOne(r => r.url.endsWith('/api/expenses'));
+      expect(next.request.params.get('sort')).toBe(order); next.flush({...empty,page:1});
+      http.verify();
+    });
+  }
 
 });

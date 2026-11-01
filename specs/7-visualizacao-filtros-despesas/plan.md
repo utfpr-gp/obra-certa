@@ -51,7 +51,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: parâmetros tipados, validação, queries e service da API; formulário de filtros, tipos, service HTTP e testes web.
 
-- [ ] **Tarefa 5 — Ordenar antes de paginar**
+- [x] **Tarefa 5 — Ordenar antes de paginar**
   - Cobre: CA5.
   - Teste primeiro: JUnit para ordenação por compra e valor, desempate estável e interação com paginação; `.spec.ts` para ordenação inicial, troca de opção, retorno à primeira página e preservação de filtros/aba.
   - Migration: nenhuma.

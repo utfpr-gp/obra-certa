@@ -8,7 +8,7 @@ import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
-import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier } from '../../core/models/expense-registration.model';
+import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
 
 @Component({
   selector: 'app-accounts-page',
@@ -100,6 +100,13 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
           </article>
         </section>
       }
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <label for="expense-sort" class="text-sm font-medium text-slate-800">Ordenar por</label>
+        <select id="expense-sort" data-testid="expense-sort" [value]="sort()" (change)="selectSort($event)"
+          class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 sm:w-auto">
+          @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
+        </select>
+      </div>
       <section aria-labelledby="accounts-list-title" class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h2 id="accounts-list-title" class="sr-only">Despesas cadastradas</h2>
         <nav aria-label="Situação das despesas" class="flex gap-2 border-b border-slate-200 p-4">
@@ -183,6 +190,13 @@ export class AccountsPageComponent {
   readonly page = signal(0);
   readonly totalPages = signal(1);
   readonly tab = signal<ExpenseTab>('ALL');
+  readonly sort = signal<ExpenseSort>('PURCHASE_DATE_DESC');
+  readonly sortOptions: { value: ExpenseSort; label: string }[] = [
+    { value: 'PURCHASE_DATE_DESC', label: 'Compra mais recente' },
+    { value: 'PURCHASE_DATE_ASC', label: 'Compra mais antiga' },
+    { value: 'AMOUNT_DESC', label: 'Maior valor' },
+    { value: 'AMOUNT_ASC', label: 'Menor valor' },
+  ];
   readonly tabs: { value: ExpenseTab; label: string }[] = [
     { value: 'ALL', label: 'Todas' },
     { value: 'PENDING', label: 'Pendentes' },
@@ -216,7 +230,7 @@ export class AccountsPageComponent {
     this.error.set(null);
     this.expenses.set([]);
     this.totals.set(null);
-    this.expenseService.list(projectId, page, this.size, this.tab(), this.filters()).subscribe({
+    this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).subscribe({
       next: response => {
         if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
         this.page.set(response.page);
@@ -235,6 +249,15 @@ export class AccountsPageComponent {
     if (this.tab() === tab) return;
     this.tabVersion++;
     this.tab.set(tab);
+    this.page.set(0);
+    this.loadPage(0);
+  }
+
+  selectSort(event: Event): void {
+    const sort = (event.target as HTMLSelectElement).value as ExpenseSort;
+    if (this.sort() === sort) return;
+    this.tabVersion++;
+    this.sort.set(sort);
     this.page.set(0);
     this.loadPage(0);
   }
