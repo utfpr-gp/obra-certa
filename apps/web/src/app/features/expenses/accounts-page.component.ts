@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
@@ -130,9 +130,13 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
         @if (error()) {
           <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
             <p>{{ error() }}</p>
+            <button type="button" data-testid="retry-expenses" class="min-h-11 underline" (click)="loadPage(page())">Tentar novamente</button>
           </div>
         }
-        @if (!loading() && !error() && !expenses().length) {
+        @if (!hasActiveProject()) {
+          <p role="status" class="p-8 text-center text-sm text-slate-600">Selecione uma obra no menu para consultar as despesas.</p>
+        }
+        @if (hasActiveProject() && !loading() && !error() && !expenses().length) {
           <div [attr.data-testid]="isEmptyProject() ? 'empty-project' : 'empty-results'" class="p-8 text-center">
             <h3 class="text-lg font-semibold text-slate-900">
               {{ isEmptyProject() ? 'Nenhuma despesa cadastrada' : 'Nenhum resultado encontrado' }}
@@ -208,6 +212,8 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
 })
 export class AccountsPageComponent {
   private readonly activeProject = inject(ActiveProjectService);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly hasActiveProject = computed(() => !!this.activeProject.activeProject());
   private readonly expenseService = inject(ExpenseService);
   private readonly categoryService = inject(CategoryService);
   private readonly supplierService = inject(SupplierService);
@@ -257,31 +263,45 @@ export class AccountsPageComponent {
   ];
   readonly error = signal<string | null>(null);
   private readonly size = 15;
-  private tabVersion = 0;
+  private queryVersion = 0;
 
   constructor() {
     effect(() => {
-      const project = this.activeProject.activeProject();
-      if (project) untracked(() => this.loadPage(0, project.id));
-      else {
+      this.activeProject.contextVersion();
+      untracked(() => {
+        this.queryVersion++;
+        this.filterForm.reset();
+        this.validationAttempted.set(false);
+        this.filters.set({});
+        this.tab.set('ALL');
+        this.sort.set('PURCHASE_DATE_DESC');
+        this.page.set(0);
+        this.totalPages.set(1);
         this.expenses.set([]);
         this.totals.set(null);
         this.error.set(null);
-      }
+        this.loading.set(false);
+        const project = this.activeProject.activeProject();
+        if (project) this.loadPage(0, project.id);
+      });
     });
   }
 
   loadPage(page: number, projectId = this.activeProject.activeProject()?.id): void {
     if (!projectId || page < 0) return;
     if (this.filterForm.invalid) { this.showInvalidFilters(); return; }
-    const tabVersion = this.tabVersion;
+    const queryVersion = ++this.queryVersion;
+    const contextVersion = this.activeProject.contextVersion();
+    const isCurrent = () => !this.destroyRef.destroyed && this.queryVersion === queryVersion
+      && this.activeProject.contextVersion() === contextVersion;
+    this.page.set(page);
     this.error.set(null);
     this.expenses.set([]);
     this.totals.set(null);
     this.loading.set(true);
     this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).subscribe({
       next: response => {
-        if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
+        if (!isCurrent()) return;
         this.page.set(response.page);
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
@@ -289,7 +309,7 @@ export class AccountsPageComponent {
         this.loading.set(false);
       },
       error: () => {
-        if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
+        if (!isCurrent()) return;
         this.loading.set(false);
         this.error.set('Não foi possível carregar as despesas.');
       },
@@ -298,7 +318,6 @@ export class AccountsPageComponent {
 
   selectTab(tab: ExpenseTab): void {
     if (this.tab() === tab) return;
-    this.tabVersion++;
     this.tab.set(tab);
     this.page.set(0);
     this.loadPage(0);
@@ -323,7 +342,6 @@ export class AccountsPageComponent {
   selectSort(event: Event): void {
     const sort = (event.target as HTMLSelectElement).value as ExpenseSort;
     if (this.sort() === sort) return;
-    this.tabVersion++;
     this.sort.set(sort);
     this.page.set(0);
     this.loadPage(0);
@@ -362,7 +380,6 @@ export class AccountsPageComponent {
     }
     if (value.categoryIds.length) filters.categoryIds = [...value.categoryIds];
     this.filters.set(filters);
-    this.tabVersion++;
     this.page.set(0);
     this.loadPage(0);
   }
@@ -371,7 +388,6 @@ export class AccountsPageComponent {
     this.filterForm.reset();
     this.validationAttempted.set(false);
     this.filters.set({});
-    this.tabVersion++;
     this.page.set(0);
     this.loadPage(0);
   }
@@ -387,7 +403,7 @@ export class AccountsPageComponent {
   }
 
   private showInvalidFilters(): void {
-    this.tabVersion++;
+    this.queryVersion++;
     this.loading.set(false);
     this.validationAttempted.set(true);
     this.filterForm.markAllAsTouched();

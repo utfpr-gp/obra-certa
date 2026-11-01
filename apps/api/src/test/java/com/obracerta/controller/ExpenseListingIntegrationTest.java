@@ -6,6 +6,7 @@ import com.obracerta.enums.ProjectType;
 import com.obracerta.enums.UserRole;
 import com.obracerta.model.entity.*;
 import com.obracerta.repository.*;
+import com.obracerta.integration.ReceiptStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -22,6 +24,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,6 +42,8 @@ class ExpenseListingIntegrationTest {
     @Autowired ExpenseCategoryRepository categories;
     @Autowired SupplierRepository suppliers;
     @MockBean UserContextHelper identity;
+    @MockBean ReceiptStorage storage;
+    @Autowired JdbcTemplate jdbc;
 
     User owner;
     Project project;
@@ -49,6 +55,47 @@ class ExpenseListingIntegrationTest {
         project = projects.saveAndFlush(Project.builder().user(owner).name("Casa")
                 .type(ProjectType.RENOVATION).status(ProjectStatus.IN_PROGRESS).build());
         when(identity.getAuthenticatedUser()).thenReturn(owner);
+    }
+
+    @Test
+    void repeatedListingIsReadOnlyAndIsolatedWithoutAccessingReceiptStorage() throws Exception {
+        ExpenseCategory category = categories.findAll().getFirst();
+        Supplier supplier = suppliers.saveAndFlush(Supplier.builder().user(owner).name("Loja").build());
+        Expense pending = Expense.builder().project(project).user(owner).category(category).supplier(supplier)
+                .description("Pendente com comprovante").purchaseDate(LocalDate.of(2026, 1, 1))
+                .totalPrice(new BigDecimal("321.45")).paid(false).receiptState("UPLOADED")
+                .receiptKey("private/receipt.pdf").receiptContentType("application/pdf").receiptSize(25L).build();
+        pending.setPendingPayment(PendingPayment.builder().expense(pending)
+                .dueDate(LocalDate.of(2026, 2, 1)).status(com.obracerta.enums.PaymentStatus.PENDING).build());
+        expenses.saveAndFlush(pending);
+        expenses.saveAndFlush(Expense.builder().project(project).user(owner).category(category).supplier(supplier)
+                .description("Quitada").purchaseDate(LocalDate.of(2026, 1, 2))
+                .totalPrice(new BigDecimal("78.55")).paid(true).build());
+        var beforeExpenses = jdbc.queryForList("select * from expenses order by id");
+        var beforePayments = jdbc.queryForList("select * from pending_payments order by id");
+        var beforeBudgets = jdbc.queryForList("select * from budgets order by id");
+        var beforeProjects = jdbc.queryForList("select * from projects order by id");
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(get("/api/expenses").param("projectId", project.getId()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content.length()").value(2))
+                    .andExpect(jsonPath("$.content[1].id").value(pending.getId()))
+                    .andExpect(jsonPath("$.totals.totalPaid").value(78.55))
+                    .andExpect(jsonPath("$.totals.totalPending").value(321.45))
+                    .andExpect(jsonPath("$.totals.totalGeneral").value(400.00));
+        }
+        User outsider = users.saveAndFlush(User.builder().name("Outro").email(UUID.randomUUID() + "@test.local")
+                .password("test").userRole(UserRole.USER).build());
+        when(identity.getAuthenticatedUser()).thenReturn(outsider);
+        mvc.perform(get("/api/expenses").param("projectId", project.getId()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.content").doesNotExist())
+                .andExpect(jsonPath("$.totals").doesNotExist());
+        assertThat(jdbc.queryForList("select * from expenses order by id")).isEqualTo(beforeExpenses);
+        assertThat(jdbc.queryForList("select * from pending_payments order by id")).isEqualTo(beforePayments);
+        assertThat(jdbc.queryForList("select * from budgets order by id")).isEqualTo(beforeBudgets);
+        assertThat(jdbc.queryForList("select * from projects order by id")).isEqualTo(beforeProjects);
+        verifyNoInteractions(storage);
     }
 
     @Test

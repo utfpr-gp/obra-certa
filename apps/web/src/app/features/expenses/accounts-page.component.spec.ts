@@ -109,7 +109,7 @@ describe('AccountsPageComponent', () => {
     http.verify();
   });
 
-  it('shows a readable error without adding a retry action', () => {
+  it('shows a readable error with a manual retry action', () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -122,7 +122,7 @@ describe('AccountsPageComponent', () => {
     http.expectOne(r => r.url.endsWith('/api/expenses')).flush({ message: 'falha' }, { status: 503, statusText: 'Unavailable' });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar as despesas');
-    expect(fixture.nativeElement.querySelector('[data-testid="retry-expenses"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="retry-expenses"]')).not.toBeNull();
     http.verify();
   });
 

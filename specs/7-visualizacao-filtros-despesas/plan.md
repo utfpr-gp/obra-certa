@@ -64,7 +64,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: templates, signals, estados vazios, componentes compartilhados e estilos/tokens existentes em `apps/web`, com ajustes mínimos no contrato de resposta da API se necessários.
 
-- [ ] **Tarefa 7 — Preservar contexto, falhas e navegação**
+- [x] **Tarefa 7 — Preservar contexto, falhas e navegação**
   - Cobre: CA9 e CA10.
   - Teste primeiro: `.spec.ts` com requests controlados para troca de obra A → B → A, respostas antigas de sucesso/erro, mudança de aba/filtro/página, ausência de obra, retry, retorno do cadastro/consulta e 401; teste de integração da API confirma consulta somente leitura e isolamento.
   - Migration: nenhuma.
