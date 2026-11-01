@@ -70,7 +70,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: integração com `ActiveProjectService`, geração de consulta, signals de erro/loading, navegação e service HTTP em `apps/web`; ajustes de leitura no controller/service da API e testes correspondentes.
 
-- [ ] **Tarefa 8 — Consolidar correções que excederam duas rodadas de revisão**
+- [x] **Tarefa 8 — Consolidar correções que excederam duas rodadas de revisão**
   - Cobre: correções pendentes da Tarefa 1, sem criar novos critérios de aceite.
   - Origem: a Tarefa 1 atingiu o limite de duas rodadas de revisão com apontamentos bloqueantes em `tarefa-01-conformidade-r2.md` e `tarefa-01-codigo-r2.md`.
   - Entrega: ampliar os testes frontend para comprovar explicitamente data de compra, vencimento, valor e situação de pagamento; invalidar respostas antigas por identidade de consulta, incluindo troca A → B → A e consultas concorrentes da mesma obra, sem antecipar regras das tarefas posteriores.

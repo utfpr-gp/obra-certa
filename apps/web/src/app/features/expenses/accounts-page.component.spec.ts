@@ -197,7 +197,7 @@ describe('AccountsPageComponent', () => {
   });
 
   for (const width of [360, 1280]) {
-  it(`keeps populated results, filters and actions usable in a real ${width}px viewport`, async () => {
+  it(`renders every CA1 field per expense and keeps actions usable in a real ${width}px viewport`, async () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -208,9 +208,16 @@ describe('AccountsPageComponent', () => {
     const fixture = TestBed.createComponent(AccountsPageComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    const pendingExpense: ExpenseResponse = {
+      ...expense, id: 'expense-2', description: 'Instalação elétrica',
+      categoryId: 'service', categoryName: 'Serviço',
+      supplier: { id: 'electrician', name: 'Eletricista', document: null },
+      purchaseDate: '2026-10-21', dueDate: '2026-11-10', totalPrice: 2345.67, paid: false,
+    };
+    const content = [expense, pendingExpense];
     http.expectOne(r => r.url.endsWith('/api/expenses')).flush({
-      content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1,
-      totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 },
+      content, page: 0, size: 15, totalElements: 2, totalPages: 1,
+      totals: { totalPaid: 125.5, totalPending: 2345.67, totalGeneral: 2471.17 },
     });
     fixture.detectChanges();
     // An iframe has its own layout viewport: CSS media queries use this width.
@@ -256,17 +263,48 @@ describe('AccountsPageComponent', () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
       const filtered = http.expectOne(r => r.url.endsWith('/api/expenses'));
       expect(filtered.request.params.get('purchaseDateFrom')).toBe('2026-01-01');
-      filtered.flush({content:[expense],page:0,totalPages:1,totals:{totalPaid:125.5,totalPending:0,totalGeneral:125.5}});
+      filtered.flush({content,page:0,size:15,totalElements:2,totalPages:1,
+        totals:{totalPaid:125.5,totalPending:2345.67,totalGeneral:2471.17}});
       fixture.detectChanges();
       const rows = root.querySelector(width < 640 ? '[data-testid="expense-cards"]' : 'table');
       expect(rows).not.toBeNull();
       if (rows) {
         visible(rows);
-        const link = rows.querySelector('a')!;
-        visible(link);
-        expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-        expect(link.getAttribute('href')).toBe('/despesas/expense-1');
+        const records = rows.querySelectorAll(width < 640 ? 'article' : 'tbody tr');
+        expect(records.length).toBe(2);
+        const expectedRecords = [
+          { id: 'expense-1', description: 'Cimento', category: 'Material', supplier: 'Loja',
+            purchase: '01/01/2026', due: '—', price: 'R$ 125,50', status: 'Pago' },
+          { id: 'expense-2', description: 'Instalação elétrica', category: 'Serviço', supplier: 'Eletricista',
+            purchase: '21/10/2026', due: '10/11/2026', price: 'R$ 2.345,67', status: 'Pendente' },
+        ];
+        const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, ' ').trim();
+        expectedRecords.forEach((expected, index) => {
+          const record = records[index];
+          expect(record).toBeDefined();
+          if (!record) return;
+          visible(record);
+          const fields = [expected.category, expected.supplier, expected.purchase,
+            expected.due, expected.price, expected.status];
+          if (width < 640) {
+            expect(text(record.querySelector('h3'))).toBe(expected.description);
+            expect(Array.from(record.querySelectorAll('dt'), text))
+              .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
+            expect(Array.from(record.querySelectorAll('dd'), text)).toEqual(fields);
+          } else {
+            expect(Array.from(record.querySelectorAll('td'), text))
+              .toEqual([expected.description, ...fields, 'Consultar']);
+          }
+          const link = record.querySelector('a')!;
+          expect(link).not.toBeNull();
+          visible(link);
+          expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+          expect(link.getAttribute('href')).toBe(`/despesas/${expected.id}`);
+        });
       }
+      const create = root.querySelector('[data-testid="create-account"]')!;
+      expect(create.getAttribute('href')).toBe('/contas/nova');
+      expect(create.textContent?.trim()).toBe('Cadastrar conta');
       expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
     expect(fixture.nativeElement.querySelector('[data-testid="expense-tabs"]').getAttribute('role')).toBe('tablist');
     expect(fixture.nativeElement.querySelectorAll('[role="tab"]').length).toBe(4);
