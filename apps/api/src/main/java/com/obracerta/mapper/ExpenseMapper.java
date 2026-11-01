@@ -1,6 +1,7 @@
 package com.obracerta.mapper;
 
 import com.obracerta.model.dto.expense.ExpenseResponseDTO;
+import com.obracerta.model.dto.expense.ExpenseTotalsDTO;
 import com.obracerta.model.dto.supplier.SupplierDTO;
 import com.obracerta.model.entity.Expense;
 import com.obracerta.model.entity.Supplier;
@@ -35,10 +36,10 @@ public final class ExpenseMapper {
         );
     }
 
-    public static ExpensePageResponseDTO toPageDTO(Page<Expense> page, LocalDate referenceDate) {
+    public static ExpensePageResponseDTO toPageDTO(Page<Expense> page, LocalDate referenceDate, ExpenseTotalsDTO totals) {
         return new ExpensePageResponseDTO(page.getContent().stream().map(ExpenseMapper::toDTO).toList(),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isLast(),
-                referenceDate);
+                referenceDate, totals);
     }
 
     public static ExpenseResponseDTO withReceiptDeletionFailed(ExpenseResponseDTO expense, boolean failed) {

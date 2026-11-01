@@ -44,7 +44,14 @@ export interface ExpenseResponse {
   receiptDeletionFailed?: boolean;
 }
 
+export interface ExpenseTotals {
+  totalPaid: number;
+  totalPending: number;
+  totalGeneral: number;
+}
+
 export interface ExpensePageResponse {
+  totals: ExpenseTotals;
   content: ExpenseResponse[];
   page: number;
   size: number;

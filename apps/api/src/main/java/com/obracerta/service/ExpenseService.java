@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
+import com.obracerta.model.dto.expense.ExpenseTotalsDTO;
 
 @Service
 public class ExpenseService {
@@ -242,7 +243,10 @@ public class ExpenseService {
         var result = expenses.findActiveByProjectOwnerAndTab(projectId, owner.getId(), tab.name(), referenceDate,
                 PageRequest.of(page, effectiveSize, Sort.by(Sort.Direction.DESC, "purchaseDate")
                         .and(Sort.by(Sort.Direction.ASC, "id"))));
-        return ExpenseMapper.toPageDTO(result, referenceDate);
+        var totals = expenses.sumActiveByProjectOwnerAndTab(projectId, owner.getId(), tab.name(), referenceDate);
+        var summary = new ExpenseTotalsDTO(totals.getTotalPaid(), totals.getTotalPending(),
+                totals.getTotalPaid().add(totals.getTotalPending()));
+        return ExpenseMapper.toPageDTO(result, referenceDate, summary);
     }
 
     private static void validateNumber(BigDecimal number, int integers, String field) {

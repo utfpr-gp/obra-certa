@@ -34,16 +34,16 @@ describe('AccountsPageComponent', () => {
       const http = TestBed.inject(HttpTestingController);
       const url = `${environment.apiUrl}/api/expenses?projectId=project`;
       http.expectOne(`${url}&page=0&size=15&tab=ALL`).flush({
-        content: [], page: 0, size: 15, totalElements: 60, totalPages: 4,
+        content: [], page: 0, size: 15, totalElements: 60, totalPages: 4, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 },
       });
       fixture.componentInstance.loadPage(3);
       const previous = http.expectOne(`${url}&page=3&size=15&tab=ALL`);
       fixture.componentInstance.selectTab('PAID');
       http.expectOne(`${url}&page=0&size=15&tab=PAID`).flush({
-        content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1,
+        content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1, totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 },
       });
       if (lateResponse === 'success') {
-        previous.flush({ content: [], page: 3, size: 15, totalElements: 60, totalPages: 4 });
+        previous.flush({ content: [], page: 3, size: 15, totalElements: 60, totalPages: 4, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
       } else {
         previous.flush({}, { status: 503, statusText: 'Unavailable' });
       }
@@ -68,20 +68,60 @@ describe('AccountsPageComponent', () => {
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
-      .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, referenceDate: '2026-11-01' });
+      .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 }, referenceDate: '2026-11-01' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('[data-testid^="expense-tab-"]').length).toBe(4);
     fixture.componentInstance.loadPage(3);
     http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=3&size=15&tab=ALL`)
-      .flush({ content: [], page: 3, size: 15, totalElements: 0, totalPages: 1 });
+      .flush({ content: [], page: 3, size: 15, totalElements: 0, totalPages: 1, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.componentInstance.selectTab('OVERDUE');
     const request = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=OVERDUE`);
     expect(fixture.componentInstance.page()).toBe(0);
-    request.flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0 });
+    request.flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     expect(fixture.nativeElement.textContent).toContain('Todas');
     expect(fixture.nativeElement.textContent).toContain('Pendentes');
     expect(fixture.nativeElement.textContent).toContain('Vencidas');
     expect(fixture.nativeElement.textContent).toContain('Pagas');
+    http.verify();
+  });
+
+  it('renders exactly three Brazilian currency totals from all pages and keeps them when paginating', () => {
+    TestBed.configureTestingModule({
+      imports: [AccountsPageComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    TestBed.inject(ActiveProjectService).setActiveProject({ id: 'project', name: 'Casa', type: 'RENOVATION',
+      status: 'IN_PROGRESS', location: null, createdAt: '', updatedAt: '' }, 'owner');
+    const fixture = TestBed.createComponent(AccountsPageComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const totals = { totalPaid: 1601.60, totalPending: 900.90, totalGeneral: 2502.50 };
+    const flushPage = (page: number) => {
+      http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=${page}&size=15&tab=ALL`)
+        .flush({ content: page === 0 ? [expense] : [], page, size: 15, totalElements: 19, totalPages: 2, totals });
+      fixture.detectChanges();
+    };
+    const cardText = (name: string) => {
+      const card = fixture.nativeElement.querySelector(`[data-testid="total-${name}"]`);
+      return card ? `${card.querySelector('h2').textContent.trim()} ${card.querySelector('p').textContent.trim()}`
+        .replace(/\s+/g, ' ') : undefined;
+    };
+    flushPage(0);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid^="total-"]').length).toBe(3);
+    expect(cardText('paid')).toBe('Total Pago R$ 1.601,60');
+    expect(cardText('pending')).toBe('Total a Pagar R$ 900,90');
+    expect(cardText('general')).toBe('Total Geral R$ 2.502,50');
+    fixture.componentInstance.loadPage(1);
+    flushPage(1);
+    expect(cardText('paid')).toBe('Total Pago R$ 1.601,60');
+    expect(cardText('pending')).toBe('Total a Pagar R$ 900,90');
+    expect(cardText('general')).toBe('Total Geral R$ 2.502,50');
+    fixture.componentInstance.selectTab('PAID');
+    http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=PAID`)
+      .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0,
+        totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
+    fixture.detectChanges();
+    expect(cardText('general')).toBe('Total Geral R$ 0,00');
     http.verify();
   });
 
@@ -99,7 +139,7 @@ describe('AccountsPageComponent', () => {
     http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
       .flush({
         content: [expense],
-        page: 0, size: 15, totalElements: 1, totalPages: 1,
+        page: 0, size: 15, totalElements: 1, totalPages: 1, totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 },
       });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Cimento');
@@ -124,7 +164,7 @@ describe('AccountsPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     const first = http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`);
     first.flush({ content: [{ ...expense, id: 'old', description: 'Antiga' }], page: 0, size: 15,
-      totalElements: 1, totalPages: 1 });
+      totalElements: 1, totalPages: 1, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Antiga');
 
@@ -138,7 +178,7 @@ describe('AccountsPageComponent', () => {
 
     fixture.componentInstance.retry();
     http.expectOne(`${environment.apiUrl}/api/expenses?projectId=project&page=0&size=15&tab=ALL`)
-      .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0 });
+      .flush({ content: [], page: 0, size: 15, totalElements: 0, totalPages: 0, totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Não foi possível carregar as despesas');
     http.verify();

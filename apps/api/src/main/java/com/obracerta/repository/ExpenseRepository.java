@@ -40,6 +40,35 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
                                                   Pageable pageable);
 
     @Query("""
+            select coalesce(sum(case when e.paid = true then e.totalPrice else 0 end), 0) as totalPaid,
+                   coalesce(sum(case when e.paid = false then e.totalPrice else 0 end), 0) as totalPending
+            from Expense e
+            left join e.pendingPayment pp
+            where e.project.id = :projectId
+              and e.project.user.id = :userId
+              and e.project.deletedAt is null
+              and e.deletedAt is null
+              and (
+                :tab = 'ALL'
+                or (:tab = 'PENDING' and e.paid = false)
+                or (:tab = 'OVERDUE' and e.paid = false
+                    and pp is not null
+                    and pp.deletedAt is null
+                    and pp.dueDate < :referenceDate)
+                or (:tab = 'PAID' and e.paid = true)
+              )
+            """)
+    ExpenseTotals sumActiveByProjectOwnerAndTab(@Param("projectId") String projectId,
+                                                @Param("userId") String userId,
+                                                @Param("tab") String tab,
+                                                @Param("referenceDate") java.time.LocalDate referenceDate);
+
+    interface ExpenseTotals {
+        BigDecimal getTotalPaid();
+        BigDecimal getTotalPending();
+    }
+
+    @Query("""
             select e from Expense e
             where e.project.id = :projectId
               and e.project.user.id = :userId

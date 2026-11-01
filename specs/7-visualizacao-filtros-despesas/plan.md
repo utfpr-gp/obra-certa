@@ -39,7 +39,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: enum/parâmetro de consulta, predicates/repository e service da API; estado de aba no componente e testes web.
 
-- [ ] **Tarefa 3 — Calcular e apresentar totalizadores**
+- [x] **Tarefa 3 — Calcular e apresentar totalizadores**
   - Cobre: CA3.
   - Teste primeiro: JUnit para totais de todas as páginas, combinações com abas e valores pagos/pendentes; `.spec.ts` para cards em moeda brasileira, soma de Total Geral e estabilidade dos totais ao mudar somente a página.
   - Migration: nenhuma.

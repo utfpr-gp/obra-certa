@@ -10,5 +10,6 @@ public record ExpensePageResponseDTO(
         long totalElements,
         int totalPages,
         boolean last,
-        LocalDate referenceDate
+        LocalDate referenceDate,
+        ExpenseTotalsDTO totals
 ) {}
