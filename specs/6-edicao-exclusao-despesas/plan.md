@@ -119,7 +119,7 @@ Revisão de escopo determinada pelo autor: remover da Tarefa 4 todo o mecanismo 
     - Serviço/modelos Angular, consulta individual e `apps/web/src/app/features/expenses/expense-delete.spec.ts`.
     - Reutilizar `ConfirmModalComponent` sem modificá-lo, salvo necessidade aprovada posteriormente.
 
-- [ ] **Tarefa 6 — Encerrar a sessão sem retomar operações automaticamente**
+- [x] **Tarefa 6 — Encerrar a sessão sem retomar operações automaticamente**
   - Cobre: CA8.
   - Teste primeiro:
     - `ExpenseMutationAuthenticationIntegrationTest` usa cadeia real de segurança e JWT expirado/ausente/inválido para PUT de despesa, DELETE de despesa, DELETE de comprovante e PUT multipart de substituição. Provar 401 sem escrita ou chamada ao storage; token válido deve continuar autorizado.
