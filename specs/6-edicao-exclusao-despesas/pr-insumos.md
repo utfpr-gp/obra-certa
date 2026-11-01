@@ -20,11 +20,11 @@ Texto inicial enviado pelo autor: “Ela adiciona permissões para excluir e edi
 
 ## Verificação
 
-- API completa: 287 testes aprovados, sem falhas, erros ou ignorados.
+- API completa após integração da develop: 289 testes aprovados, sem falhas, erros ou ignorados. A execução anterior à integração tinha 287; a develop atual acrescentou testes de remoção dos endpoints administrativos.
 - Angular completo: 344 testes aprovados.
 - Build Angular: concluído; aviso de bundle inicial 651,96 kB para orçamento de 500 kB.
 - Evidências: `reviews/validacao-fechamento.md`, logs locais indicados e pareceres de tarefa.
-- Auditoria final: **PRONTO PARA PR**, sem pendências bloqueantes. Parecer integral em `reviews/auditoria-final-r1.md`.
+- Auditoria final: **PRONTO PARA PR**, sem pendências bloqueantes, inclusive após integrar a develop. Pareceres integrais em `reviews/auditoria-final-r1.md` e `reviews/auditoria-final-r2.md`.
 
 ## Apontamentos aceitos
 
