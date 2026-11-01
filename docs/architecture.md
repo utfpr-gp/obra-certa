@@ -15,7 +15,7 @@ O projeto adota a arquitetura de **Monorepo**, centralizando a aplicação clien
 obra-certa/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                         # CI atual: testes backend com PostgreSQL de serviço e build frontend
+│       └── ci.yml                         # CI atual: testes backend com PostgreSQL de serviço, testes e build frontend
 │
 ├── apps/
 │   ├── web/                               # Frontend em Angular 21.2.x
@@ -342,7 +342,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 
 | Conceito de Negócio (PT-BR) | Entidade JPA / DTO (EN) | Tabela PostgreSQL | Coleção / Rota API |
 | :--- | :--- | :--- | :--- |
-| **Usuário** | `User` / `UserDTO` | `users` | `/api/auth`, `/api/users` |
+| **Usuário** | `User` / `RegisterUserDTO`, `AuthDTO` | `users` | `/api/auth` |
 | **Obra (Projeto)** | `Project` / `ProjectDTO` | `projects` | `/api/projects` |
 | **Categoria de Despesa** | `ExpenseCategory` / `CategoryResponseDTO` | `expense_categories` | `/api/expense-categories` |
 | **Fornecedor** | `Supplier` / `SupplierDTO` | `suppliers` | `/api/suppliers` |
@@ -548,4 +548,4 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
    - **Execução atual:** `./mvnw test` (Linux/Mac) ou `.\mvnw.cmd test` (Windows), com `SPRING_PROFILES_ACTIVE=test` e as variáveis de conexão do PostgreSQL configuradas. O ciclo Maven `verify` pode ser usado para validação completa;
    - **Cobertura:** o `pom.xml` atual não configura JaCoCo; não há relatório ou limite automático de cobertura declarado como entregue nesta história.
 3. **CI (GitHub Actions):**
-   - O workflow atual executa testes backend com PostgreSQL de serviço e build frontend nos PRs para `develop`/`main`. Ainda não executa `ng test` na CI; a suíte frontend é validada localmente pelo comando acima. Automatizar essa execução é melhoria separada, sem mudança do pipeline no fechamento documental.
+   - O workflow atual executa, nos PRs para `develop`/`main`, os testes backend com PostgreSQL de serviço e, no frontend, `ng test` em ChromeHeadless seguido do build.
