@@ -129,10 +129,11 @@ class ExpenseReceiptRemovalIntegrationTest {
         mvc.perform(delete(endpoint())).andExpect(status().isOk());
         assertThat(absentAtDeletion).containsExactly(false,true); assertRemoved();
     }
-    @ParameterizedTest @ValueSource(strings={"foreign","missing","expenseDeleted","projectDeleted"})
+    @ParameterizedTest @ValueSource(strings={"foreign","foreignProject","missing","expenseDeleted","projectDeleted"})
     void unauthorizedOrInactiveExpenseIs404BeforeStorage(String scenario) throws Exception {
         String target=endpoint();
         if (scenario.equals("foreign")) when(identity.getAuthenticatedUser()).thenReturn(other);
+        if (scenario.equals("foreignProject")) jdbc.update("update projects set user_id=? where id=?",other.getId(),project.getId());
         if (scenario.equals("missing")) target="/api/expenses/"+UUID.randomUUID()+"/receipt";
         if (scenario.equals("expenseDeleted")) jdbc.update("update expenses set deleted_at=now() where id=?",id);
         if (scenario.equals("projectDeleted")) jdbc.update("update projects set deleted_at=now() where id=?",project.getId());

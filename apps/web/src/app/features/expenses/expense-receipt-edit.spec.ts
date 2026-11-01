@@ -172,4 +172,21 @@ describe('Expense receipt removal', () => {
     expect(fixture.componentInstance.expense()).toBeNull(); expect(el('download-receipt')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Novo comprovante salvo');
   });
+
+  for (const operation of ['remove', 'replace']) {
+    it(`offers a manual state check after a lost ${operation} response without resubmitting`, () => {
+      if (operation === 'remove') clickRemove();
+      else { selectReplacement(); uploadReplacement(); }
+      http.expectOne(endpoint).error(new ProgressEvent('error')); fixture.detectChanges();
+      expect(fixture.componentInstance.expense()).toEqual(saved); http.expectNone(endpoint);
+      const check = el('check-receipt-state'); expect(check).not.toBeNull();
+      check?.click(); fixture.detectChanges();
+      http.expectOne(`${api}/expenses/expense`).flush({ ...saved, receiptState: operation === 'remove' ? 'NONE' : 'UPLOADED' });
+      http.expectOne(`${api}/budgets?projectId=project`).flush({ categories: [] }); fixture.detectChanges();
+      expect(fixture.componentInstance.expense()?.receiptState).toBe(operation === 'remove' ? 'NONE' : 'UPLOADED');
+      expect(el('check-receipt-state')).toBeNull();
+      expect(fixture.componentInstance.errorMessage()).toBe('');
+      http.expectNone(request => request.method !== 'GET');
+    });
+  }
 });

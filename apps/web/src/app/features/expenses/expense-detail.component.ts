@@ -22,6 +22,9 @@ import { ActiveProjectService } from '../../core/services/active-project.service
       @if (deletionUncertain()) {
         <button type="button" class="btn btn-outline" data-testid="check-delete-state" (click)="checkCurrentState()">Consultar estado atual</button>
       }
+      @if (receiptStateUncertain() && expense()) {
+        <button type="button" class="btn btn-outline" data-testid="check-receipt-state" (click)="checkCurrentState()">Consultar estado atual</button>
+      }
       @if (deletionMessage()) {
         <p class="alert" [class.alert-warning]="deletionWarning()" [class.alert-success]="!deletionWarning()" role="status">{{ deletionMessage() }}</p>
         <a class="btn btn-primary mt-4" data-testid="return-to-accounts" routerLink="/contas">Voltar a Contas a Pagar</a>
@@ -103,6 +106,8 @@ export class ExpenseDetailComponent {
   readonly deletionMessage = signal('');
   readonly deletionWarning = signal(false);
   readonly deletionUncertain = signal(false);
+  readonly receiptStateUncertain = signal(false);
+  private expenseRequestVersion = 0;
   private budgetRequestVersion = 0;
   readonly budgetExceeded = signal(false);
   readonly budgetError = signal('');
@@ -136,6 +141,7 @@ export class ExpenseDetailComponent {
         this.expense.set(null); this.loading.set(false); this.budgetExceeded.set(false); this.budgetError.set('');
         this.receiptFile.set(null); this.receiptError.set(''); this.uploading.set(false);
         this.receiptWarning.set('');
+        this.receiptStateUncertain.set(false);
         this.downloading.set(false); this.removingReceipt.set(false); this.uploadProgress.set(null);
         this.errorMessage.set(this.activeProject() ? 'A obra foi alterada. Abra uma despesa da obra selecionada.' : '');
       });
@@ -144,17 +150,23 @@ export class ExpenseDetailComponent {
     this.loadExpense(id);
   }
   private loadExpense(id: string): void {
+    const requestVersion = ++this.expenseRequestVersion;
     this.expenses.get(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: expense => {
-        if (!this.isCurrentContext()) return;
+        if (!this.isCurrentContext() || requestVersion !== this.expenseRequestVersion) return;
         if (expense.projectId !== this.activeProject()?.id) {
           this.loading.set(false); this.errorMessage.set('A despesa pertence a outra obra. Selecione a obra correspondente.'); return;
         }
         this.expense.set(expense); this.loading.set(false);
         this.loadBudget(expense);
       },
-      error: () => {
-        if (!this.isCurrentContext()) return;
+      error: (error: HttpErrorResponse) => {
+        if (!this.isCurrentContext() || requestVersion !== this.expenseRequestVersion) return;
+        if (error.status === 404) {
+          this.expense.set(null); this.editing.set(null); this.deleteConfirmation.set(false);
+          this.receiptFile.set(null); this.receiptError.set(''); this.receiptWarning.set('');
+          this.budgetExceeded.set(false); this.budgetError.set(''); ++this.budgetRequestVersion;
+        }
         this.errorMessage.set('Despesa não encontrada ou indisponível.'); this.loading.set(false);
       },
     });
@@ -179,6 +191,8 @@ export class ExpenseDetailComponent {
         this.deleting.set(false); this.deleteConfirmation.set(false);
         if (!result.deleted || result.id !== expense.id) { this.deleteNotConfirmed(); return; }
         this.expense.set(null); this.editing.set(null); this.receiptFile.set(null); this.receiptError.set('');
+        ++this.expenseRequestVersion;
+        this.loading.set(false); this.receiptStateUncertain.set(false);
         this.receiptWarning.set(''); this.budgetExceeded.set(false); this.budgetError.set('');
         ++this.budgetRequestVersion;
         this.deletionWarning.set(result.receiptDeletionFailed);
@@ -203,6 +217,7 @@ export class ExpenseDetailComponent {
     const expense = this.expense();
     if (!this.isCurrentContext() || !expense || this.deleting()) return;
     this.editing.set(null); this.deleteConfirmation.set(false); this.deletionUncertain.set(false);
+    this.receiptStateUncertain.set(false);
     this.errorMessage.set(''); this.loading.set(true); this.loadExpense(expense.id);
   }
   private loadBudget(expense: ExpenseResponse): void {
@@ -236,6 +251,7 @@ export class ExpenseDetailComponent {
     const expense=this.expense(), file=this.receiptFile();
     if (!this.isCurrentContext() || !expense || !file || this.uploading() || this.removingReceipt() || this.downloading() || this.editing() || this.deleting() || this.deleteConfirmation()) return;
     this.uploading.set(true); this.uploadProgress.set(0); this.errorMessage.set(''); this.receiptError.set('');
+    this.receiptStateUncertain.set(false);
     this.receiptWarning.set('');
     this.expenses.uploadReceipt(expense.id,file).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: event => {
@@ -251,6 +267,7 @@ export class ExpenseDetailComponent {
       error: (error: HttpErrorResponse) => {
         if (!this.isCurrentContext()) return;
         this.uploading.set(false); this.uploadProgress.set(null);
+        this.receiptStateUncertain.set(true);
         if (error.status === 400 || error.status === 413) this.receiptError.set(ExpenseService.receiptGuidance);
         const message = typeof error.error?.message === 'string' ? error.error.message as string : '';
         const uncertain = error.status === 0 || (error.status >= 500 && error.status !== 503);
@@ -284,6 +301,7 @@ export class ExpenseDetailComponent {
     if (!this.isCurrentContext() || !expense || expense.receiptState !== 'UPLOADED'
       || this.removingReceipt() || this.downloading() || this.uploading() || this.editing() || this.deleting() || this.deleteConfirmation()) return;
     this.removingReceipt.set(true); this.errorMessage.set('');
+    this.receiptStateUncertain.set(false);
     this.expenses.removeReceipt(expense.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: updated => {
         if (!this.isCurrentContext()) return;
@@ -292,6 +310,7 @@ export class ExpenseDetailComponent {
       error: () => {
         if (!this.isCurrentContext()) return;
         this.removingReceipt.set(false);
+        this.receiptStateUncertain.set(true);
         this.errorMessage.set('A remoção do comprovante não foi confirmada. Consulte o estado atual antes de tentar novamente.');
       },
     });

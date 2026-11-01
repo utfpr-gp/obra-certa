@@ -107,8 +107,8 @@ class ProjectLifecycleTest {
                 """, expenseId, budgetId, user.getId(), categoryId, supplierId, project.getId(), 250.00);
         String pendingPaymentId = UUID.randomUUID().toString();
         jdbcTemplate.update("""
-                INSERT INTO pending_payments (id, expense_id, due_date)
-                VALUES (?, ?, ?)
+                INSERT INTO pending_payments (id, expense_id, due_date, status)
+                VALUES (?, ?, ?, 'PENDING')
                 """, pendingPaymentId, expenseId, Date.valueOf("2026-11-01"));
 
         String token = authenticateAs(user);

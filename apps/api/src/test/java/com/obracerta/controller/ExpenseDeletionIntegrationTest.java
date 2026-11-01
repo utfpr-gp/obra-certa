@@ -139,9 +139,10 @@ class ExpenseDeletionIntegrationTest {
             verifyNoInteractions(storage);
         } finally { dropTrigger(); }
     }
-    @ParameterizedTest @ValueSource(strings={"foreign","missing","expenseDeleted","projectDeleted"})
+    @ParameterizedTest @ValueSource(strings={"foreign","foreignProject","missing","expenseDeleted","projectDeleted"})
     void inaccessibleExpenseIs404WithoutWritingOrAccessingStorage(String scenario) throws Exception {
         if (scenario.equals("foreign")) when(identity.getAuthenticatedUser()).thenReturn(other);
+        if (scenario.equals("foreignProject")) jdbc.update("update projects set user_id=? where id=?",other.getId(),project.getId());
         if (scenario.equals("expenseDeleted")) jdbc.update("update expenses set deleted_at=now() where id=?",id);
         if (scenario.equals("projectDeleted")) jdbc.update("update projects set deleted_at=now() where id=?",project.getId());
         var before=expense();

@@ -127,7 +127,7 @@ Revisão de escopo determinada pelo autor: remover da Tarefa 4 todo o mecanismo 
   - Migration: nenhuma.
   - Arquivos previstos: os dois testes acima; se necessário, correção restrita aos handlers de erro das novas operações na consulta/modal e no serviço de despesas. Não mudar a política global de login nem reintroduzir recuperação de rascunho da US03.
 
-- [ ] **Tarefa 7 — Consolidar cancelamento, troca de obra e recuperação de falhas**
+- [x] **Tarefa 7 — Consolidar cancelamento, troca de obra e recuperação de falhas**
   - Cobre: CA7 completo, CA9 completo e CA10.
   - Teste primeiro:
     - Angular: `expense-edit.spec.ts`, `expense-delete.spec.ts`, `expense-receipt-edit.spec.ts` e novo `expense-mutation-context.spec.ts` provam cancelar/X/Escape, backdrop inerte, duplo envio, formulário preservado em erro enquanto aberto, orientação sem obra, atualização da mesma obra, troca real e A → B → A com respostas tardias de sucesso/erro. Provar que resposta perdida não dispara reenvio automático e permite conferir o estado atual.

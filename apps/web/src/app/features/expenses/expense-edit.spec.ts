@@ -239,4 +239,47 @@ describe('Expense editing', () => {
     expect(el('expense-edit-modal')).toBeNull();
     expect(fixture.componentInstance.budgetError()).toContain('despesa está salva');
   });
+
+  for (const method of ['edit-cancel', 'edit-close', 'escape']) {
+    it(`abandons the draft via ${method} without saving or recovering it on reopening`, () => {
+      open(); input('edit-description', 'Rascunho');
+      if (method === 'escape') document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      else click(method);
+      fixture.detectChanges();
+      expect(el('expense-edit-modal')).toBeNull(); http.expectNone(request => request.method === 'PUT');
+      open(); expect((el('edit-description') as HTMLInputElement).value).toBe(saved.description);
+    });
+  }
+
+  it('ignores the backdrop and prevents a duplicate submission while saving', () => {
+    open(); click('expense-edit-backdrop'); expect(el('expense-edit-modal')).not.toBeNull();
+    click('edit-save'); const request = http.expectOne(`${api}/expenses/expense`);
+    expect((el('edit-save') as HTMLButtonElement).disabled).toBeTrue();
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    http.expectNone(r => r.method === 'PUT');
+    request.flush(saved); http.expectOne(`${api}/budgets?projectId=project`).flush({ categories: [] });
+  });
+
+  for (const status of [0, 500]) {
+    it(`keeps all draft fields after error ${status}, without automatic retry, and permits checking current state`, () => {
+      open(); input('edit-description', 'Rascunho'); input('edit-purchaseDate', '2030-01-02');
+      selectOption('edit-categoryId', 2); selectOption('edit-paid', 1); input('edit-dueDate', '2030-01-03');
+      input('edit-totalPrice', '90000'); click('edit-save');
+      const request = http.expectOne(`${api}/expenses/expense`);
+      if (status === 0) request.error(new ProgressEvent('error'));
+      else request.flush({}, { status, statusText: 'Error' });
+      fixture.detectChanges();
+      expect((el('edit-description') as HTMLInputElement).value).toBe('Rascunho');
+      expect((el('edit-purchaseDate') as HTMLInputElement).value).toBe('2030-01-02');
+      expect((el('edit-categoryId') as HTMLSelectElement).value).toBe('other');
+      expect((el('edit-dueDate') as HTMLInputElement).value).toBe('2030-01-03');
+      expect((el('edit-totalPrice') as HTMLInputElement).value.replace(/\s/g, ' ')).toBe('R$ 900,00');
+      expect((el('edit-save') as HTMLButtonElement).disabled).toBeFalse();
+      expect(fixture.nativeElement.textContent).toContain('Não foi possível confirmar');
+      http.expectNone(r => r.method === 'PUT');
+      click('edit-check-state'); http.expectOne(`${api}/expenses/expense`).flush(saved);
+      http.expectOne(`${api}/budgets?projectId=project`).flush({ categories: [] }); fixture.detectChanges();
+      expect(el('expense-edit-modal')).toBeNull(); expect(fixture.componentInstance.expense()).toEqual(saved);
+    });
+  }
 });

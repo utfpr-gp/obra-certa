@@ -3,12 +3,14 @@ package com.obracerta.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.obracerta.configuration.security.UserContextHelper;
+import com.obracerta.integration.ReceiptStorage;
 import com.obracerta.enums.*;
 import com.obracerta.model.entity.*;
 import com.obracerta.repository.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import java.math.BigDecimal;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -37,6 +40,7 @@ class ExpenseUpdateIntegrationTest {
     @Autowired BudgetRepository budgets;
     @Autowired JdbcTemplate jdbc;
     @MockBean UserContextHelper identity;
+    @MockBean ReceiptStorage storage;
     User owner;
     Project project;
     Expense expense;
@@ -114,7 +118,62 @@ class ExpenseUpdateIntegrationTest {
         expenses.flush(); projects.flush();
         String id=state.equals("missing") ? "missing" : expense.getId();
         mvc.perform(put("/api/expenses/"+id).contentType(APPLICATION_JSON).content(body().toString())).andExpect(status().isNotFound());
-        assertOriginal();
+        assertOriginal(); verifyNoInteractions(storage);
+    }
+
+    @ParameterizedTest @CsvSource({"totalPrice,0", "totalPrice,-1", "totalPrice,0.001", "totalPrice,10000000000000",
+        "quantity,0", "quantity,-1", "quantity,0.001", "quantity,100000000",
+        "unitPrice,0", "unitPrice,-1", "unitPrice,0.001", "unitPrice,10000000000000"})
+    void invalidAmountsOnAlreadyPendingExpensePreserveAllFinancialFields(String field, String amount) throws Exception {
+        expense.setPaid(false);
+        expense.setPendingPayment(PendingPayment.builder().expense(expense).status(PaymentStatus.PENDING)
+            .dueDate(java.time.LocalDate.parse("2030-01-05")).build());
+        expenses.saveAndFlush(expense);
+        var originalExpense=jdbc.queryForMap("select * from expenses where id=?",expense.getId());
+        var originalPayment=jdbc.queryForMap("select * from pending_payments where expense_id=?",expense.getId());
+        var invalid=body().put("paid",false).put("dueDate","2030-01-06");
+        if (!field.equals("totalPrice")) invalid.put("valueMode","CALCULATED").put("quantity",1).put("unitPrice",1);
+        invalid.put(field,new BigDecimal(amount));
+        update(invalid,400); expenses.flush();
+        assertThat(jdbc.queryForMap("select * from expenses where id=?",expense.getId())).isEqualTo(originalExpense);
+        assertThat(jdbc.queryForMap("select * from pending_payments where expense_id=?",expense.getId())).isEqualTo(originalPayment);
+        verifyNoInteractions(storage);
+    }
+
+    @ParameterizedTest @ValueSource(strings={"description","categoryId","dueDate","purchaseDate"})
+    void invalidFieldsOnAlreadyPendingExpensePreserveExpenseAndPayment(String field) throws Exception {
+        expense.setPaid(false);
+        expense.setPendingPayment(PendingPayment.builder().expense(expense).status(PaymentStatus.PENDING)
+            .dueDate(java.time.LocalDate.parse("2030-01-05")).build());
+        expenses.saveAndFlush(expense);
+        var originalExpense=jdbc.queryForMap("select * from expenses where id=?",expense.getId());
+        var originalPayment=jdbc.queryForMap("select * from pending_payments where expense_id=?",expense.getId());
+        var invalid=body().put("paid",false).put("dueDate","2030-01-05");
+        if (field.equals("purchaseDate")) invalid.put(field,"2030-01-06");
+        else if (field.equals("dueDate")) invalid.put(field,"2030-01-01");
+        else invalid.put(field,"   ");
+        update(invalid,400); expenses.flush();
+        assertThat(jdbc.queryForMap("select * from expenses where id=?",expense.getId())).isEqualTo(originalExpense);
+        assertThat(jdbc.queryForMap("select * from pending_payments where expense_id=?",expense.getId())).isEqualTo(originalPayment);
+        verifyNoInteractions(storage);
+    }
+
+    @Test void acceptsExactNumericLimitsOnAlreadyPendingExpenseWithoutDuplicatingPayment() throws Exception {
+        expense.setPaid(false);
+        expense.setPendingPayment(PendingPayment.builder().expense(expense).status(PaymentStatus.PENDING)
+            .dueDate(java.time.LocalDate.parse("2030-01-05")).build());
+        expenses.saveAndFlush(expense); String paymentId=expense.getPendingPayment().getId();
+        var valid=body().put("paid",false).put("dueDate","2030-01-02");
+        update(valid.put("totalPrice",new BigDecimal("9999999999999.99")),200);
+        assertThat(expense.getTotalPrice()).isEqualByComparingTo("9999999999999.99");
+        update(valid.put("valueMode","CALCULATED").put("quantity",new BigDecimal("99999999.99")).put("unitPrice",new BigDecimal("0.01")),200);
+        assertThat(expense.getTotalPrice()).isEqualByComparingTo("1000000.00");
+        update(valid.put("quantity",new BigDecimal("0.01")).put("unitPrice",new BigDecimal("9999999999999.99")),200);
+        assertThat(expense.getTotalPrice()).isEqualByComparingTo("100000000000.00");
+        assertThat(expense.getPendingPayment().getId()).isEqualTo(paymentId);
+        assertThat(expense.getPendingPayment().getDueDate()).isEqualTo(java.time.LocalDate.parse("2030-01-02"));
+        assertThat(jdbc.queryForObject("select count(*) from pending_payments where expense_id=?",Long.class,expense.getId())).isEqualTo(1);
+        verifyNoInteractions(storage);
     }
     void assertOriginal() { expenses.flush(); assertThat(jdbc.queryForObject("select description from expenses where id=?",String.class,expense.getId())).isEqualTo("Original");
         assertThat(jdbc.queryForObject("select total_price from expenses where id=?",BigDecimal.class,expense.getId())).isEqualByComparingTo("40"); }

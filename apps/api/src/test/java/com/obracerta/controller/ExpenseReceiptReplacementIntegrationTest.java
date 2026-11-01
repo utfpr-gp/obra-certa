@@ -165,9 +165,10 @@ class ExpenseReceiptReplacementIntegrationTest {
         byte[] bytes=new byte[10485760]; replace("new.pdf","application/pdf",bytes).andExpect(status().isOk());
         mvc.perform(get(endpoint())).andExpect(content().bytes(bytes)); assertFinances();
     }
-    @ParameterizedTest @ValueSource(strings={"foreign","missing","expenseDeleted","projectDeleted"})
+    @ParameterizedTest @ValueSource(strings={"foreign","foreignProject","missing","expenseDeleted","projectDeleted"})
     void inaccessibleExpenseIs404BeforeStorage(String scenario) throws Exception {
         if (scenario.equals("foreign")) when(identity.getAuthenticatedUser()).thenReturn(other);
+        if (scenario.equals("foreignProject")) jdbc.update("update projects set user_id=? where id=?",other.getId(),project.getId());
         if (scenario.equals("expenseDeleted")) jdbc.update("update expenses set deleted_at=now() where id=?",id);
         if (scenario.equals("projectDeleted")) jdbc.update("update projects set deleted_at=now() where id=?",project.getId());
         var before=financial(); String originalId=id;

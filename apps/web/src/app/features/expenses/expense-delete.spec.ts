@@ -97,4 +97,30 @@ describe('Expense deletion', () => {
     expect(fixture.componentInstance.expense()).toBeNull(); expect(el('return-to-accounts')).toBeNull();
     expect(fixture.componentInstance.errorMessage()).toContain('A obra foi alterada');
   });
+
+  it('removes stale active data when checking a lost deletion response returns 404 without claiming deletion', () => {
+    open(); click('confirm-confirmation');
+    http.expectOne(endpoint).error(new ProgressEvent('error')); fixture.detectChanges();
+    http.expectNone(request => request.method === 'DELETE');
+    click('check-delete-state');
+    http.expectOne(endpoint).flush({}, { status: 404, statusText: 'Not Found' }); fixture.detectChanges();
+    expect(fixture.componentInstance.expense()).toBeNull();
+    for (const id of ['edit-expense', 'delete-expense', 'download-receipt', 'remove-receipt']) expect(el(id)).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Cimento');
+    expect(fixture.nativeElement.textContent).toContain('indisponível');
+    expect(fixture.componentInstance.deletionMessage()).toBe('');
+    http.expectNone(request => request.method !== 'GET');
+  });
+
+  it('does not resurrect an expense from an older state check after confirmed deletion in the same project', () => {
+    fixture.componentInstance.checkCurrentState();
+    const oldRead = http.expectOne(endpoint);
+    open(); click('confirm-confirmation');
+    http.expectOne(endpoint).flush({ id: 'expense', deleted: true, receiptDeletionFailed: false }); fixture.detectChanges();
+    oldRead.flush(saved); fixture.detectChanges();
+    expect(fixture.componentInstance.expense()).toBeNull();
+    expect(el('edit-expense')).toBeNull(); expect(el('delete-expense')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Despesa excluída');
+    http.expectNone(`${api}/budgets?projectId=project`);
+  });
 });
