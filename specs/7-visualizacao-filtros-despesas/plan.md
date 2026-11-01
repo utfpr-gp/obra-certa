@@ -57,7 +57,8 @@
   - Migration: nenhuma.
   - Arquivos previstos: enum/validação de ordenação, `Sort`/query do repository e service da API; controle de ordenação, estado do componente e testes web.
 
-- [ ] **Tarefa 6 — Tratar estados vazios e apresentação responsiva**
+- [x] **Tarefa 6 — Tratar estados vazios e apresentação responsiva**
+  - Rastreabilidade: entrega consolidada pela Tarefa 10, com correções e revisões independentes aprovadas. Os pareceres bloqueantes originais da Tarefa 6 permanecem preservados.
   - Cobre: CA6 e CA11.
   - Teste primeiro: `.spec.ts` para obra sem despesas, resultado vazio por aba/filtro, totais zerados, loading, erro visual, limpeza de filtros, abas utilizáveis e ações disponíveis em viewport mobile; testes de API serão mantidos para garantir que resposta vazia não seja erro.
   - Migration: nenhuma.
@@ -85,7 +86,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: teste e componente `accounts-page` em `apps/web`; teste integrado de situação em `apps/api` somente se houver divergência do padrão de testes existente; registro da execução em `reviews/`.
 
-- [ ] **Tarefa 10 — Consolidar correções da Tarefa 6 após o limite de revisão**
+- [x] **Tarefa 10 — Consolidar correções da Tarefa 6 após o limite de revisão**
   - Autorização: o autor aprovou este encaminhamento e solicitou a correção: “Pode aprovar e corrigir”. Os pareceres da Tarefa 6 permanecem preservados; esta é a primeira rodada da Tarefa 10.
   - Cobre: correções de CA6 e CA11 que permaneceram bloqueantes após duas rodadas da Tarefa 6, sem alterar os critérios de aceite.
   - Origem: a Tarefa 6 atingiu o limite de duas rodadas com falhas na suíte frontend, cobertura insuficiente de viewport mobile e regressões nos testes existentes, registradas em `reviews/tarefa-06-conformidade-r2.md` e `reviews/tarefa-06-codigo-r2.md`.

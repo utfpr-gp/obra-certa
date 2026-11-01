@@ -15,7 +15,7 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
   standalone: true,
   imports: [CommonModule, RouterLink, ReactiveFormsModule],
   template: `
-    <main class="p-4 md:p-6 lg:p-8 space-y-6">
+    <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
       <header>
         <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Contas a pagar</h1>
         <p class="mt-1 text-sm text-slate-500">Cadastre as despesas da sua obra.</p>
@@ -107,51 +107,102 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
           @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
         </select>
       </div>
-      <section aria-labelledby="accounts-list-title" class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <h2 id="accounts-list-title" class="sr-only">Despesas cadastradas</h2>
-        <nav aria-label="Situação das despesas" class="flex gap-2 border-b border-slate-200 p-4">
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <nav data-testid="expense-tabs" role="tablist" aria-label="Situação das despesas" class="grid grid-cols-2 gap-2 border-b border-slate-200 p-4 sm:flex">
           @for (option of tabs; track option.value) {
             <button type="button" [attr.data-testid]="'expense-tab-' + option.value"
-              [attr.aria-selected]="tab() === option.value" (click)="selectTab(option.value)"
-              class="rounded-lg px-3 py-2 text-sm">{{ option.label }}</button>
+              role="tab" [attr.id]="'expense-tab-' + option.value"
+              aria-controls="expenses-panel"
+              [attr.aria-selected]="tab() === option.value" [attr.tabindex]="tab() === option.value ? 0 : -1"
+              [class.bg-primary-oc]="tab() === option.value" [class.text-white]="tab() === option.value"
+              (click)="selectTab(option.value)" (keydown)="onTabKeydown($event, option.value)"
+              class="min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">{{ option.label }}</button>
           }
         </nav>
+      <section id="expenses-panel" role="tabpanel" tabindex="0" [attr.aria-labelledby]="'expense-tab-' + tab()"
+        [attr.aria-busy]="loading()">
+        <h2 id="accounts-list-title" class="sr-only">Despesas cadastradas</h2>
+        @if (loading()) {
+          <div data-testid="expenses-loading" role="status" class="p-8 text-center text-sm text-slate-600">
+            Carregando despesas...
+          </div>
+        }
         @if (error()) {
           <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
             <p>{{ error() }}</p>
-            <button type="button" data-testid="retry-expenses" class="mt-2 underline" (click)="retry()">Tentar novamente</button>
           </div>
         }
-        <table class="w-full min-w-[900px] text-left text-sm">
-          <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th class="px-4 py-3">Descrição</th><th class="px-4 py-3">Categoria</th>
-              <th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Compra</th>
-              <th class="px-4 py-3">Vencimento</th><th class="px-4 py-3">Valor</th>
-              <th class="px-4 py-3">Situação</th><th class="px-4 py-3">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (expense of expenses(); track expense.id) {
-              <tr class="border-b border-slate-100">
-                <td class="px-4 py-3 font-medium text-slate-900">{{ expense.description }}</td>
-                <td class="px-4 py-3">{{ expense.categoryName }}</td>
-                <td class="px-4 py-3">{{ expense.supplier.name }}</td>
-                <td class="px-4 py-3">{{ expense.purchaseDate | date:'dd/MM/yyyy' }}</td>
-                <td class="px-4 py-3">{{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }}</td>
-                <td class="px-4 py-3">{{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
-                <td class="px-4 py-3">{{ expense.paid ? 'Pago' : 'Pendente' }}</td>
-                <td class="px-4 py-3"><a class="text-primary-oc underline" [routerLink]="['/despesas', expense.id]">Consultar</a></td>
-              </tr>
+        @if (!loading() && !error() && !expenses().length) {
+          <div [attr.data-testid]="isEmptyProject() ? 'empty-project' : 'empty-results'" class="p-8 text-center">
+            <h3 class="text-lg font-semibold text-slate-900">
+              {{ isEmptyProject() ? 'Nenhuma despesa cadastrada' : 'Nenhum resultado encontrado' }}
+            </h3>
+            <p class="mt-2 text-sm text-slate-600">
+              {{ isEmptyProject() ? 'Cadastre sua primeira conta para acompanhar as despesas desta obra.' : 'Tente outra aba ou ajuste os filtros aplicados.' }}
+            </p>
+            @if (isEmptyProject()) {
+              <a routerLink="/contas/nova" class="btn-oc-primary mt-4 inline-flex min-h-11 items-center" data-testid="empty-create-account">
+                Cadastrar primeira conta
+              </a>
             }
-          </tbody>
-        </table>
-        <nav data-testid="pagination" aria-label="Paginação" class="flex items-center justify-between border-t border-slate-200 p-4">
-          <button type="button" [disabled]="page() === 0" (click)="loadPage(page() - 1)">Anterior</button>
+            @if (hasAppliedFilters()) {
+              <button type="button" data-testid="clear-empty-filters" class="mt-4 min-h-11 rounded-md border border-slate-300 px-4 text-sm text-slate-700" (click)="clearFilters()">
+                Limpar filtros
+              </button>
+            }
+          </div>
+        }
+        @if (!loading() && !error() && expenses().length) {
+          <div data-testid="expense-cards" class="space-y-4 p-4 sm:hidden">
+            @for (expense of expenses(); track expense.id) {
+              <article class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
+                <h3 class="break-words font-semibold text-slate-800">{{ expense.description }}</h3>
+                <dl class="mt-3 space-y-2 break-words">
+                  <div><dt class="font-medium">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
+                  <div><dt class="font-medium">Fornecedor</dt><dd>{{ expense.supplier.name }}</dd></div>
+                  <div><dt class="font-medium">Compra</dt><dd>{{ expense.purchaseDate | date:'dd/MM/yyyy' }}</dd></div>
+                  <div><dt class="font-medium">Vencimento</dt><dd>{{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }}</dd></div>
+                  <div><dt class="font-medium">Valor</dt><dd>{{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</dd></div>
+                  <div><dt class="font-medium">Situação</dt><dd>{{ expense.paid ? 'Pago' : 'Pendente' }}</dd></div>
+                </dl>
+                <a class="mt-2 inline-flex min-h-11 items-center text-primary-oc underline" [routerLink]="['/despesas', expense.id]">Consultar</a>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto sm:block">
+            <table class="w-full min-w-[900px] text-left text-sm">
+              <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Descrição</th><th class="px-4 py-3">Categoria</th>
+                  <th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Compra</th>
+                  <th class="px-4 py-3">Vencimento</th><th class="px-4 py-3">Valor</th>
+                  <th class="px-4 py-3">Situação</th><th class="px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (expense of expenses(); track expense.id) {
+                  <tr class="border-b border-slate-100">
+                    <td class="px-4 py-3 font-medium text-slate-900">{{ expense.description }}</td>
+                    <td class="px-4 py-3">{{ expense.categoryName }}</td>
+                    <td class="px-4 py-3">{{ expense.supplier.name }}</td>
+                    <td class="px-4 py-3">{{ expense.purchaseDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="px-4 py-3">{{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }}</td>
+                    <td class="px-4 py-3">{{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
+                    <td class="px-4 py-3">{{ expense.paid ? 'Pago' : 'Pendente' }}</td>
+                    <td class="px-4 py-3"><a class="inline-flex min-h-11 items-center text-primary-oc underline" [routerLink]="['/despesas', expense.id]">Consultar</a></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <nav data-testid="pagination" aria-label="Paginação" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
+          <button type="button" class="min-h-11 px-2" [disabled]="page() === 0" (click)="loadPage(page() - 1)">Anterior</button>
           <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
-          <button type="button" [disabled]="page() + 1 >= totalPages()" (click)="loadPage(page() + 1)">Próxima</button>
+          <button type="button" class="min-h-11 px-2" [disabled]="page() + 1 >= totalPages()" (click)="loadPage(page() + 1)">Próxima</button>
         </nav>
       </section>
+      </div>
     </main>
   `,
 })
@@ -187,6 +238,7 @@ export class AccountsPageComponent {
   } });
   readonly totals = signal<ExpenseTotals | null>(null);
   readonly expenses = signal<ExpenseResponse[]>([]);
+  readonly loading = signal(false);
   readonly page = signal(0);
   readonly totalPages = signal(1);
   readonly tab = signal<ExpenseTab>('ALL');
@@ -205,8 +257,6 @@ export class AccountsPageComponent {
   ];
   readonly error = signal<string | null>(null);
   private readonly size = 15;
-  private lastProjectId: string | undefined;
-  private lastPage = 0;
   private tabVersion = 0;
 
   constructor() {
@@ -224,12 +274,11 @@ export class AccountsPageComponent {
   loadPage(page: number, projectId = this.activeProject.activeProject()?.id): void {
     if (!projectId || page < 0) return;
     if (this.filterForm.invalid) { this.showInvalidFilters(); return; }
-    this.lastProjectId = projectId;
-    this.lastPage = page;
     const tabVersion = this.tabVersion;
     this.error.set(null);
     this.expenses.set([]);
     this.totals.set(null);
+    this.loading.set(true);
     this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).subscribe({
       next: response => {
         if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
@@ -237,10 +286,12 @@ export class AccountsPageComponent {
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
         this.totals.set(response.totals);
+        this.loading.set(false);
       },
       error: () => {
         if (this.activeProject.activeProject()?.id !== projectId || this.tabVersion !== tabVersion) return;
-        this.error.set('Não foi possível carregar as despesas. Tente novamente.');
+        this.loading.set(false);
+        this.error.set('Não foi possível carregar as despesas.');
       },
     });
   }
@@ -251,6 +302,22 @@ export class AccountsPageComponent {
     this.tab.set(tab);
     this.page.set(0);
     this.loadPage(0);
+  }
+
+  onTabKeydown(event: KeyboardEvent, tab: ExpenseTab): void {
+    const index = this.tabs.findIndex(option => option.value === tab);
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight': next = (index + 1) % this.tabs.length; break;
+      case 'ArrowLeft': next = (index + this.tabs.length - 1) % this.tabs.length; break;
+      case 'Home': next = 0; break;
+      case 'End': next = this.tabs.length - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    this.selectTab(this.tabs[next].value);
+    const list = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    (list?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
   }
 
   selectSort(event: Event): void {
@@ -309,8 +376,19 @@ export class AccountsPageComponent {
     this.loadPage(0);
   }
 
+  hasAppliedFilters(): boolean {
+    const filters = this.filters();
+    return !!filters.purchaseDateFrom || !!filters.purchaseDateTo || !!filters.dueDateFrom
+      || !!filters.dueDateTo || !!filters.supplierId || !!filters.categoryIds?.length;
+  }
+
+  isEmptyProject(): boolean {
+    return this.tab() === 'ALL' && !this.hasAppliedFilters();
+  }
+
   private showInvalidFilters(): void {
     this.tabVersion++;
+    this.loading.set(false);
     this.validationAttempted.set(true);
     this.filterForm.markAllAsTouched();
     this.expenses.set([]);
@@ -318,7 +396,4 @@ export class AccountsPageComponent {
     this.error.set(null);
   }
 
-  retry(): void {
-    if (this.lastProjectId) this.loadPage(this.lastPage, this.lastProjectId);
-  }
 }
