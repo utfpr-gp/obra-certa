@@ -4,6 +4,8 @@ import com.obracerta.model.dto.expense.ExpenseResponseDTO;
 import com.obracerta.model.dto.supplier.SupplierDTO;
 import com.obracerta.model.entity.Expense;
 import com.obracerta.model.entity.Supplier;
+import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
+import org.springframework.data.domain.Page;
 
 public final class ExpenseMapper {
     private ExpenseMapper() {}
@@ -30,6 +32,11 @@ public final class ExpenseMapper {
                 expense.getPendingPayment() == null ? null : expense.getPendingPayment().getPaidAt(),
                 false
         );
+    }
+
+    public static ExpensePageResponseDTO toPageDTO(Page<Expense> page) {
+        return new ExpensePageResponseDTO(page.getContent().stream().map(ExpenseMapper::toDTO).toList(),
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isLast());
     }
 
     public static ExpenseResponseDTO withReceiptDeletionFailed(ExpenseResponseDTO expense, boolean failed) {

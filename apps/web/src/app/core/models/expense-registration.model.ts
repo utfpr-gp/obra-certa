@@ -44,5 +44,14 @@ export interface ExpenseResponse {
   receiptDeletionFailed?: boolean;
 }
 
+export interface ExpensePageResponse {
+  content: ExpenseResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last?: boolean;
+}
+
 export type ExpenseUpdate = Pick<ExpenseCreate,
   'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;

@@ -5,12 +5,27 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, String> {
+
+    @Query("""
+            select e from Expense e
+            where e.project.id = :projectId
+              and e.project.user.id = :userId
+              and e.project.deletedAt is null
+              and e.deletedAt is null
+            """)
+    @EntityGraph(attributePaths = {"category", "supplier", "pendingPayment"})
+    Page<Expense> findActiveByProjectAndOwner(@Param("projectId") String projectId,
+                                               @Param("userId") String userId,
+                                               Pageable pageable);
 
     @Query("select e from Expense e where e.id = :id and e.project.user.id = :userId "
             + "and e.deletedAt is null and e.project.deletedAt is null")

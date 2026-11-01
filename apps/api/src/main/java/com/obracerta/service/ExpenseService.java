@@ -26,6 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
 
 @Service
 public class ExpenseService {
@@ -220,6 +223,18 @@ public class ExpenseService {
     public ExpenseResponseDTO get(String id) {
         return ExpenseMapper.toDTO(expenses.findActiveByIdAndOwner(id, identity.getAuthenticatedUser().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada")));
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(String projectId, int page, int size) {
+        User owner = identity.getAuthenticatedUser();
+        projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, owner.getId())
+                .orElseThrow(ResourceNotFoundException::new);
+        int effectiveSize = Math.min(size, 15);
+        var result = expenses.findActiveByProjectAndOwner(projectId, owner.getId(),
+                PageRequest.of(page, effectiveSize, Sort.by(Sort.Direction.DESC, "purchaseDate")
+                        .and(Sort.by(Sort.Direction.ASC, "id"))));
+        return ExpenseMapper.toPageDTO(result);
     }
 
     private static void validateNumber(BigDecimal number, int integers, String field) {
