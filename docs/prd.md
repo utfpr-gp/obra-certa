@@ -214,12 +214,13 @@
 
 ---
 
-### ⚪ US05 — Visualização e Filtros de Despesas
+### 🟢 US05 — Visualização e Filtros de Despesas
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** ⚪ Draft  
+- **Status:** 🟢 Live  
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Cadastro de Despesas); US04 (Edição/Exclusão)  
+- **Rastreabilidade:** Issue #7; [spec aprovada, plano e revisões](../specs/7-visualizacao-filtros-despesas/). Dez tarefas concluídas, incluindo as consolidações das pendências das Tarefas 1 e 6. Listagem real em `/contas`, quatro abas, filtros combinados, ordenação, totalizadores, apresentação mobile e proteção de contexto. Última validação: 390 testes frontend e quatro testes integrados da listagem aprovados. Auditoria final e integração por PR pendentes; Live indica implementação local, sem declarar implantação em produção.
 - **História:** Como proprietário com uma obra selecionada, quero visualizar a listagem paginada de despesas com filtros por período de compra, período de vencimento, múltiplas categorias e fornecedor, acompanhando totalizadores de valores pagos, pendentes e totais, para gerenciar com clareza o fluxo financeiro da obra.
 - **Regras de Negócio Associadas:** RN01, RN04
 

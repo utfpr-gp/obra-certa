@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal } from '@lucide/angular';
+import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
@@ -13,29 +14,74 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal],
   template: `
     <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
-      <header>
-        <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Contas a pagar</h1>
-        <p class="mt-1 text-sm text-slate-500">Cadastre as despesas da sua obra.</p>
-      </header>
-      <section aria-labelledby="new-account-title" class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="min-w-0">
-          <h2 id="new-account-title" class="text-lg font-semibold text-slate-900">Nova conta</h2>
-          <p class="mt-2 max-w-2xl text-sm text-slate-600">
-            Informe os dados da despesa, o vencimento quando houver pagamento pendente e, se desejar, anexe um comprovante.
-          </p>
+          <h1 class="text-2xl font-bold text-slate-800">Contas a Pagar</h1>
+          <p class="mt-1 text-sm text-slate-500">Acompanhe os compromissos da obra e mantenha o histórico de quitações.</p>
         </div>
-        <a
-          routerLink="/contas/nova"
-          class="btn-oc-primary min-h-11 w-full shrink-0 md:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc"
-          data-testid="create-account"
-        >Cadastrar conta</a>
-      </section>
-      <details data-testid="filters-panel" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm"
+        <a routerLink="/contas/nova" data-testid="create-account"
+          class="btn-oc-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
+          <svg lucidePlus [size]="18" aria-hidden="true" />Cadastrar conta
+        </a>
+      </header>
+      @if (hasActiveProject()) {
+        <section aria-label="Totalizadores das despesas" [attr.aria-busy]="loading()" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <article data-testid="total-pending" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-3"><h2 class="text-xs font-medium text-slate-500">Total a Pagar</h2><svg lucideCalendarClock [size]="20" class="text-primary-oc" aria-hidden="true" /></div>
+            <p class="mt-2 text-2xl font-bold text-primary-oc">
+              @if (totals(); as totals) { {{ totals.totalPending | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} }
+              @else { <span class="account-total-placeholder" [class.account-skeleton]="loading()"><span class="sr-only">{{ loading() ? 'Carregando total a pagar' : 'Total a pagar indisponível' }}</span><span aria-hidden="true">—</span></span> }
+            </p>
+            <p class="mt-2 text-xs text-slate-500">Compromissos pendentes no recorte atual</p>
+          </article>
+          <article data-testid="total-paid" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-3"><h2 class="text-xs font-medium text-slate-500">Total Pago</h2><svg lucideCircleCheck [size]="20" class="text-emerald-600" aria-hidden="true" /></div>
+            <p class="mt-2 text-2xl font-bold text-slate-800">
+              @if (totals(); as totals) { {{ totals.totalPaid | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} }
+              @else { <span class="account-total-placeholder" [class.account-skeleton]="loading()"><span class="sr-only">{{ loading() ? 'Carregando total pago' : 'Total pago indisponível' }}</span><span aria-hidden="true">—</span></span> }
+            </p>
+            <p class="mt-2 text-xs text-slate-500">Despesas quitadas no recorte atual</p>
+          </article>
+          <article data-testid="total-general" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-3"><h2 class="text-xs font-medium text-slate-500">Total Geral</h2><svg lucideReceipt [size]="20" class="text-slate-500" aria-hidden="true" /></div>
+            <p class="mt-2 text-2xl font-bold text-slate-800">
+              @if (totals(); as totals) { {{ totals.totalGeneral | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} }
+              @else { <span class="account-total-placeholder" [class.account-skeleton]="loading()"><span class="sr-only">{{ loading() ? 'Carregando total geral' : 'Total geral indisponível' }}</span><span aria-hidden="true">—</span></span> }
+            </p>
+            <p class="mt-2 text-xs text-slate-500">Soma dos valores pagos e a pagar</p>
+          </article>
+        </section>
+      }
+      <section aria-labelledby="accounts-list-title" class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="px-4 pt-5 md:px-6 md:pt-6">
+          <h2 id="accounts-list-title" class="text-xl font-semibold text-slate-800">Compromissos e histórico</h2>
+          <p class="mt-1 text-xs text-slate-500">Consulte as despesas e acompanhe a situação dos pagamentos.</p>
+        </div>
+        <nav data-testid="expense-tabs" role="tablist" aria-label="Situação das despesas" class="mt-4 grid grid-cols-2 border-b border-slate-200 px-4 sm:flex md:px-6">
+          @for (option of tabs; track option.value) {
+            <button type="button" [attr.data-testid]="'expense-tab-' + option.value"
+              role="tab" [attr.id]="'expense-tab-' + option.value"
+              aria-controls="expenses-panel"
+              [attr.aria-selected]="tab() === option.value" [attr.tabindex]="tab() === option.value ? 0 : -1"
+              [class.account-tab-active]="tab() === option.value"
+              (click)="selectTab(option.value)" (keydown)="onTabKeydown($event, option.value)"
+              class="account-tab min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-sm text-slate-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">{{ option.label }}</button>
+          }
+        </nav>
+        <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-start md:px-6">
+      <div class="flex min-w-0 flex-col gap-1 sm:ml-auto sm:w-64">
+        <label for="expense-sort" class="text-sm font-medium text-slate-800">Ordenar por</label>
+        <select id="expense-sort" data-testid="expense-sort" [value]="sort()" (change)="selectSort($event)"
+          class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 sm:w-auto">
+          @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
+        </select>
+      </div>
+      <details data-testid="filters-panel" class="min-w-0 sm:order-first sm:flex-1"
         (toggle)="onFiltersToggle($event)">
-        <summary class="min-h-11 cursor-pointer font-semibold text-slate-800">Filtros</summary>
+        <summary class="min-h-11 w-fit list-none cursor-pointer rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden"><svg lucideSlidersHorizontal [size]="16" class="mr-2 inline-block" aria-hidden="true" />Filtros</summary>
         <form data-testid="expense-filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="mt-4 space-y-4">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             @for (field of dateFields; track field.key) {
@@ -84,47 +130,13 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
           </div>
         </form>
       </details>
-      @if (totals(); as totals) {
-        <section aria-label="Totalizadores das despesas" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <article data-testid="total-paid" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
-            <h2 class="text-xs font-medium text-slate-500">Total Pago</h2>
-            <p class="mt-2 text-2xl font-bold text-slate-800">{{ totals.totalPaid | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</p>
-          </article>
-          <article data-testid="total-pending" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
-            <h2 class="text-xs font-medium text-slate-500">Total a Pagar</h2>
-            <p class="mt-2 text-2xl font-bold text-primary-oc">{{ totals.totalPending | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</p>
-          </article>
-          <article data-testid="total-general" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
-            <h2 class="text-xs font-medium text-slate-500">Total Geral</h2>
-            <p class="mt-2 text-2xl font-bold text-slate-800">{{ totals.totalGeneral | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</p>
-          </article>
-        </section>
-      }
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        <label for="expense-sort" class="text-sm font-medium text-slate-800">Ordenar por</label>
-        <select id="expense-sort" data-testid="expense-sort" [value]="sort()" (change)="selectSort($event)"
-          class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 sm:w-auto">
-          @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
-        </select>
-      </div>
-      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <nav data-testid="expense-tabs" role="tablist" aria-label="Situação das despesas" class="grid grid-cols-2 gap-2 border-b border-slate-200 p-4 sm:flex">
-          @for (option of tabs; track option.value) {
-            <button type="button" [attr.data-testid]="'expense-tab-' + option.value"
-              role="tab" [attr.id]="'expense-tab-' + option.value"
-              aria-controls="expenses-panel"
-              [attr.aria-selected]="tab() === option.value" [attr.tabindex]="tab() === option.value ? 0 : -1"
-              [class.bg-primary-oc]="tab() === option.value" [class.text-white]="tab() === option.value"
-              (click)="selectTab(option.value)" (keydown)="onTabKeydown($event, option.value)"
-              class="min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">{{ option.label }}</button>
-          }
-        </nav>
+        </div>
       <section id="expenses-panel" role="tabpanel" tabindex="0" [attr.aria-labelledby]="'expense-tab-' + tab()"
         [attr.aria-busy]="loading()">
-        <h2 id="accounts-list-title" class="sr-only">Despesas cadastradas</h2>
+        <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
-          <div data-testid="expenses-loading" role="status" class="p-8 text-center text-sm text-slate-600">
-            Carregando despesas...
+          <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
+            Carregando despesas... Dados indisponíveis durante a atualização.
           </div>
         }
         @if (error()) {
@@ -156,58 +168,93 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
             }
           </div>
         }
-        @if (!loading() && !error() && expenses().length) {
+        <ng-template #cellPlaceholder><span aria-hidden="true" class="account-skeleton account-cell-placeholder"></span></ng-template>
+        @if (hasActiveProject() && !error() && (loading() || expenses().length)) {
           <div data-testid="expense-cards" class="space-y-4 p-4 sm:hidden">
-            @for (expense of expenses(); track expense.id) {
-              <article class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                <h3 class="break-words font-semibold text-slate-800">{{ expense.description }}</h3>
+            @for (expense of displayedRows(); track $index) {
+              <article [style.height.px]="loading() ? rowDimensions()[$index]?.mobile : null" class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
+                <h3 class="break-words font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
                 <dl class="mt-3 space-y-2 break-words">
-                  <div><dt class="font-medium">Categoria</dt><dd>{{ expense.categoryName }}</dd></div>
-                  <div><dt class="font-medium">Fornecedor</dt><dd>{{ expense.supplier.name }}</dd></div>
-                  <div><dt class="font-medium">Compra</dt><dd>{{ expense.purchaseDate | date:'dd/MM/yyyy' }}</dd></div>
-                  <div><dt class="font-medium">Vencimento</dt><dd>{{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }}</dd></div>
-                  <div><dt class="font-medium">Valor</dt><dd>{{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</dd></div>
-                  <div><dt class="font-medium">Situação</dt><dd>{{ expense.paid ? 'Pago' : 'Pendente' }}</dd></div>
+                  <div><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div><dt class="font-medium">Compra</dt><dd>@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div><dt class="font-medium">Valor</dt><dd class="font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div><dt class="font-medium">Situação</dt><dd>@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                 </dl>
-                <a class="mt-2 inline-flex min-h-11 items-center text-primary-oc underline" [routerLink]="['/despesas', expense.id]">Consultar</a>
+                @if (expense) {
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
+                    @if (!expense.paid) {
+                      <button type="button" disabled data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs">Marcar como Pago</button>
+                    }
+                  </div>
+                }
+                @else { <span class="mt-2 inline-flex min-h-11 items-center"><ng-container [ngTemplateOutlet]="cellPlaceholder" /></span> }
               </article>
             }
           </div>
           <div class="hidden overflow-x-auto sm:block">
-            <table class="w-full min-w-[900px] text-left text-sm">
-              <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+            <table [style.table-layout]="loading() ? 'fixed' : null" class="w-full min-w-[900px] text-left text-sm">
+              <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
                 <tr>
-                  <th class="px-4 py-3">Descrição</th><th class="px-4 py-3">Categoria</th>
-                  <th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Compra</th>
-                  <th class="px-4 py-3">Vencimento</th><th class="px-4 py-3">Valor</th>
-                  <th class="px-4 py-3">Situação</th><th class="px-4 py-3">Ações</th>
+                  @for (heading of columnHeadings; track heading; let index = $index) {
+                    <th [style.width.px]="loading() ? columnWidths()[index] : null" [class.text-right]="index === 5" class="px-4 py-3">{{ heading }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
-                @for (expense of expenses(); track expense.id) {
-                  <tr class="border-b border-slate-100">
-                    <td class="px-4 py-3 font-medium text-slate-900">{{ expense.description }}</td>
-                    <td class="px-4 py-3">{{ expense.categoryName }}</td>
-                    <td class="px-4 py-3">{{ expense.supplier.name }}</td>
-                    <td class="px-4 py-3">{{ expense.purchaseDate | date:'dd/MM/yyyy' }}</td>
-                    <td class="px-4 py-3">{{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }}</td>
-                    <td class="px-4 py-3">{{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
-                    <td class="px-4 py-3">{{ expense.paid ? 'Pago' : 'Pendente' }}</td>
-                    <td class="px-4 py-3"><a class="inline-flex min-h-11 items-center text-primary-oc underline" [routerLink]="['/despesas', expense.id]">Consultar</a></td>
+                @for (expense of displayedRows(); track $index) {
+                  <tr [style.height.px]="loading() ? rowDimensions()[$index]?.desktop : null" class="border-b border-slate-200/70 text-slate-600 hover:bg-slate-50/60">
+                    <td class="px-4 py-3 font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3">
+                      @if (expense) {
+                        <div class="flex flex-wrap items-center gap-2">
+                          <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
+                          @if (!expense.paid) {
+                            <button type="button" disabled data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs">Marcar como Pago</button>
+                          }
+                        </div>
+                      } @else { <span class="inline-flex min-h-11 items-center"><ng-container [ngTemplateOutlet]="cellPlaceholder" /></span> }
+                    </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
         }
+        </div>
         <nav data-testid="pagination" aria-label="Paginação" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
-          <button type="button" class="min-h-11 px-2" [disabled]="page() === 0" (click)="loadPage(page() - 1)">Anterior</button>
-          <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
-          <button type="button" class="min-h-11 px-2" [disabled]="page() + 1 >= totalPages()" (click)="loadPage(page() + 1)">Próxima</button>
+          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() === 0" (click)="loadPage(page() - 1)">Anterior</button>
+          <div class="text-center text-xs text-slate-500">
+            @if (loading()) { <span>Atualizando página...</span><span class="mt-1 block">Aguarde os resultados</span> }
+            @else {
+              <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
+              @if (totalElements() !== null) { <span class="mt-1 block">{{ totalElements() }} {{ totalElements() === 1 ? 'registro' : 'registros' }} no resultado</span> }
+            }
+          </div>
+          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() + 1 >= totalPages()" (click)="loadPage(page() + 1)">Próxima</button>
         </nav>
       </section>
-      </div>
+      </section>
     </main>
+  `,
+  styles: `
+    .account-total-placeholder { display: block; height: 2rem; width: 10rem; max-width: 100%; border-radius: 0.375rem; }
+    .account-skeleton { background: #e2e8f0; color: transparent; }
+    .account-cell-placeholder { display: inline-block; height: 0.75rem; width: 5rem; max-width: 100%; border-radius: 0.375rem; }
+    .account-tab { transition: background-color 150ms, color 150ms; }
+    .account-tab:hover { background: #f8fafc; color: #007a80; }
+    .account-tab-active { border-bottom-color: #007a80; background: #e6f2f3; color: #007a80; font-weight: 600; }
+    .account-status { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
+    .account-status-paid { background: #d1fae5; color: #065f46; }
+    .account-status-pending { background: #fef3c7; color: #92400e; }
   `,
 })
 export class AccountsPageComponent {
@@ -247,6 +294,7 @@ export class AccountsPageComponent {
   readonly loading = signal(false);
   readonly page = signal(0);
   readonly totalPages = signal(1);
+  readonly totalElements = signal<number | null>(null);
   readonly tab = signal<ExpenseTab>('ALL');
   readonly sort = signal<ExpenseSort>('PURCHASE_DATE_DESC');
   readonly sortOptions: { value: ExpenseSort; label: string }[] = [
@@ -264,6 +312,14 @@ export class AccountsPageComponent {
   readonly error = signal<string | null>(null);
   private readonly size = 15;
   private queryVersion = 0;
+  private readonly expenseResults = viewChild<ElementRef<HTMLElement>>('expenseResults');
+  readonly resultsHeight = signal(192);
+  readonly columnHeadings = ['Descrição', 'Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação', 'Ações'];
+  readonly columnWidths = signal<number[]>([]);
+  readonly rowDimensions = signal<{ desktop: number; mobile: number }[]>([]);
+  readonly displayedRows = computed<(ExpenseResponse | null)[]>(() => this.loading()
+    ? Array.from({ length: Math.max(this.rowDimensions().length, 1) }, () => null)
+    : this.expenses());
 
   constructor() {
     effect(() => {
@@ -279,6 +335,7 @@ export class AccountsPageComponent {
         this.totalPages.set(1);
         this.expenses.set([]);
         this.totals.set(null);
+        this.totalElements.set(null);
         this.error.set(null);
         this.loading.set(false);
         const project = this.activeProject.activeProject();
@@ -294,10 +351,24 @@ export class AccountsPageComponent {
     const contextVersion = this.activeProject.contextVersion();
     const isCurrent = () => !this.destroyRef.destroyed && this.queryVersion === queryVersion
       && this.activeProject.contextVersion() === contextVersion;
+    // Preserve only presentation dimensions, never the previous financial response.
+    if (!this.loading()) {
+      const results = this.expenseResults()?.nativeElement;
+      const height = results?.getBoundingClientRect().height;
+      if (height) this.resultsHeight.set(height);
+      const desktopRows = results?.querySelectorAll('tbody tr');
+      const mobileRows = results?.querySelectorAll('[data-testid="expense-cards"] article');
+      this.rowDimensions.set(this.expenses().map((_, index) => ({
+        desktop: desktopRows?.[index]?.getBoundingClientRect().height ?? 0,
+        mobile: mobileRows?.[index]?.getBoundingClientRect().height ?? 0,
+      })));
+      this.columnWidths.set(Array.from(results?.querySelectorAll('thead th') ?? [], column => column.getBoundingClientRect().width));
+    }
     this.page.set(page);
     this.error.set(null);
     this.expenses.set([]);
     this.totals.set(null);
+    this.totalElements.set(null);
     this.loading.set(true);
     this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).subscribe({
       next: response => {
@@ -305,6 +376,7 @@ export class AccountsPageComponent {
         this.page.set(response.page);
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
+        this.totalElements.set(response.totalElements ?? null);
         this.totals.set(response.totals);
         this.loading.set(false);
       },
@@ -409,6 +481,7 @@ export class AccountsPageComponent {
     this.filterForm.markAllAsTouched();
     this.expenses.set([]);
     this.totals.set(null);
+    this.totalElements.set(null);
     this.error.set(null);
   }
 

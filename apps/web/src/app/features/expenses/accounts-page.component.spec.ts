@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { AccountsPageComponent } from './accounts-page.component';
 import { ActiveProjectService } from '../../core/services/active-project.service';
@@ -65,6 +65,7 @@ describe('AccountsPageComponent', () => {
       fixture.detectChanges();
     };
     flushPage(0);
+    expect(fixture.nativeElement.querySelector('[data-testid="pagination"]').textContent).toContain('19 registros no resultado');
     expect(fixture.nativeElement.querySelectorAll('[data-testid^="total-"]').length).toBe(3);
     expect(fixture.componentInstance.totals()).toEqual(totals);
     fixture.componentInstance.loadPage(1);
@@ -105,6 +106,7 @@ describe('AccountsPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Loja');
     expect(fixture.nativeElement.querySelector('a[href="/despesas/expense-1"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="pagination"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="pagination"]').textContent).toContain('1 registro no resultado');
     expect(fixture.nativeElement.querySelector('[data-testid="create-account"]')).not.toBeNull();
     http.verify();
   });
@@ -190,6 +192,10 @@ describe('AccountsPageComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[data-testid="expenses-loading"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid^="total-"]').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('[aria-label="Totalizadores das despesas"]').getAttribute('aria-busy')).toBe('true');
+    expect(fixture.nativeElement.textContent).not.toMatch(/R\$\s*0,00/);
+    expect(fixture.nativeElement.querySelector('[data-testid="mark-expense-paid"]')).toBeNull();
     TestBed.inject(HttpTestingController).expectOne(r => r.url.endsWith('/api/expenses')).flush({
       content: [], page: 0, size: 15, totalElements: 0, totalPages: 0,
       totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 },
@@ -241,10 +247,27 @@ describe('AccountsPageComponent', () => {
         return loaded;
       }));
       doc.body.style.margin = '0';
-      doc.body.appendChild(fixture.nativeElement);
+      // The application's main layout scrolls its overflow-y-auto container.
+      const scrollContainer = doc.createElement('div');
+      scrollContainer.style.cssText = 'height:900px;overflow-y:auto';
+      doc.body.appendChild(scrollContainer);
+      scrollContainer.appendChild(fixture.nativeElement);
       expect(frame.contentWindow!.innerWidth).toBe(width);
       expect(frame.contentWindow!.getComputedStyle(doc.documentElement).getPropertyValue('--spacing').trim()).toBe('0.25rem');
       const root = fixture.nativeElement as HTMLElement;
+      const header = root.querySelector('header')!;
+      expect(header.querySelector('h1')?.textContent).toBe('Contas a Pagar');
+      expect(header.textContent).toContain('Acompanhe os compromissos da obra e mantenha o histórico de quitações.');
+      expect(header.querySelector('[data-testid="create-account"]')).not.toBeNull();
+      expect(root.querySelector('#new-account-title')).toBeNull();
+      const listPanel = root.querySelector('[aria-labelledby="accounts-list-title"]');
+      expect(listPanel).not.toBeNull();
+      expect(listPanel?.querySelector('#accounts-list-title')?.textContent).toBe('Compromissos e histórico');
+      expect(listPanel?.querySelector('[data-testid="filters-panel"]')).not.toBeNull();
+      expect(listPanel?.querySelector('[data-testid="expense-sort"]')).not.toBeNull();
+      expect(Array.from(root.querySelectorAll('[data-testid^="total-"] h2'), node => node.textContent))
+        .toEqual(['Total a Pagar', 'Total Pago', 'Total Geral']);
+      expect(header.querySelector('h1') && frame.contentWindow!.getComputedStyle(header.querySelector('h1')!).fontSize).toBe('24px');
       const visible = (element: Element) => {
         const rect = element.getBoundingClientRect();
         expect(rect.width).toBeGreaterThan(0);
@@ -252,7 +275,15 @@ describe('AccountsPageComponent', () => {
         expect(rect.right).toBeLessThanOrEqual(width + 1);
       };
       const panel = root.querySelector('[data-testid="filters-panel"]') as HTMLDetailsElement;
-      panel.open = true;
+      const filterToggle = panel.querySelector('summary')!;
+      expect(frame.contentWindow!.getComputedStyle(filterToggle).listStyleType).toBe('none');
+      expect(filterToggle.querySelector('svg')).not.toBeNull();
+      filterToggle.click();
+      expect(panel.open).toBeTrue();
+      filterToggle.click();
+      expect(panel.open).toBeFalse();
+      filterToggle.click();
+      expect(panel.open).toBeTrue();
       panel.dispatchEvent(new Event('toggle'));
       http.expectOne(r => r.url.endsWith('/api/expense-categories')).flush([{id:'category',name:'Material'}]);
       http.expectOne(r => r.url.endsWith('/api/suppliers')).flush([{id:'supplier',name:'Loja',document:null}]);
@@ -279,6 +310,18 @@ describe('AccountsPageComponent', () => {
             purchase: '21/10/2026', due: '10/11/2026', price: 'R$ 2.345,67', status: 'Pendente' },
         ];
         const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, ' ').trim();
+        const assertCompactAction = (element: HTMLElement) => {
+          const rect = element.getBoundingClientRect();
+          const style = frame.contentWindow!.getComputedStyle(element);
+          expect(rect.height).toBeGreaterThanOrEqual(44);
+          expect(rect.height).toBeLessThanOrEqual(48);
+          expect(rect.width).toBeLessThanOrEqual(160);
+          expect(style.fontSize).toBe('12px');
+          expect(style.paddingLeft).toBe('12px');
+          expect(style.paddingRight).toBe('12px');
+          expect(style.paddingTop).toBe('8px');
+          expect(style.paddingBottom).toBe('8px');
+        };
         expectedRecords.forEach((expected, index) => {
           const record = records[index];
           expect(record).toBeDefined();
@@ -292,24 +335,128 @@ describe('AccountsPageComponent', () => {
               .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
             expect(Array.from(record.querySelectorAll('dd'), text)).toEqual(fields);
           } else {
-            expect(Array.from(record.querySelectorAll('td'), text))
-              .toEqual([expected.description, ...fields, 'Consultar']);
+            expect(Array.from(record.querySelectorAll('td'), text).slice(0, -1))
+              .toEqual([expected.description, ...fields]);
           }
           const link = record.querySelector('a')!;
           expect(link).not.toBeNull();
+          expect(text(link)).toBe('Ver detalhes');
+          expect(link.classList.contains('btn-oc-outline')).toBeTrue();
+          expect(link.classList.contains('min-h-11')).toBeTrue();
+          expect(link.classList.contains('underline')).toBeFalse();
+          expect(link.classList.contains('text-primary-oc')).toBeFalse();
+          expect(link.getAttribute('role')).toBeNull();
           visible(link);
-          expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+          assertCompactAction(link);
           expect(link.getAttribute('href')).toBe(`/despesas/${expected.id}`);
+          const markPaid = record.querySelector<HTMLButtonElement>('[data-testid="mark-expense-paid"]');
+          if (index === 0) {
+            expect(markPaid).toBeNull();
+          } else {
+            expect(markPaid).not.toBeNull();
+            if (markPaid) {
+              expect(text(markPaid)).toBe('Marcar como Pago');
+              expect(markPaid.type).toBe('button');
+              expect(markPaid.disabled).toBeTrue();
+              expect(markPaid.classList.contains('btn-oc-outline')).toBeTrue();
+              visible(markPaid);
+              assertCompactAction(markPaid);
+              const router = TestBed.inject(Router);
+              const previousUrl = router.url;
+              markPaid.click();
+              fixture.detectChanges();
+              http.expectNone(() => true);
+              expect(fixture.componentInstance.expenses()).toEqual(content);
+              expect(router.url).toBe(previousUrl);
+            }
+          }
         });
       }
       const create = root.querySelector('[data-testid="create-account"]')!;
       expect(create.getAttribute('href')).toBe('/contas/nova');
       expect(create.textContent?.trim()).toBe('Cadastrar conta');
       expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+      const stableElements = [header, listPanel!, panel, root.querySelector('[data-testid="expense-tabs"]')!,
+        ...Array.from(root.querySelectorAll('[data-testid^="total-"]'))];
+      const assertPendingTransition = (action: () => void, expected: Record<string, string>, responsePage = 0) => {
+        scrollContainer.scrollTop = 200;
+        const scrollTop = scrollContainer.scrollTop;
+        expect(scrollTop).toBeGreaterThan(0);
+        const rects = stableElements.map(element => element.getBoundingClientRect());
+        const resultsPanel = root.querySelector('#expenses-panel')!;
+        const oldHeight = resultsPanel.getBoundingClientRect().height;
+        const table = root.querySelector('table');
+        const headings = Array.from(root.querySelectorAll('thead th'));
+        const records = Array.from(root.querySelectorAll(width < 640 ? '[data-testid="expense-cards"] article' : 'tbody tr'));
+        const recordRects = records.map(record => record.getBoundingClientRect());
+        action();
+        const request = http.expectOne(r => r.url.endsWith('/api/expenses'));
+        expect(request.request.method).toBe('GET');
+        for (const [key, value] of Object.entries(expected)) expect(request.request.params.get(key)).toBe(value);
+        http.expectNone(r => r.url.endsWith('/api/expenses'));
+        fixture.detectChanges();
+        expect(root.querySelector('[data-testid="mark-expense-paid"]')).toBeNull();
+        stableElements.forEach((element, index) => {
+          expect(root.contains(element)).toBeTrue();
+          const rect = element.getBoundingClientRect();
+          expect(rect.top).toBeCloseTo(rects[index].top, 0);
+          expect(rect.height).toBeCloseTo(rects[index].height, 0);
+        });
+        expect(root.querySelector('#expenses-panel')).toBe(resultsPanel);
+        expect(scrollContainer.scrollTop).toBe(scrollTop);
+        expect(root.querySelector('table')).toBe(table);
+        const pendingHeadings = Array.from(root.querySelectorAll('thead th'));
+        expect(pendingHeadings.length).toBe(headings.length);
+        headings.forEach((heading, index) => expect(pendingHeadings[index]).toBe(heading));
+        expect(headings.map(heading => heading.textContent?.trim()))
+          .toEqual(['Descrição', 'Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação', 'Ações']);
+        const pendingRecords = Array.from(root.querySelectorAll(width < 640 ? '[data-testid="expense-cards"] article' : 'tbody tr'));
+        expect(pendingRecords.length).toBe(records.length);
+        records.forEach((record, index) => expect(pendingRecords[index]).toBe(record));
+        pendingRecords.forEach((record, index) => {
+          expect(record.getBoundingClientRect().height).toBeCloseTo(recordRects[index].height, 0);
+          expect(record.querySelector('a')).toBeNull();
+          expect(record.querySelectorAll('.account-skeleton').length).toBeGreaterThanOrEqual(7);
+          if (width < 640) expect(Array.from(record.querySelectorAll('dt'), node => node.textContent))
+            .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
+        });
+        expect(resultsPanel.getBoundingClientRect().height).toBeCloseTo(oldHeight, 0);
+        expect(resultsPanel.getAttribute('aria-busy')).toBe('true');
+        expect(resultsPanel.querySelector('[data-testid="expenses-loading"][role="status"]')).not.toBeNull();
+        expect(root.querySelector('[aria-label="Totalizadores das despesas"]')?.getAttribute('aria-busy')).toBe('true');
+        expect(root.textContent).not.toContain('Cimento');
+        expect(root.textContent).not.toContain('Instalação elétrica');
+        expect(root.textContent).not.toMatch(/R\$\s*(125,50|2\.345,67|2\.471,17|0,00)/);
+        expect(resultsPanel.textContent).not.toContain('de 2');
+        expect(fixture.componentInstance.expenses()).toEqual([]);
+        expect(fixture.componentInstance.totals()).toBeNull();
+        expect(root.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('id')).toBe('expense-tab-' + expected['tab']);
+        request.flush({content,page:responsePage,size:15,totalElements:20,totalPages:2,
+          totals:{totalPaid:125.5,totalPending:2345.67,totalGeneral:2471.17}});
+        fixture.detectChanges();
+        expect(root.querySelector('[data-testid="expenses-loading"]')).toBeNull();
+        expect(root.querySelector('#expenses-panel')?.getAttribute('aria-busy')).toBe('false');
+        expect(root.textContent).toContain('Cimento');
+        expect(root.querySelector('[data-testid="total-general"]')?.textContent).toMatch(/R\$\s*2\.471,17/);
+      };
+      assertPendingTransition(() => (root.querySelector('[data-testid="expense-tab-PENDING"]') as HTMLButtonElement).click(),
+        {tab:'PENDING',page:'0',purchaseDateFrom:'2026-01-01'});
+      assertPendingTransition(() => root.querySelector('form')!.dispatchEvent(new Event('submit')),
+        {tab:'PENDING',page:'0',purchaseDateFrom:'2026-01-01'});
+      assertPendingTransition(() => {
+        const sort = root.querySelector('[data-testid="expense-sort"]') as HTMLSelectElement;
+        sort.value = 'AMOUNT_DESC'; sort.dispatchEvent(new Event('change'));
+      }, {tab:'PENDING',page:'0',sort:'AMOUNT_DESC',purchaseDateFrom:'2026-01-01'});
+      assertPendingTransition(() => (root.querySelector('[data-testid="pagination"] button:last-child') as HTMLButtonElement).click(),
+        {tab:'PENDING',page:'1',sort:'AMOUNT_DESC',purchaseDateFrom:'2026-01-01'}, 1);
+      assertPendingTransition(() => (root.querySelector('[data-testid="expense-tab-PAID"]') as HTMLButtonElement).click(),
+        {tab:'PAID',page:'0',sort:'AMOUNT_DESC',purchaseDateFrom:'2026-01-01'});
+      assertPendingTransition(() => (root.querySelector('[data-testid="expense-tab-PENDING"]') as HTMLButtonElement).click(),
+        {tab:'PENDING',page:'0',sort:'AMOUNT_DESC',purchaseDateFrom:'2026-01-01'});
     expect(fixture.nativeElement.querySelector('[data-testid="expense-tabs"]').getAttribute('role')).toBe('tablist');
     expect(fixture.nativeElement.querySelectorAll('[role="tab"]').length).toBe(4);
     expect(fixture.nativeElement.querySelector('[role="tab"][aria-selected="true"]').getAttribute('aria-controls')).toBe('expenses-panel');
-    expect(fixture.nativeElement.querySelector('[role="tabpanel"]').getAttribute('aria-labelledby')).toBe('expense-tab-ALL');
+    expect(fixture.nativeElement.querySelector('[role="tabpanel"]').getAttribute('aria-labelledby')).toBe('expense-tab-PENDING');
     expect(fixture.nativeElement.querySelectorAll('[data-testid^="total-"]').length).toBe(3);
     expect(fixture.nativeElement.querySelector('[data-testid="filters-panel"] summary').className).toContain('min-h-11');
     expect(fixture.nativeElement.querySelector('[data-testid="create-account"]').className).toContain('min-h-11');

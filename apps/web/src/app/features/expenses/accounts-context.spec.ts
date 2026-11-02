@@ -134,6 +134,7 @@ describe('Accounts query context (CA9 and CA10)', () => {
     expect(fixture.componentInstance.loading()).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('Selecione uma obra');
     expect(fixture.nativeElement.querySelector('[data-testid="empty-project"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Totalizadores das despesas"]')).toBeNull();
     http.expectNone(r => r.url.endsWith('/api/expenses'));
     old.flush(response('Antiga'));
     expect(fixture.componentInstance.expenses()).toEqual([]);
@@ -151,6 +152,9 @@ describe('Accounts query context (CA9 and CA10)', () => {
       else failed.flush({}, { status: 503, statusText: 'Unavailable' });
       fixture.detectChanges();
       expect(component.expenses()).toEqual([]); expect(component.totals()).toBeNull();
+      expect(fixture.nativeElement.textContent).not.toMatch(/R\$/);
+      expect(fixture.nativeElement.querySelector('[data-testid="expenses-loading"]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[role="tabpanel"]').getAttribute('aria-busy')).toBe('false');
       expect(component.tab()).toBe('PENDING'); expect(component.filters().supplierId).toBe('supplier');
       http.expectNone(r => r.url.endsWith('/api/expenses'));
       const retry = fixture.nativeElement.querySelector('[data-testid="retry-expenses"]') as HTMLButtonElement;

@@ -412,8 +412,8 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
    - Prefixo obrigatório: `/api/`;
    - Recursos no plural, em inglês e kebab-case (`/api/projects`, `/api/expenses`, `/api/expense-categories`, `/api/budgets`);
    - Métodos semânticos: `POST` de criação retorna `201 Created` com header `Location`; `GET` retorna `200 OK`; `PUT`/`PATCH` retorna `200 OK`; `DELETE` retorna `204 No Content` no primeiro e `404 Not Found` em repetições, salvo os contratos com resultado explícito da US04 abaixo. A ação `POST .../zero` da US07 retorna `200 OK` com o orçamento recalculado, pois atualiza um registro existente.
-2. **Padrão de Paginação com Summary Agregado (`PageResponse<T>`):**
-   - Para consultas volumosas (despesas), utiliza-se o padrão com summary financeiro agregado:
+2. **Paginação de despesas com totais agregados (`ExpensePageResponseDTO`):**
+   - A US05 retorna registros paginados e o objeto `totals`, calculado sobre o conjunto inteiro da consulta:
    ```json
    {
      "content": [ /* lista de DTOs da página */ ],
@@ -422,14 +422,15 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
      "totalElements": 45,
      "totalPages": 3,
      "last": false,
-     "summary": {
+     "referenceDate": "2026-11-01",
+     "totals": {
        "totalPaid": 12500.00,
        "totalPending": 3400.00,
        "totalGeneral": 15900.00
      }
    }
    ```
-   - Limite padrão configurado: `spring.data.web.pageable.max-page-size=100`.
+   - A listagem de despesas valida `page >= 0` e `size` entre 1 e 15, com padrão 15. O limite genérico de Spring Pageable não substitui essa validação do endpoint.
    - Listas pequenas, como categorias, retornam `List<T>` com `200 OK`. O painel de orçamento retorna um objeto `BudgetOverviewDTO`, contendo totais e a lista `categories`.
 3. **Escopo por Obra:**
    - Consultas de coleções filtram via query parameter obrigatório: `?projectId=<uuid>`.
@@ -437,6 +438,41 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 4. **Documentação OpenAPI / Swagger:**
    - Habilitado em desenvolvimento sob `/swagger-ui.html` e `/v3/api-docs` com esquema de segurança `bearerAuth` configurado para permitir testes diretos no navegador;
    - Desabilitado no perfil de produção (`springdoc.swagger-ui.enabled=false`).
+
+### Contrato implementado da US05 — listagem de despesas
+
+`GET /api/expenses` é autenticado e retorna `200`, `ExpensePageResponseDTO`: `content`, `page`, `size`, `totalElements`, `totalPages`, `last`, `referenceDate` e `totals`. Os itens de `content` reutilizam `ExpenseResponseDTO`. Não houve alteração de schema ou migration nesta história.
+
+| Parâmetro | Contrato implementado |
+| --- | --- |
+| `projectId` | UUID obrigatório de obra própria e ativa; obra inexistente, excluída ou alheia retorna 404. |
+| `page`, `size` | Página a partir de zero; tamanho de 1 a 15, padrão 15. |
+| `tab` | `ALL` (padrão), `PENDING`, `OVERDUE` ou `PAID`. Pendentes inclui vencidas. Vencidas exige despesa não quitada e pagamento ativo com vencimento anterior à referência; vencimento nulo ou no dia não é atraso. |
+| `purchaseDateFrom`, `purchaseDateTo` | Datas ISO `YYYY-MM-DD`, limites inclusivos; permitem intervalo aberto. |
+| `dueDateFrom`, `dueDateTo` | Mesmo formato e inclusão dos limites; quando presentes, excluem registros sem vencimento ativo correspondente. |
+| `categoryIds` | Parâmetro repetido para selecionar uma ou mais categorias existentes. |
+| `supplierId` | UUID de fornecedor autorizado ao usuário; inexistente ou alheio retorna 404. O catálogo global da US15 permanece futuro. |
+| `sort` | `PURCHASE_DATE_DESC` (padrão), `PURCHASE_DATE_ASC`, `AMOUNT_DESC` ou `AMOUNT_ASC`; desempate sempre por `id` crescente. |
+
+- Nome desconhecido, valor vazio, repetição de parâmetro simples, data/UUID/enum inválido, categoria inexistente, paginação inválida ou intervalo invertido retorna 400 no formato `ApiErrorResponse`.
+- O service converte os parâmetros em `ExpenseListQueryDTO`, autoriza a obra e as referências e calcula uma única `referenceDate` com `Clock`. O repository compartilha os mesmos predicados entre página e agregação: proprietário, obra ativa, despesas ativas, aba e filtros combinados. A ordenação acontece antes da paginação; `totals` não depende da página. `totalGeneral = totalPaid + totalPending`, com `BigDecimal` na API.
+- A consulta é somente leitura e não acessa comprovantes no storage. Despesas pagas sem `PendingPayment` permanecem na listagem. O MER e os diagramas gerais de persistência permanecem válidos; o fluxo abaixo documenta a nova leitura.
+
+```mermaid
+flowchart LR
+    Tela["/contas: obra, aba, filtros, ordem e página"] --> HTTP["ExpenseService Angular: GET /api/expenses"]
+    HTTP --> API["Controller → Service: validação, autorização e Clock"]
+    API --> Repo["Repository: predicado comum de leitura"]
+    Repo --> Pagina["Ordenação e página de até 15 despesas"]
+    Repo --> Totais["Somas do conjunto completo"]
+    Pagina --> DTO["Mapper: página, referenceDate e totals"]
+    Totais --> DTO
+    DTO --> Atual["Componente aceita somente contexto e geração atuais"]
+```
+
+- `/contas` oferece quatro abas, formulário de filtros, ordenação, três totalizadores em BRL, tabela desktop e cards mobile. Os links de cada registro reutilizam `/despesas/:id`; cadastro permanece em `/contas/nova`. Sem obra ativa, a tela orienta seleção sem consultar despesas.
+- `ActiveProjectService.contextVersion` identifica transições reais de obra, inclusive A → B → A; atualizar metadados da mesma obra preserva a seleção. Cada GET recebe uma geração própria, validada no sucesso e no erro junto da versão da obra e do ciclo de vida do componente. Trocar obra limpa filtros/aba/ordem/página; trocar aba/filtros/ordem retorna à primeira página. Intervalo inválido bloqueia HTTP, descarta resultados antigos e encerra o carregamento.
+- Falhas retiram registros e totais antigos e oferecem nova tentativa manual no contexto solicitado. O interceptor existente trata 401, sem restauração de intenção após login. Retornar do cadastro ou consulta individual recria a listagem e consulta o estado atual; sair não altera os dados financeiros.
 
 ### Contrato implementado da US07
 
