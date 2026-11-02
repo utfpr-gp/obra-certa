@@ -69,4 +69,84 @@ describe('ReportsPageComponent real report', () => {
     expect(root().textContent).toContain('B');
     expect(root().textContent).not.toContain('Casa');
   });
+
+  function loadComparison() {
+    http.expectOne(r => r.url.includes('/projects/project-a/reports')).flush({
+      projectId: 'project-a', projectName: 'Casa', totalPlanned: 500000, totalSpent: 350050,
+      totalPaid: 350050, totalPending: 0, categories: [
+        { categoryId: 'empty', categoryName: 'Acabamento', amount: 0, plannedAmount: 200000, percentage: 0 },
+        { categoryId: 'equal', categoryName: 'Elétrica', amount: 100000, plannedAmount: 100000, percentage: 28.6 },
+        { categoryId: 'over', categoryName: 'Pintura', amount: 250000, plannedAmount: 200000, percentage: 71.4 },
+        { categoryId: 'unplanned', categoryName: 'Material', amount: 50, plannedAmount: 0, percentage: 0.01 },
+      ],
+    });
+    fixture.detectChanges();
+  }
+
+  it('uses one dynamic scale for planned and actual bars and omits unbudgeted categories', () => {
+    loadComparison();
+    const comparisons = root().querySelectorAll<HTMLElement>('.comparison-row');
+    expect(comparisons.length).toBe(3);
+    expect(root().querySelector('.comparison-chart')?.textContent).not.toContain('Material');
+    const widths = Array.from(root().querySelectorAll<HTMLElement>('.bar-track > span'))
+      .map(bar => Number.parseFloat(bar.style.width));
+    expect(widths.every(width => width >= 0 && width <= 100)).toBeTrue();
+    expect(widths[0]).toBeCloseTo(widths[5] * 200000 / 250000);
+    expect(widths[2]).toBeCloseTo(widths[3]);
+    expect(root().querySelector('.chart-axis')?.textContent).not.toContain('140');
+    expect(root().querySelectorAll('.distribution-item').length).toBe(3);
+    expect(root().querySelectorAll('.detail-row').length).toBe(4);
+    expect(fixture.componentInstance.totals().actualCents).toBe(35005000);
+  });
+
+  it('renders positive balances green, only excess red and unbudgeted consumption undefined', () => {
+    loadComparison();
+    const details = Array.from(root().querySelectorAll<HTMLElement>('.detail-row'));
+    const empty = details.find(row => row.textContent?.includes('Acabamento'))!;
+    const equal = details.find(row => row.textContent?.includes('Elétrica'))!;
+    const over = details.find(row => row.textContent?.includes('Pintura'))!;
+    const unplanned = details.find(row => row.textContent?.includes('Material'))!;
+    expect(empty.querySelectorAll('td')[3].classList.contains('positive')).toBeTrue();
+    expect(over.querySelectorAll('td')[3].classList.contains('negative')).toBeTrue();
+    expect(equal.classList.contains('exceeded')).toBeFalse();
+    expect(unplanned.classList.contains('exceeded')).toBeFalse();
+    expect(unplanned.querySelectorAll('td')[4].textContent).toContain('—');
+    expect(unplanned.textContent).toContain('Sem orçamento');
+    expect(fixture.componentInstance.totals().exceeded).toBe(1);
+    expect(root().querySelectorAll('.report-kpi').length).toBe(4);
+  });
+
+  it('preserves budgets without expenses and does not invent distribution or largest expenses', () => {
+    http.expectOne(r => r.url.includes('/projects/project-a/reports')).flush({
+      projectId: 'project-a', projectName: 'Casa', totalPlanned: 400, totalSpent: 0,
+      totalPaid: 0, totalPending: 0, categories: [
+        { categoryId: 'empty', categoryName: 'Acabamento', amount: 0, plannedAmount: 400, percentage: 0 },
+      ],
+    });
+    fixture.detectChanges();
+    expect(root().textContent).toContain('ainda não possui despesas');
+    expect(root().querySelectorAll('.comparison-row').length).toBe(1);
+    expect(root().querySelectorAll('.donut-segment').length).toBe(0);
+    expect(root().querySelectorAll('.distribution-item').length).toBe(0);
+    expect(root().querySelector('.detail-row')?.textContent).toContain('R$ 400,00');
+    expect(root().querySelector('.detail-row')?.querySelectorAll('td')[2].textContent).toContain('—');
+    expect(root().querySelector('tfoot')?.querySelectorAll('td')[2].textContent).toContain('—');
+    expect(root().querySelector('.report-summary')?.textContent).not.toContain('maiores gastos');
+    expect(root().textContent).not.toMatch(/NaN|Infinity|por arredondamento/);
+  });
+
+  it('updates all charts and indicators when filtering an unbudgeted category', () => {
+    loadComparison();
+    const select = root().querySelector<HTMLSelectElement>('#report-category')!;
+    select.value = 'unplanned';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(root().querySelectorAll('.comparison-row').length).toBe(0);
+    expect(root().querySelectorAll('.distribution-item').length).toBe(1);
+    expect(root().querySelectorAll('.detail-row').length).toBe(1);
+    expect(fixture.componentInstance.totals().plannedCents).toBe(0);
+    expect(fixture.componentInstance.totals().actualCents).toBe(5000);
+    expect(root().querySelectorAll('.report-kpi')[1].textContent).toContain('Sem orçamento');
+    expect(root().textContent).not.toMatch(/NaN|Infinity/);
+  });
 });

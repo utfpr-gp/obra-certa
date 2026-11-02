@@ -39,7 +39,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller/ReportController.java,service/ReportService.java,model/dto/report/,repository/ExpenseRepository.java,repository/BudgetRepository.java}`, testes correspondentes em `apps/api/src/test/`, `apps/web/src/app/core/{models/report.model.ts,services/report.service.ts,services/report.service.spec.ts}`, página de relatórios e seus testes.
 
-- [ ] **Tarefa 3 — Integrar o comparativo orçado versus realizado**
+- [x] **Tarefa 3 — Integrar o comparativo orçado versus realizado**
   - Cobre: CA2 e parte visual de CA4; mantém CA5 e CA6 na consulta.
   - Teste primeiro: JUnit para categoria sem teto, orçamento sem gastos, igualdade no limite e excedente; Jasmine para barras na mesma escala, saldo positivo verde, excedente vermelho e exclusão de categorias sem orçamento do comparativo. Testar categorias com despesa sem teto continuando nos totais e na rosca.
   - Implementação: completar o contrato e a tela com orçamento, saldo e consumo por categoria, quatro indicadores e detalhamento com números reais; obra sem movimentação apresenta orçamentos e realizado zero, sem percentuais inválidos.
