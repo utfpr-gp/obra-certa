@@ -8,6 +8,7 @@ import { authGuard } from './core/guards/auth-guard';
 import { ExpenseFormComponent } from './features/expenses/expense-form.component';
 import { ExpenseDetailComponent } from './features/expenses/expense-detail.component';
 import { AccountsPageComponent } from './features/expenses/accounts-page.component';
+import { ReportsPageComponent } from './features/reports/reports-page.component';
 
 export const routes: Routes = [
   {
@@ -27,6 +28,7 @@ export const routes: Routes = [
     component: MainLayoutComponent,
     canActivate: [authGuard],
     children: [
+      { path: 'relatorios', component: ReportsPageComponent },
       { path: 'contas', component: AccountsPageComponent },
       { path: 'contas/nova', component: ExpenseFormComponent },
       { path: 'despesas/nova', redirectTo: 'contas/nova', pathMatch: 'full' },
