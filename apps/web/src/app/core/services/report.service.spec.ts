@@ -1,0 +1,50 @@
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { environment } from '../../../environments/environment';
+import { authInterceptor } from '../interceptors/auth-interceptor';
+import { Auth } from './auth';
+import { ReportService } from './report.service';
+
+describe('ReportService', () => {
+  let service: ReportService;
+  let http: HttpTestingController;
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [ReportService, provideHttpClient(), provideHttpClientTesting()] });
+    service = TestBed.inject(ReportService);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => http.verify());
+
+  it('gets the authorized report distribution for a project', () => {
+    service.get('project-1').subscribe(report => expect(report.totalSpent).toBe(10));
+    const request = http.expectOne(`${environment.apiUrl}/api/projects/project-1/reports`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ totalSpent: 10 });
+  });
+
+  it('passes a 401 through the authentication interceptor', () => {
+    const auth = jasmine.createSpyObj<Auth>('Auth', ['getToken', 'logout']);
+    auth.getToken.and.returnValue('jwt-token');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Auth, useValue: auth },
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
+      ],
+    });
+    service = TestBed.inject(ReportService);
+    http = TestBed.inject(HttpTestingController);
+
+    let receivedStatus: number | undefined;
+    service.get('project-1').subscribe({
+      error: error => receivedStatus = error.status,
+    });
+    const request = http.expectOne(`${environment.apiUrl}/api/projects/project-1/reports`);
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+
+    expect(receivedStatus).toBe(401);
+    expect(auth.logout).toHaveBeenCalled();
+  });
+});

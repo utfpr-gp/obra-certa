@@ -54,4 +54,11 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/pom.xml`, controlador e serviço de relatórios, serviço gerador de PDF, testes JUnit correspondentes, service e página Angular de relatórios e seus testes.
 
+- [x] **Tarefa 5 — Corrigir a integração e a validação da distribuição real**
+  - Cobre: pendências aceitas nas revisões da Tarefa 2 para CA1, CA5 e CA6; não substitui a implementação do comparativo completo da CA2 nem a exportação da CA3.
+  - Teste primeiro: JUnit de repository/service/controller comprovando execução no perfil de testes, exclusão lógica, posse, obra vazia e contrato com orçamento por categoria; Jasmine comprovando retry sem dados antigos, descarte de resposta atrasada, 401 pelo interceptor e formatação monetária sem fragilidade de espaço.
+  - Implementação: corrigir a configuração/teste que impede o bootstrap H2/Flyway sem alterar migrations aplicadas; limpar o relatório no retry; manter o contexto por identificador da obra; transportar o orçamento por categoria necessário para que a tela não mostre saldos falsos, deixando cores, omissões e regras finais do comparativo para a Tarefa 3; remover o resíduo demonstrativo do fluxo integrado.
+  - Migration: nenhuma.
+  - Arquivos previstos: configuração de testes do `apps/api` e testes de `repository`, `service` e `controller`; DTOs/`ReportService`/repositories apenas se necessários ao contrato; `apps/web/src/app/core/models/report.model.ts`, `report.service.spec.ts`, `reports-page.component.{ts,spec.ts}`, além de testes do interceptor somente se necessário.
+
 ## Critérios sem tarefa

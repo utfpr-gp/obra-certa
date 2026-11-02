@@ -83,6 +83,32 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
             """)
     List<CategoryExpenseTotal> sumActiveByCategory(@Param("projectId") String projectId);
 
+    @Query("""
+            select e.category.id as categoryId,
+                   e.category.name as categoryName,
+                   sum(e.totalPrice) as total
+            from Expense e
+            where e.project.id = :projectId
+              and e.project.user.id = :userId
+              and e.project.deletedAt is null
+              and e.deletedAt is null
+            group by e.category.id, e.category.name
+            """)
+    List<CategoryExpenseTotal> sumActiveByCategoryAndOwner(@Param("projectId") String projectId,
+                                                            @Param("userId") String userId);
+
+    @Query("""
+            select coalesce(sum(case when e.paid = true then e.totalPrice else 0 end), 0) as totalPaid,
+                   coalesce(sum(case when e.paid = false then e.totalPrice else 0 end), 0) as totalPending
+            from Expense e
+            where e.project.id = :projectId
+              and e.project.user.id = :userId
+              and e.project.deletedAt is null
+              and e.deletedAt is null
+            """)
+    ReportExpenseTotals sumActiveTotalsByProjectAndOwner(@Param("projectId") String projectId,
+                                                          @Param("userId") String userId);
+
     @Modifying
     @Query("update Expense e set e.deletedAt = :deletedAt where e.project.id = :projectId")
     int softDeleteByProjectId(@Param("projectId") String projectId, @Param("deletedAt") Instant deletedAt);
@@ -93,5 +119,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
         String getCategoryName();
 
         BigDecimal getTotal();
+    }
+
+    interface ReportExpenseTotals {
+        BigDecimal getTotalPaid();
+        BigDecimal getTotalPending();
     }
 }

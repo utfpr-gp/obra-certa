@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -46,6 +48,26 @@ class ExpenseRepositoryTest {
 
     @Autowired
     private BudgetRepository budgetRepository;
+
+    @Autowired
+    private Environment environment;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Test
+    void validatesThePostgresqlSchemaCreatedByFlywayInTheTestProfile() {
+        assertThat(environment.getActiveProfiles()).contains("test");
+        assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
+        assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject("select version()", String.class)).startsWith("PostgreSQL");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from flyway_schema_history where success = true", Integer.class))
+                .isPositive();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from flyway_schema_history where success = false", Integer.class))
+                .isZero();
+    }
 
     @Test
     void sumsOnlyActiveExpensesGroupedByCategoryOfTheRequestedProject() {
@@ -103,6 +125,32 @@ class ExpenseRepositoryTest {
         expenseRepository.saveAllAndFlush(List.of(zeroedExpense, unbudgetedExpense));
 
         assertThat(expenseRepository.sumActiveByCategory(project.getId())).isEmpty();
+    }
+
+    @Test
+    void ownerReportQueryExcludesDeletedExpensesAndExpensesFromAnotherOwner() {
+        User owner = persistUser();
+        User anotherOwner = persistUser();
+        Project project = persistProject(owner, "Obra do proprietário");
+        Project anotherProject = persistProject(anotherOwner, "Obra de outro proprietário");
+        Supplier supplier = persistSupplier();
+        ExpenseCategory category = persistCategory("Categoria protegida " + UUID.randomUUID());
+        Budget budget = persistBudget(owner, project, category);
+        Budget anotherBudget = persistBudget(anotherOwner, anotherProject, category);
+
+        persistExpense(owner, project, category, budget, supplier, "125.00");
+        Expense deleted = persistExpense(owner, project, category, budget, supplier, "999.00");
+        deleted.setDeletedAt(Instant.now());
+        expenseRepository.saveAndFlush(deleted);
+        persistExpense(anotherOwner, anotherProject, category, anotherBudget, supplier, "500.00");
+
+        List<ExpenseRepository.CategoryExpenseTotal> totals =
+                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId());
+
+        assertThat(totals).hasSize(1);
+        assertThat(totalOf(totals, category.getId())).isEqualByComparingTo("125.00");
+        assertThat(expenseRepository.sumActiveByCategoryAndOwner(project.getId(), anotherOwner.getId()))
+                .isEmpty();
     }
 
     private static BigDecimal totalOf(
