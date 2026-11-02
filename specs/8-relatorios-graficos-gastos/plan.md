@@ -1,0 +1,57 @@
+# Plano — Issue #8
+
+## Decisões técnicas
+
+### Backend (`apps/api`)
+
+- A tarefa 1 não altera o backend: prepara a validação visual solicitada pelo autor e não conclui a US06.
+- Na integração, `GET /api/projects/{projectId}/reports` retorna identificação da obra, totais orçado, realizado, pago e a pagar e consolidação por categoria. `GET /api/projects/{projectId}/reports/pdf` retorna `application/pdf` com nome de download.
+- `ReportController` delega a `ReportService`; validar posse da obra pelo usuário autenticado antes de consultar dados, inclusive para obra vazia. Obra inexistente ou alheia retorna 404.
+- Consultar somente despesas e orçamentos ativos; calcular valores financeiros com `BigDecimal`. Categorias sem orçamento participam da distribuição e dos totais, mas não do comparativo. Reutilizar vínculos e regras de quitação existentes.
+- A composição definitiva e a recuperação de falhas do PDF dependem das duas respostas ainda abertas na spec; não implementar a tarefa 4 antes dessas decisões.
+
+### Migração de schema
+
+- Nenhuma prevista: usar as entidades e colunas existentes. Mudança descoberta no planejamento detalhado precisa ser apresentada ao autor antes da implementação.
+
+### Frontend (`apps/web`)
+
+- Criar `features/reports/reports-page.component` na rota autenticada `/relatorios`, reutilizando `MainLayoutComponent` e o item já existente da sidebar.
+- Signals locais para categoria selecionada e aviso do PDF. Estado derivado para indicadores, gráficos, resumo e detalhamento; nenhum dado financeiro em localStorage.
+- Na tarefa 1, massa fictícia isolada e marcada com `TODO #8`, valores monetários em centavos e totais coerentes. Os valores da imagem são referência visual, não regras de cálculo.
+- Rosca e barras com recursos nativos de HTML/CSS/SVG, legenda textual e valores acessíveis. Reutilizar ícones e tokens existentes. Desktop com duas áreas de gráficos; mobile em coluna, com detalhamento em cartões e controles de pelo menos 44px.
+- Na integração, `core/services/report.service.ts` será o único ponto HTTP dos relatórios. Troca da obra ativa deve descartar dados anteriores e ignorar respostas atrasadas. Exibir estados de carregamento, erro com nova tentativa e ausência de obra.
+
+## Tarefas
+
+- [ ] **Tarefa 1 — Prototipar a tela de relatórios com dados fictícios**
+  - Cobre: CA7, CA8, CA9 e CA10. É a etapa visual preliminar solicitada pelo autor; não comprova os critérios financeiros de produção CA1–CA6.
+  - Teste primeiro: Jasmine/Karma em `apps/web`, provando renderização dos quatro indicadores, consistência de totais e percentuais, categoria excedida, atualização conjunta ao filtrar, aviso de PDF sem download e restauração do estado ao recriar o componente. Teste da rota autenticada. O RED ocorre pela ausência da página e da rota.
+  - Implementação: título e descrição, período fixo em todo o histórico, seletor de categoria, indicadores, rosca com legenda, barras horizontais, resumo e detalhamento. Identificar dados demonstrativos. Não alterar funcionalidades das demais telas.
+  - Validação visual: comparar com a referência enviada no desktop e verificar em 360px, sem transbordamento horizontal e com cartões no detalhamento.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/web/src/app/features/reports/reports-page.component.{ts,html,css,spec.ts}`, `apps/web/src/app/features/reports/reports-demo.data.ts`, `apps/web/src/app/app.routes.ts`, `apps/web/src/app/app.routes.spec.ts`.
+
+- [ ] **Tarefa 2 — Integrar a distribuição real de gastos da obra**
+  - Cobre: CA1, CA5 e CA6 na consulta JSON, incluindo obra sem despesas na visualização de distribuição.
+  - Teste primeiro: JUnit de serviço, repositório e controlador para agregação por categoria, exclusão lógica e 404 Anti-IDOR; Jasmine para substituir a massa fictícia, exibir legenda e totais reais e descartar respostas de obra anterior. Testar falha de rede com nova tentativa e retorno 401 pelo fluxo de autenticação existente.
+  - Implementação: contrato de relatório, consulta autorizada e distribuição real de todas as categorias com despesas, além dos estados de carregamento, erro e ausência de obra. Retirar o demonstrativo do fluxo real após a validação visual.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller/ReportController.java,service/ReportService.java,model/dto/report/,repository/ExpenseRepository.java,repository/BudgetRepository.java}`, testes correspondentes em `apps/api/src/test/`, `apps/web/src/app/core/{models/report.model.ts,services/report.service.ts,services/report.service.spec.ts}`, página de relatórios e seus testes.
+
+- [ ] **Tarefa 3 — Integrar o comparativo orçado versus realizado**
+  - Cobre: CA2 e parte visual de CA4; mantém CA5 e CA6 na consulta.
+  - Teste primeiro: JUnit para categoria sem teto, orçamento sem gastos, igualdade no limite e excedente; Jasmine para barras na mesma escala, saldo positivo verde, excedente vermelho e exclusão de categorias sem orçamento do comparativo. Testar categorias com despesa sem teto continuando nos totais e na rosca.
+  - Implementação: completar o contrato e a tela com orçamento, saldo e consumo por categoria, quatro indicadores e detalhamento com números reais; obra sem movimentação apresenta orçamentos e realizado zero, sem percentuais inválidos.
+  - Migration: nenhuma.
+  - Arquivos previstos: serviço, DTOs e repositórios de relatórios da tarefa 2, testes JUnit correspondentes, modelo e página Angular de relatórios e seus testes.
+
+- [ ] **Tarefa 4 — Exportar o relatório financeiro consolidado em PDF**
+  - Cobre: CA3, exportação de CA4, CA5 e CA6 no download.
+  - Pré-condição: resolver as duas dúvidas da spec sobre detalhamento de despesas e comportamento após interrupção. Selecionar a biblioteca de PDF compatível com o backend antes do RED; não presumir dependência já instalada.
+  - Teste primeiro: JUnit para conteúdo extraído do PDF, identificação, valores pago/a pagar, saldos, data determinística via Clock, nome do arquivo, obra vazia e 404 para obra alheia; Jasmine para download, prevenção de cliques duplicados, indicação de geração, falha com recuperação e descarte ao trocar de obra ou sair da página.
+  - Implementação: geração síncrona usando a mesma consolidação autorizada dos gráficos; consumir como Blob pelo service Angular, baixar com nome seguro e liberar a URL temporária. Não emitir novo pedido automaticamente ao retornar à tela.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/api/pom.xml`, controlador e serviço de relatórios, serviço gerador de PDF, testes JUnit correspondentes, service e página Angular de relatórios e seus testes.
+
+## Critérios sem tarefa
