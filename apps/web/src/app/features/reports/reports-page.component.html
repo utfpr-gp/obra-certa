@@ -1,6 +1,10 @@
 <main class="reports-page">
+  @if (loading()) { <p class="report-status" role="status">Carregando relatórios…</p> }
+  @if (error(); as reportError) { <div class="report-status error" role="alert">{{ reportError }} <button type="button" aria-label="Tentar novamente" (click)="retry()">Tentar novamente</button></div> }
+  @if (!activeProject.activeProject() && !loading() && !error()) { <p class="report-status" role="status">Selecione uma obra para consultar os relatórios.</p> }
+  @if (noExpenses()) { <p class="report-status" role="status">Esta obra ainda não possui despesas ativas. Os valores da distribuição estão zerados.</p> }
   <header class="page-heading">
-    <div><h1>Relatórios</h1><p class="text-[#647897] mt-[5px] leading-relaxed">Entenda a distribuição dos gastos e compare o realizado com o orçamento da obra.</p></div>
+    <div><h1>Relatórios</h1><p class="text-[#647897] mt-[5px] leading-relaxed">Obra: {{ reportProjectName() || activeProject.activeProject()?.name || 'não selecionada' }}. Entenda a distribuição dos gastos e compare o realizado com o orçamento da obra.</p></div>
     <button type="button" class="export-button hover:bg-[#00686d]" (click)="showPdfNotice()"><svg lucideFileText [size]="17" aria-hidden="true" />Exportar PDF consolidado</button>
   </header>
   @if (pdfNotice()) {
@@ -10,7 +14,7 @@
     <label for="report-period">Período<input id="report-period" value="Todo o histórico" readonly /></label>
     <label for="report-category">Categoria<select id="report-category" [value]="selectedCategory()" (change)="selectCategory($event)">
       <option value="all">Todas as categorias</option>
-      @for (category of categories; track category.id) { <option [value]="category.id">{{ category.name }}</option> }
+      @for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
     </select></label>
     <p class="history-note"><svg lucideInfo [size]="15" aria-hidden="true" />Visão acumulada • sem recorte por datas individuais</p>
   </section>
@@ -82,5 +86,5 @@
     </table>
     <p class="detail-note flex gap-2.5 items-start px-[23px] py-4 text-[#536b8c] text-xs leading-relaxed"><svg lucideInfo [size]="15" aria-hidden="true" />Participação no gasto indica a parcela do total realizado; consumo do previsto compara as despesas com o orçamento de cada categoria. Percentuais arredondados somente na apresentação.</p>
   </section>
-  <footer class="report-footer flex justify-between gap-4 text-xs text-[#536b8c] pt-5 leading-relaxed"><p>O detalhamento integral de quitação da obra não está disponível neste cenário.</p><p>Dados demonstrativos • cenário ilustrativo</p></footer>
+  <footer class="report-footer flex justify-between gap-4 text-xs text-[#536b8c] pt-5 leading-relaxed"><p>O detalhamento integral de quitação da obra não está disponível nesta etapa.</p><p>Dados reais da obra ativa</p></footer>
 </main>
