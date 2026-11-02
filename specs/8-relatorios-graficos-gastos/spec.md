@@ -1,6 +1,6 @@
 ---
 issue: 8
-status: aprovado
+status: aprovada
 ---
 
 # US06 — Relatórios e Gráficos de Gastos
