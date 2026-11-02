@@ -104,4 +104,70 @@ class ReportServiceTest {
             public java.math.BigDecimal getTotal() { return new java.math.BigDecimal(amount); }
         };
     }
+
+    @Test
+    void includesBudgetsWithoutExpensesAlongsideUnbudgetedEqualAndExceededCategories() {
+        prepareProject();
+        when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(List.of(budget("empty", "Acabamento", "400.00"),
+                        budget("equal", "Elétrica", "100.00"), budget("over", "Pintura", "200.00"),
+                        budget("zero", "Serviços", "0.00")));
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+                .thenReturn(List.of(total("equal", "Elétrica", "100.00"),
+                        total("over", "Pintura", "250.00"), total("unplanned", "Material", "50.00"),
+                        total("zero", "Serviços", "25.00")));
+
+        var report = reportService.getReport("project-1");
+
+        assertThat(report.totalPlanned()).isEqualByComparingTo("700.00");
+        assertThat(report.totalSpent()).isEqualByComparingTo("425.00");
+        assertThat(report.categories()).extracting(category -> category.categoryId())
+                .containsExactly("empty", "equal", "unplanned", "over", "zero");
+        assertThat(report.categories()).filteredOn(category -> category.categoryId().equals("empty"))
+                .singleElement().satisfies(category -> {
+                    assertThat(category.plannedAmount()).isEqualByComparingTo("400.00");
+                    assertThat(category.amount()).isZero();
+                    assertThat(category.percentage()).isZero();
+                });
+        assertThat(report.categories()).filteredOn(category -> category.categoryId().equals("equal"))
+                .singleElement().satisfies(category -> assertThat(category.plannedAmount().subtract(category.amount())).isZero());
+        assertThat(report.categories()).filteredOn(category -> category.categoryId().equals("over"))
+                .singleElement().satisfies(category -> assertThat(category.plannedAmount().subtract(category.amount())).isEqualByComparingTo("-50.00"));
+        assertThat(report.categories()).filteredOn(category -> category.categoryId().equals("unplanned"))
+                .singleElement().satisfies(category -> assertThat(category.plannedAmount()).isZero());
+    }
+
+    @Test
+    void preservesBudgetForAProjectWithoutAnyExpenses() {
+        prepareProject();
+        when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(List.of(budget("empty", "Acabamento", "400.00")));
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+                .thenReturn(List.of());
+
+        var report = reportService.getReport("project-1");
+
+        assertThat(report.totalPlanned()).isEqualByComparingTo("400.00");
+        assertThat(report.totalSpent()).isZero();
+        assertThat(report.totalPaid()).isZero();
+        assertThat(report.totalPending()).isZero();
+        assertThat(report.categories()).singleElement().satisfies(category -> {
+            assertThat(category.plannedAmount()).isEqualByComparingTo("400.00");
+            assertThat(category.amount()).isZero();
+            assertThat(category.percentage()).isZero();
+        });
+    }
+
+    private void prepareProject() {
+        User user = User.builder().id("user-1").build();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(Optional.of(Project.builder().id("project-1").name("Casa").user(user).build()));
+    }
+
+    private com.obracerta.model.entity.Budget budget(String id, String name, String amount) {
+        return com.obracerta.model.entity.Budget.builder()
+                .category(com.obracerta.model.entity.ExpenseCategory.builder().id(id).name(name).build())
+                .estimatedAmount(new BigDecimal(amount)).build();
+    }
 }

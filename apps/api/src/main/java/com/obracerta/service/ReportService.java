@@ -14,10 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,14 +63,19 @@ public class ReportService {
         BigDecimal paid = paymentTotals == null ? ZERO : money(paymentTotals.getTotalPaid());
         BigDecimal pending = paymentTotals == null ? ZERO : money(paymentTotals.getTotalPending());
 
-        List<ReportCategoryDTO> categories = totals.stream()
-                .sorted(Comparator.comparing(ExpenseRepository.CategoryExpenseTotal::getCategoryName))
-                .map(total -> new ReportCategoryDTO(
-                        total.getCategoryId(),
-                        total.getCategoryName(),
-                        money(total.getTotal()),
-                        plannedByCategory.getOrDefault(total.getCategoryId(), ZERO),
-                        percentage(total.getTotal(), spent)))
+        Map<String, String> categoryNames = new HashMap<>();
+        activeBudgets.forEach(budget -> categoryNames.put(budget.getCategory().getId(), budget.getCategory().getName()));
+        totals.forEach(total -> categoryNames.put(total.getCategoryId(), total.getCategoryName()));
+        Map<String, BigDecimal> spentByCategory = totals.stream().collect(Collectors.toMap(
+                ExpenseRepository.CategoryExpenseTotal::getCategoryId, total -> money(total.getTotal())));
+        List<ReportCategoryDTO> categories = categoryNames.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(category -> new ReportCategoryDTO(
+                        category.getKey(),
+                        category.getValue(),
+                        spentByCategory.getOrDefault(category.getKey(), ZERO),
+                        plannedByCategory.getOrDefault(category.getKey(), ZERO),
+                        percentage(spentByCategory.getOrDefault(category.getKey(), ZERO), spent)))
                 .toList();
         return new ReportResponseDTO(project.getId(), project.getName(), planned, spent, paid, pending, categories);
     }
