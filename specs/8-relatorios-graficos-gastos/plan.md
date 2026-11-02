@@ -32,7 +32,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/features/reports/reports-page.component.{ts,html,css,spec.ts}`, `apps/web/src/app/features/reports/reports-demo.data.ts`, `apps/web/src/app/app.routes.ts`, `apps/web/src/app/app.routes.spec.ts`.
 
-- [ ] **Tarefa 2 — Integrar a distribuição real de gastos da obra**
+- [x] **Tarefa 2 — Integrar a distribuição real de gastos da obra**
   - Cobre: CA1, CA5 e CA6 na consulta JSON, incluindo obra sem despesas na visualização de distribuição.
   - Teste primeiro: JUnit de serviço, repositório e controlador para agregação por categoria, exclusão lógica e 404 Anti-IDOR; Jasmine para substituir a massa fictícia, exibir legenda e totais reais e descartar respostas de obra anterior. Testar falha de rede com nova tentativa e retorno 401 pelo fluxo de autenticação existente.
   - Implementação: contrato de relatório, consulta autorizada e distribuição real de todas as categorias com despesas, além dos estados de carregamento, erro e ausência de obra. Retirar o demonstrativo do fluxo real após a validação visual.
