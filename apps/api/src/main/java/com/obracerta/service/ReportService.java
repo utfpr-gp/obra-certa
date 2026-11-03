@@ -28,13 +28,24 @@ public class ReportService {
     private final UserContextHelper identity;
     private final ExpenseRepository expenses;
     private final BudgetRepository budgets;
+    private final ReportPdfService pdfService;
 
     public ReportService(ProjectRepository projects, UserContextHelper identity,
-                         ExpenseRepository expenses, BudgetRepository budgets) {
+                         ExpenseRepository expenses, BudgetRepository budgets, ReportPdfService pdfService) {
         this.projects = projects;
         this.identity = identity;
         this.expenses = expenses;
         this.budgets = budgets;
+        this.pdfService = pdfService;
+    }
+
+    @Transactional(readOnly = true)
+    public com.obracerta.model.dto.report.ReportPdfDTO exportPdf(String projectId) {
+        ReportResponseDTO report = getReport(projectId);
+        String ownerId = identity.getAuthenticatedUser().getId();
+        var activeExpenses = expenses.findActiveByProjectAndOwner(projectId, ownerId,
+                org.springframework.data.domain.Pageable.unpaged(org.springframework.data.domain.Sort.by("purchaseDate", "id")));
+        return pdfService.generate(report, activeExpenses.getContent());
     }
 
     @Transactional(readOnly = true)

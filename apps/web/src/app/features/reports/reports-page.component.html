@@ -5,11 +5,10 @@
   @if (noExpenses()) { <p class="report-status" role="status">Esta obra ainda não possui despesas ativas. Os valores da distribuição estão zerados.</p> }
   <header class="heading">
     <div><h1>Relatórios</h1><p class="text-[#647897] mt-[5px] leading-relaxed">Obra: {{ reportProjectName() || activeProject.activeProject()?.name || 'não selecionada' }}. Entenda a distribuição dos gastos e compare o realizado com o orçamento da obra.</p></div>
-    <button type="button" class="export hover:bg-[#00686d]" (click)="showPdfNotice()"><svg lucideFileText [size]="17" aria-hidden="true" />Exportar PDF consolidado</button>
+    <button type="button" class="export hover:bg-[#00686d]" [disabled]="generatingPdf() || loading() || !activeProject.activeProject()" [attr.aria-busy]="generatingPdf()" (click)="exportPdf()"><svg lucideFileText [size]="17" aria-hidden="true" />{{ generatingPdf() ? 'Gerando PDF…' : 'Exportar PDF consolidado' }}</button>
   </header>
-  @if (pdfNotice()) {
-    <p class="pdf-notice flex items-center gap-2 bg-[#e6f2f3] rounded-md p-3 mb-4 text-[#00686d]" role="status"><svg lucideInfo [size]="16" aria-hidden="true" />A exportação em PDF será disponibilizada na integração.</p>
-  }
+  @if (generatingPdf()) { <p class="pdf-notice" role="status">Gerando PDF…</p> }
+  @if (pdfError(); as exportError) { <p class="report-status error" role="alert">{{ exportError }}</p> }
   <section class="filters" aria-label="Filtros do relatório">
     <label for="report-period">Período<input id="report-period" value="Todo o histórico" readonly /></label>
     <label for="report-category">Categoria<select id="report-category" [value]="selectedCategory()" (change)="selectCategory($event)">

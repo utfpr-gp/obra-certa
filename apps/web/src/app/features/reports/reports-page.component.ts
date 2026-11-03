@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { LucideCircleAlert, LucideCircleCheck, LucideFileText, LucideInfo, LucidePieChart, LucidePiggyBank, LucideTrendingUp, LucideTriangleAlert, LucideWallet } from '@lucide/angular';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ReportService } from '../../core/services/report.service';
@@ -18,7 +19,11 @@ export class ReportsPageComponent {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly selectedCategory = signal('all');
-  readonly pdfNotice = signal(false);
+  readonly generatingPdf = signal(false);
+  readonly pdfError = signal<string | null>(null);
+  private pdfRequest?: Subscription;
+  private pdfGeneration = 0;
+  private readonly destroyRef = inject(DestroyRef);
   readonly reportProjectName = computed(() => this.report()?.projectName ?? '');
   private requestGeneration = 0;
   private readonly colors = ['#00686d', '#00a2a8', '#8a6f2f', '#d77b24', '#8b5cf6', '#d64b5b', '#607d8b'];
@@ -70,8 +75,10 @@ export class ReportsPageComponent {
   private readonly integerCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.discardPdf());
     effect(() => {
       const project = this.activeProject.activeProject();
+      this.discardPdf();
       const generation = ++this.requestGeneration;
       this.selectedCategory.set('all');
       this.report.set(null);
@@ -121,5 +128,41 @@ export class ReportsPageComponent {
   barWidth(cents: number): number { return cents / this.barMaximumCents() * 100; }
   progressWidth(value: number | null): number { return Math.min(value ?? 0, 100); }
   selectCategory(event: Event): void { this.selectedCategory.set((event.target as HTMLSelectElement).value); }
-  showPdfNotice(): void { this.pdfNotice.set(true); }
+  private discardPdf(): void {
+    ++this.pdfGeneration;
+    this.pdfRequest?.unsubscribe();
+    this.generatingPdf.set(false);
+    this.pdfError.set(null);
+  }
+
+  exportPdf(): void {
+    const project = this.activeProject.activeProject();
+    if (!project || this.generatingPdf() || this.loading()) return;
+    const generation = ++this.pdfGeneration;
+    const contextVersion = this.activeProject.contextVersion();
+    this.generatingPdf.set(true);
+    this.pdfError.set(null);
+    this.pdfRequest = this.reportService.exportPdf(project.id).subscribe({
+      next: response => {
+        if (this.destroyRef.destroyed || generation !== this.pdfGeneration || contextVersion !== this.activeProject.contextVersion() || this.activeProject.activeProject()?.id !== project.id) return;
+        this.generatingPdf.set(false);
+        if (!response.body) { this.pdfError.set('Não foi possível gerar o PDF.'); return; }
+        const filename = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1];
+        const safeFilename = filename && /^relatorio-[a-z0-9-]+-\d{4}-\d{2}-\d{2}\.pdf$/.test(filename)
+          ? filename : 'relatorio-obra.pdf';
+        const url = URL.createObjectURL(response.body);
+        try {
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = safeFilename;
+          anchor.click();
+        } finally { URL.revokeObjectURL(url); }
+      },
+      error: () => {
+        if (this.destroyRef.destroyed || generation !== this.pdfGeneration || contextVersion !== this.activeProject.contextVersion() || this.activeProject.activeProject()?.id !== project.id) return;
+        this.generatingPdf.set(false);
+        this.pdfError.set('Não foi possível gerar o PDF.');
+      },
+    });
+  }
 }

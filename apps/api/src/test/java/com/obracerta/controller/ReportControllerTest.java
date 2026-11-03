@@ -33,6 +33,23 @@ class ReportControllerTest {
     @MockBean UserRepository userRepository;
 
     @Test
+    void returnsPdfAttachmentAndFilename() throws Exception {
+        when(reportService.exportPdf("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportPdfDTO("relatorio-casa-2026-11-02.pdf", new byte[]{37, 80, 68, 70}));
+        mockMvc.perform(get("/api/projects/project-1/reports/pdf"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", org.hamcrest.Matchers.containsString("relatorio-casa-2026-11-02.pdf")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(new byte[]{37, 80, 68, 70}));
+    }
+
+    @Test
+    void returnsNotFoundForForeignPdf() throws Exception {
+        when(reportService.exportPdf("other")).thenThrow(new ResourceNotFoundException());
+        mockMvc.perform(get("/api/projects/other/reports/pdf"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("Projeto não encontrado"));
+    }
+
+    @Test
     void returnsDistributionJson() throws Exception {
         when(reportService.getReport(eq("project-1"))).thenReturn(new ReportResponseDTO(
                 "project-1", "Minha obra", new BigDecimal("0.00"), new BigDecimal("10.00"),

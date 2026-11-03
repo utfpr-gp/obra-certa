@@ -21,4 +21,13 @@ public class ReportController {
     public ResponseEntity<ReportResponseDTO> getReport(@PathVariable String projectId) {
         return ResponseEntity.ok(reportService.getReport(projectId));
     }
+
+    @GetMapping("/pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable String projectId) {
+        var pdf = reportService.exportPdf(projectId);
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.attachment().filename(pdf.filename()).build().toString())
+                .body(pdf.content());
+    }
 }

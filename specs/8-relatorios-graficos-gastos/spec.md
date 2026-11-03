@@ -17,7 +17,7 @@ O proprietário precisa entender a distribuição dos gastos e comparar as despe
 
 - [ ] **CA1 — Distribuição:** dadas despesas ativas, ao abrir relatórios, exibir gráfico de rosca com valores absolutos, percentuais e legenda de todas as categorias com despesas.
 - [ ] **CA2 — Comparativo:** dadas categorias orçadas, exibir barras de previsto e realizado na mesma escala, com saldo positivo em verde e excedente em vermelho; omitir categorias sem orçamento.
-- [ ] **CA3 — PDF:** ao exportar, gerar sincronamente `relatorio-{nome-da-obra}-{data}.pdf`, com identificação da obra, total orçado, realizado discriminando pago e a pagar, balanço por categoria e data de geração.
+- [ ] **CA3 — PDF:** ao exportar, gerar sincronamente um único `relatorio-{nome-da-obra}-{data}.pdf`, com identificação da obra, total orçado, realizado discriminando pago e a pagar, balanço por categoria, lista individual de despesas ativas e data de geração. Em falha, apresentar somente uma mensagem de erro, sem nova tentativa automática nem ação específica de tentar novamente.
 - [ ] **CA4 — Sem movimentação:** dada obra sem despesas, exibir orçamentos e despesas zeradas e permitir exportação.
 - [ ] **CA5 — Posse:** ao consultar dados ou PDF de obra alheia, responder que a obra não foi localizada.
 - [ ] **CA6 — Exclusão lógica:** ignorar despesas excluídas nos gráficos e no PDF.
@@ -34,7 +34,7 @@ O proprietário precisa entender a distribuição dos gastos e comparar as despe
 
 ## Abandono no meio
 
-O protótipo mantém somente estado local de apresentação. Navegar para outra tela ou recarregar descarta a seleção temporária e não modifica a obra. O comportamento de interrupção da exportação real será definido antes da implementação da integração.
+O protótipo mantém somente estado local de apresentação. Navegar para outra tela ou recarregar descarta a seleção temporária e não modifica a obra. Na exportação real, sair da página ou trocar de obra descarta a resposta pendente, sem baixar o arquivo no novo contexto. Retornar não dispara exportação automática. Em falha, apresentar somente uma mensagem de erro; não oferecer ação específica de tentar novamente.
 
 ## Assume que
 
@@ -48,9 +48,9 @@ O protótipo mantém somente estado local de apresentação. Navegar para outra 
 - US03: despesas.
 - US07: orçamentos por categoria.
 
-## Dúvidas em aberto
+## Decisões do autor sobre o PDF
 
-| # | Dúvida | Quem responde |
+| # | Decisão | Quem respondeu |
 | --- | --- | --- |
-| 1 | O PDF final contém somente o consolidado por categoria ou também a lista individual de despesas? Não afeta a primeira tarefa visual. | Autor |
-| 2 | Em falha ou interrupção da exportação real, oferecer nova tentativa manual sem geração automática ao retornar? | Autor |
+| 1 | Um único PDF contém o consolidado por categoria e a lista individual de despesas ativas. | Autor |
+| 2 | Em falha, apresentar apenas um erro, sem nova tentativa automática ou ação específica de tentar novamente. | Autor |
