@@ -20,13 +20,13 @@ describe('ReportService', () => {
     service.exportSnapshot('project/1').subscribe(snapshot => {
       expect(snapshot.report.projectId).toBe('project/1');
       expect(snapshot.filename).toBe('relatorio-casa-2026-11-02.pdf');
-      expect(snapshot.appendixPdf).toBe('JVBERg==');
+      expect(snapshot.generatedAt).toBe('2026-11-02');
     });
     const request = http.expectOne(`${environment.apiUrl}/api/projects/project%2F1/reports/export`);
     expect(request.request.method).toBe('GET');
     expect(request.request.responseType).toBe('json');
     expect(request.request.params.keys()).toEqual([]);
-    request.flush({ report: { projectId: 'project/1' }, filename: 'relatorio-casa-2026-11-02.pdf', appendixPdf: 'JVBERg==' });
+    request.flush({ report: { projectId: 'project/1' }, filename: 'relatorio-casa-2026-11-02.pdf', generatedAt: '2026-11-02' });
   });
 
   it('gets the authorized report distribution for a project', () => {

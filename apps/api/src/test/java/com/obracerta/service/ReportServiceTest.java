@@ -6,12 +6,15 @@ import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
 import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.math.BigDecimal;
@@ -26,7 +29,13 @@ class ReportServiceTest {
     @Mock ExpenseRepository expenseRepository;
     @Mock BudgetRepository budgetRepository;
     @Mock ReportPdfService pdfService;
-    @InjectMocks ReportService reportService;
+    private ReportService reportService;
+
+    @BeforeEach
+    void setUp() {
+        reportService = new ReportService(projectRepository, userContextHelper, expenseRepository, budgetRepository,
+                pdfService, Clock.fixed(Instant.parse("2026-11-02T15:30:00Z"), ZoneOffset.UTC));
+    }
 
     @Test
     void exportsSameAuthorizedConsolidationAndAllActiveExpensesWithoutPagination() {
@@ -179,26 +188,19 @@ class ReportServiceTest {
     }
 
     @Test
-    void exportsConsolidatedReportAndAppendixFromTheSameAuthorizedActiveExpenses() {
+    void exportsTheAuthorizedReportWithDeterministicFilenameAndGenerationDate() {
         prepareProject();
-        var expense = com.obracerta.model.entity.Expense.builder().id("active").build();
-        when(expenseRepository.findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"), org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(expense)));
-        var content = new byte[]{37, 80, 68, 70};
-        when(pdfService.generateAppendix(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(List.of(expense))))
-                .thenReturn(new com.obracerta.model.dto.report.ReportPdfDTO("relatorio-casa-2026-11-02.pdf", content));
 
         var snapshot = reportService.exportSnapshot("project-1");
 
         assertThat(snapshot.report().projectId()).isEqualTo("project-1");
         assertThat(snapshot.report().projectName()).isEqualTo("Casa");
         assertThat(snapshot.filename()).isEqualTo("relatorio-casa-2026-11-02.pdf");
-        assertThat(java.util.Base64.getDecoder().decode(snapshot.appendixPdf())).isEqualTo(content);
-        org.mockito.Mockito.verify(pdfService).generateAppendix(
-                org.mockito.ArgumentMatchers.eq(snapshot.report()), org.mockito.ArgumentMatchers.eq(List.of(expense)));
-        org.mockito.Mockito.verify(expenseRepository, org.mockito.Mockito.times(1))
-                .findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"),
-                        org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.any());
+        assertThat(snapshot.generatedAt()).isEqualTo("2026-11-02");
+        org.mockito.Mockito.verifyNoInteractions(pdfService);
+        org.mockito.Mockito.verify(expenseRepository, org.mockito.Mockito.never())
+                .findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
     }
 
     @Test

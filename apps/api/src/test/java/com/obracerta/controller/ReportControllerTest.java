@@ -50,13 +50,14 @@ class ReportControllerTest {
     }
 
     @Test
-    void returnsInternalVisualSnapshotAndPreservesNotFound() throws Exception {
+    void returnsInternalVisualSnapshotWithoutAppendixAndPreservesNotFound() throws Exception {
         var report = new ReportResponseDTO("project-1", "Casa", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
-        when(reportService.exportSnapshot("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportExportDTO(report, "relatorio-casa-2026-11-02.pdf", "JVBERg=="));
+        when(reportService.exportSnapshot("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportExportDTO(report, "relatorio-casa-2026-11-02.pdf", "2026-11-02"));
         mockMvc.perform(get("/api/projects/project-1/reports/export"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.report.projectId").value("project-1"))
                 .andExpect(jsonPath("$.filename").value("relatorio-casa-2026-11-02.pdf"))
-                .andExpect(jsonPath("$.appendixPdf").value("JVBERg=="));
+                .andExpect(jsonPath("$.generatedAt").value("2026-11-02"))
+                .andExpect(jsonPath("$.appendixPdf").doesNotExist());
         when(reportService.exportSnapshot("other")).thenThrow(new ResourceNotFoundException());
         mockMvc.perform(get("/api/projects/other/reports/export")).andExpect(status().isNotFound());
     }

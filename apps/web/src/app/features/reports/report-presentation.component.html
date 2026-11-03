@@ -1,6 +1,6 @@
 @let vm = model();
 @if (exportMode()) {
-  <header data-pdf-block data-testid="report-export-heading" class="export-heading"><h1>Relatórios</h1><p>Obra: {{ vm.reportProjectName() }} • Todo o histórico • Todas as categorias</p></header>
+  <header data-pdf-block data-testid="report-export-heading" class="export-heading"><h1>Relatórios</h1><p>Obra: {{ vm.reportProjectName() }}</p><p>Data de geração: {{ generatedAtLabel() }} • Pago: {{ vm.money(vm.paidCents()) }} • A pagar: {{ vm.money(vm.pendingCents()) }}</p><p>Todo o histórico • Todas as categorias</p></header>
 }
   <section data-testid="report-kpis" data-pdf-block class="report-kpis" aria-label="Indicadores financeiros">
     <article class="report-kpi"><svg lucideWallet [size]="18" aria-hidden="true" /><h2>Total planejado</h2><strong>{{ vm.money(vm.totals().plannedCents) }}</strong><p>Orçamento {{ vm.selectedCategory() === 'all' ? 'global' : 'selecionado' }} • {{ vm.comparisonRows().length }} {{ vm.comparisonRows().length === 1 ? 'categoria orçada' : 'categorias orçadas' }}</p></article>

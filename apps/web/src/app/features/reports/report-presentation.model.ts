@@ -6,6 +6,8 @@ export class ReportPresentationModel {
   readonly report = signal<Report | null>(null);
   readonly selectedCategory = signal('all');
   readonly reportProjectName = computed(() => this.report()?.projectName ?? '');
+  readonly paidCents = computed(() => Math.round((this.report()?.totalPaid ?? 0) * 100));
+  readonly pendingCents = computed(() => Math.round((this.report()?.totalPending ?? 0) * 100));
   private readonly colors = ['#00686d', '#00a2a8', '#8a6f2f', '#d77b24', '#8b5cf6', '#d64b5b', '#607d8b'];
 
   readonly categories = computed(() => (this.report()?.categories ?? []).map((category, index) => ({
