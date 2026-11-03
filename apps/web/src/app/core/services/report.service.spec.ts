@@ -16,6 +16,20 @@ describe('ReportService', () => {
   });
   afterEach(() => http.verify());
 
+  it('sends optional ISO period bounds and the applied export category', () => {
+    service.get('project-1', '2026-10-01', '2026-10-31').subscribe();
+    const report = http.expectOne(r => r.url.endsWith('/reports'));
+    expect(report.request.params.get('from')).toBe('2026-10-01');
+    expect(report.request.params.get('to')).toBe('2026-10-31');
+    report.flush({});
+    service.exportSnapshot('project-1', '2026-10-01', '', 'cat-1').subscribe();
+    const snapshot = http.expectOne(r => r.url.endsWith('/reports/export'));
+    expect(snapshot.request.params.get('from')).toBe('2026-10-01');
+    expect(snapshot.request.params.has('to')).toBeFalse();
+    expect(snapshot.request.params.get('category')).toBe('cat-1');
+    snapshot.flush({});
+  });
+
   it('gets the correlated authorized visual export snapshot as JSON without a category filter', () => {
     service.exportSnapshot('project/1').subscribe(snapshot => {
       expect(snapshot.report.projectId).toBe('project/1');

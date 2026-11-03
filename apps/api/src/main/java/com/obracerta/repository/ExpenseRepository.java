@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, String> {
@@ -92,10 +93,16 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
               and e.project.user.id = :userId
               and e.project.deletedAt is null
               and e.deletedAt is null
+              and (cast(:from as date) is null or e.purchaseDate >= :from)
+              and (cast(:to as date) is null or e.purchaseDate <= :to)
+              and (cast(:category as string) is null or e.category.id = :category)
             group by e.category.id, e.category.name
             """)
     List<CategoryExpenseTotal> sumActiveByCategoryAndOwner(@Param("projectId") String projectId,
-                                                            @Param("userId") String userId);
+                                                            @Param("userId") String userId,
+                                                          @Param("from") LocalDate from,
+                                                          @Param("to") LocalDate to,
+                                                          @Param("category") String category);
 
     @Query("""
             select coalesce(sum(case when e.paid = true then e.totalPrice else 0 end), 0) as totalPaid,
@@ -105,9 +112,15 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
               and e.project.user.id = :userId
               and e.project.deletedAt is null
               and e.deletedAt is null
+              and (cast(:from as date) is null or e.purchaseDate >= :from)
+              and (cast(:to as date) is null or e.purchaseDate <= :to)
+              and (cast(:category as string) is null or e.category.id = :category)
             """)
     ReportExpenseTotals sumActiveTotalsByProjectAndOwner(@Param("projectId") String projectId,
-                                                          @Param("userId") String userId);
+                                                          @Param("userId") String userId,
+                                                          @Param("from") LocalDate from,
+                                                          @Param("to") LocalDate to,
+                                                          @Param("category") String category);
 
     @Modifying
     @Query("update Expense e set e.deletedAt = :deletedAt where e.project.id = :projectId")

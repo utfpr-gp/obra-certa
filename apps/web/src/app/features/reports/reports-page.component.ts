@@ -1,17 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ReportPresentationModel } from './report-presentation.model';
 import { ReportPresentationComponent } from './report-presentation.component';
 import { ReportVisualExportService } from './report-visual-export.service';
-import { LucideFileText, LucideInfo } from '@lucide/angular';
+import { LucideFileText } from '@lucide/angular';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ReportService } from '../../core/services/report.service';
 
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [ReportPresentationComponent, LucideFileText, LucideInfo],
+  imports: [ReportPresentationComponent, LucideFileText, ReactiveFormsModule],
   templateUrl: './reports-page.component.html',
   styleUrl: './reports-page.component.css',
 })
@@ -23,6 +24,11 @@ export class ReportsPageComponent extends ReportPresentationModel {
   readonly error = signal<string | null>(null);
   readonly generatingPdf = signal(false);
   readonly pdfError = signal<string | null>(null);
+  readonly periodForm = new FormGroup({
+    from: new FormControl('', { nonNullable: true }),
+    to: new FormControl('', { nonNullable: true }),
+  });
+  readonly periodError = signal<string | null>(null);
   private pdfRequest?: Subscription;
   private pdfGeneration = 0;
   private readonly destroyRef = inject(DestroyRef);
@@ -31,41 +37,25 @@ export class ReportsPageComponent extends ReportPresentationModel {
     super();
     this.destroyRef.onDestroy(() => this.discardPdf());
     effect(() => {
-      const project = this.activeProject.activeProject();
+      this.activeProject.activeProject();
       this.discardPdf();
-      const generation = ++this.requestGeneration;
       this.selectedCategory.set('all');
-      this.report.set(null);
-      this.error.set(null);
-      if (!project) {
-        this.loading.set(false);
-        return;
-      }
-      this.loading.set(true);
-      this.reportService.get(project.id).subscribe({
-        next: report => {
-          if (generation === this.requestGeneration && report.projectId === project.id) {
-            this.report.set(report);
-            this.loading.set(false);
-          }
-        },
-        error: (error: HttpErrorResponse) => {
-          if (generation !== this.requestGeneration) return;
-          this.loading.set(false);
-          this.error.set(error.status === 404 ? 'A obra não foi localizada.' : 'Não foi possível carregar os relatórios.');
-        },
-      });
+      this.periodForm.reset();
+      this.appliedFrom.set('');
+      this.appliedTo.set('');
+      this.periodError.set(null);
+      untracked(() => this.retry());
     });
   }
 
   retry(): void {
     const project = this.activeProject.activeProject();
-    if (!project) return;
+    const generation = ++this.requestGeneration;
+    if (!project) { this.report.set(null); this.error.set(null); this.loading.set(false); return; }
     this.loading.set(true);
     this.error.set(null);
     this.report.set(null);
-    const generation = ++this.requestGeneration;
-    this.reportService.get(project.id).subscribe({
+    this.reportService.get(project.id, this.appliedFrom(), this.appliedTo()).subscribe({
       next: report => {
         if (generation === this.requestGeneration && report.projectId === project.id) {
           this.report.set(report);
@@ -75,7 +65,26 @@ export class ReportsPageComponent extends ReportPresentationModel {
       error: (error: HttpErrorResponse) => { if (generation === this.requestGeneration) { this.loading.set(false); this.error.set(error.status === 404 ? 'A obra não foi localizada.' : 'Não foi possível carregar os relatórios.'); } },
     });
   }
-  selectCategory(event: Event): void { this.selectedCategory.set((event.target as HTMLSelectElement).value); }
+  applyPeriod(): void {
+    const { from, to } = this.periodForm.getRawValue();
+    if (from && to && from > to) {
+      this.periodError.set('A data inicial do período não pode ser posterior à final.');
+      return;
+    }
+    this.discardPdf();
+    this.periodError.set(null);
+    this.appliedFrom.set(from);
+    this.appliedTo.set(to);
+    this.retry();
+  }
+  clearPeriod(): void {
+    this.periodForm.reset();
+    this.applyPeriod();
+  }
+  selectCategory(event: Event): void {
+    this.discardPdf();
+    this.selectedCategory.set((event.target as HTMLSelectElement).value);
+  }
   private discardPdf(): void {
     ++this.pdfGeneration;
     this.pdfRequest?.unsubscribe();
@@ -97,7 +106,7 @@ export class ReportsPageComponent extends ReportPresentationModel {
       this.generatingPdf.set(false);
       this.pdfError.set('Não foi possível gerar o PDF.');
     };
-    this.pdfRequest = this.reportService.exportSnapshot(project.id).subscribe({
+    this.pdfRequest = this.reportService.exportSnapshot(project.id, this.appliedFrom(), this.appliedTo(), this.selectedCategory()).subscribe({
       next: snapshot => {
         if (!isCurrent()) return;
         if (!snapshot?.report || snapshot.report.projectId !== project.id) { fail(); return; }

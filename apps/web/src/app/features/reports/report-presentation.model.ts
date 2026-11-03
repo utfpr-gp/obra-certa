@@ -1,10 +1,21 @@
 import { computed, signal } from '@angular/core';
 import { Report } from '../../core/models/report.model';
 
-/** One presentation model used by the screen and the isolated global export. */
+/** One presentation model used by the screen and its isolated export. */
 export class ReportPresentationModel {
   readonly report = signal<Report | null>(null);
   readonly selectedCategory = signal('all');
+  readonly appliedFrom = signal('');
+  readonly appliedTo = signal('');
+  readonly exportCategoryName = signal<string | null>(null);
+  readonly hasCategorySelection = computed(() => this.selectedCategory() !== 'all' || this.exportCategoryName() !== null);
+  readonly periodLabel = computed(() => {
+    const format = (date: string) => date.split('-').reverse().join('/');
+    const from = this.appliedFrom();
+    const to = this.appliedTo();
+    return from && to ? `${format(from)} a ${format(to)}`
+      : from ? `A partir de ${format(from)}` : to ? `Até ${format(to)}` : 'Todo o histórico';
+  });
   readonly reportProjectName = computed(() => this.report()?.projectName ?? '');
   readonly paidCents = computed(() => Math.round((this.report()?.totalPaid ?? 0) * 100));
   readonly pendingCents = computed(() => Math.round((this.report()?.totalPending ?? 0) * 100));

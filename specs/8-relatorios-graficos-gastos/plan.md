@@ -82,4 +82,13 @@
   - Migration: nenhuma.
   - Arquivos previstos: `ReportExportDTO`, `ReportController`, `ReportService`, `ReportPdfService` e testes JUnit correspondentes; `core/services/report.service.{ts,spec.ts}`, `report-presentation.component.{ts,html,css}`, `report-presentation.model.ts`, `report-visual-export.service.{ts,spec.ts}` e testes da página. Não afrouxar os limites de build.
 
+- [x] **Tarefa 8 — Filtrar os relatórios por período**
+  - Cobre: CA12 e CA11 revisado pela [proposta](proposta-filtro-periodo.md) aprovada pelo autor; preserva CA1, CA2, CA4, CA5 e CA6, o erro único, a prevenção de duplicidade e o descarte da exportação abandonada.
+  - Pré-condição: tarefa 7 fechada no commit `0cda8ef`; proposta do filtro de período aprovada pelo autor antes do RED.
+  - Teste primeiro: JUnit de repositório/serviço/controlador com `from`/`to` (limites inclusivos, ausência de filtro, intervalo inválido com 400, exclusão lógica e posse) e do snapshot com período e categoria; Jasmine dos campos, Filtrar/Limpar, bloqueio de intervalo, recorte refletido em indicadores/gráficos/detalhamento, PDF com período e categoria e descarte por troca de obra/filtro/saída.
+  - Implementação: parâmetros opcionais de data nas somas de despesas e no snapshot autorizado, mantendo o orçamento previsto integral; tela com dois campos e os dois botões, estado digitado vs aplicado, mensagem única para intervalo inválido e restauração do período ao trocar de obra; cabeçalho do PDF com período e categoria aplicados; `/reports/pdf` legado inalterado.
+  - Validação visual: conferir a tela com período vazio, com intervalo válido e com intervalo inválido, em desktop e 360px; exportar com e sem filtro e inspecionar o PDF.
+  - Migration: nenhuma.
+  - Arquivos previstos: `ExpenseRepository`, `ReportService`, `ReportController`, `ReportExportDTO` e testes JUnit correspondentes; `core/services/report.service.{ts,spec.ts}`, `reports-page.component.{ts,html,css,spec.ts}`, `report-presentation.component.{ts,html}`, `report-presentation.model.ts`, `report-visual-export.service.{ts,spec.ts}`. Não afrouxar os limites de build.
+
 ## Critérios sem tarefa

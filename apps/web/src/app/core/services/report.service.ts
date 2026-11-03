@@ -8,6 +8,9 @@ export interface ReportExport {
   report: Report;
   filename: string;
   generatedAt: string;
+  from?: string | null;
+  to?: string | null;
+  categoryName?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -15,11 +18,17 @@ export class ReportService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = `${environment.apiUrl}/api/projects`;
 
-  get(projectId: string): Observable<Report> {
-    return this.http.get<Report>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports`);
+  get(projectId: string, from = '', to = ''): Observable<Report> {
+    return this.http.get<Report>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports`, { params: this.params(from, to) });
   }
 
-  exportSnapshot(projectId: string): Observable<ReportExport> {
-    return this.http.get<ReportExport>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports/export`);
+  exportSnapshot(projectId: string, from = '', to = '', category = 'all'): Observable<ReportExport> {
+    return this.http.get<ReportExport>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports/export`, {
+      params: { ...this.params(from, to), ...(category !== 'all' ? { category } : {}) },
+    });
+  }
+
+  private params(from: string, to: string): Record<string, string> {
+    return { ...(from ? { from } : {}), ...(to ? { to } : {}) };
   }
 }

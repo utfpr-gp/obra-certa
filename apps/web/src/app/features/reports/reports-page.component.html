@@ -10,13 +10,15 @@
   @if (generatingPdf()) { <p class="pdf-notice" role="status">Gerando PDF…</p> }
   @if (pdfError(); as exportError) { <p class="report-status error" role="alert">{{ exportError }}</p> }
   <section class="filters" aria-label="Filtros do relatório">
-    <label for="report-period">Período<input id="report-period" value="Todo o histórico" readonly /></label>
+    <label for="report-from">Período de<input id="report-from" type="date" [formControl]="periodForm.controls.from" /></label>
+    <label for="report-to">Período até<input id="report-to" type="date" [formControl]="periodForm.controls.to" /></label>
     <label for="report-category">Categoria<select id="report-category" [value]="selectedCategory()" (change)="selectCategory($event)">
       <option value="all">Todas as categorias</option>
       @for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
     </select></label>
-    <p class="history"><svg lucideInfo [size]="15" aria-hidden="true" />Visão acumulada • sem recorte por datas individuais</p>
+    <div class="period-actions"><button type="button" data-testid="apply-period" (click)="applyPeriod()">Filtrar</button><button type="button" data-testid="clear-period" (click)="clearPeriod()">Limpar</button></div>
   </section>
+  @if (periodError(); as message) { <p class="report-status error" role="alert">{{ message }}</p> }
 
   <app-report-presentation [model]="this" />
   <footer class="report-footer flex justify-between gap-4 text-xs text-[#536b8c] pt-5 leading-relaxed"><p>O detalhamento integral de quitação da obra não está disponível nesta etapa.</p><p>Dados reais da obra ativa</p></footer>
