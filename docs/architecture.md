@@ -332,6 +332,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 
 ### 5.1 Frontend (Angular 21.2.x)
 
+0. **SPA, sem SSR nem prerender:** Todas as telas úteis ficam atrás do login, e o token JWT vive no `localStorage`, que não existe no servidor. Renderizar no servidor não traz ganho de SEO nem de primeira pintura e fazia o `authGuard` redirecionar para o login toda recarga ou link direto de rota autenticada. O build gera apenas `dist/frontend/browser/index.html` com os bundles, servido pelo Nginx com fallback para o `index.html`.
 1. **Componentes Standalone:** Padrão moderno desprovido de `NgModule`.
 2. **Gerenciamento de Estado Reativo com Signals:** Utilização de `signal()`, `computed()` e `effect()` para gerenciar o estado reativo das telas e componentes.
 3. **Controle de Fluxo Moderno:** Adoção estrita de `@if`, `@for`, `@switch` no lugar de diretivas legadas (`*ngIf`, `*ngFor`).
