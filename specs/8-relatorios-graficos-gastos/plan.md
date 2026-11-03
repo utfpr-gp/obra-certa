@@ -8,7 +8,8 @@
 - Na integração, `GET /api/projects/{projectId}/reports` retorna identificação da obra, totais orçado, realizado, pago e a pagar e consolidação por categoria. `GET /api/projects/{projectId}/reports/pdf` retorna `application/pdf` com nome de download.
 - `ReportController` delega a `ReportService`; validar posse da obra pelo usuário autenticado antes de consultar dados, inclusive para obra vazia. Obra inexistente ou alheia retorna 404.
 - Consultar somente despesas e orçamentos ativos; calcular valores financeiros com `BigDecimal`. Categorias sem orçamento participam da distribuição e dos totais, mas não do comparativo. Reutilizar vínculos e regras de quitação existentes.
-- A composição definitiva e a recuperação de falhas do PDF dependem das duas respostas ainda abertas na spec; não implementar a tarefa 4 antes dessas decisões.
+- O PDF reúne o consolidado por categoria e a lista individual de despesas ativas em um único arquivo. Em falha, a tela apresenta somente uma mensagem de erro, sem retry automático ou ação específica de tentar novamente.
+- Usar Apache PDFBox 3.0.8 (`org.apache.pdfbox:pdfbox`) para geração e extração de texto nos testes. A dependência ainda não existe no `pom.xml` e será adicionada na tarefa 4; validar sua execução no Java 21 do projeto. Referências oficiais: https://pdfbox.apache.org/download.html e https://pdfbox.apache.org/3.0/migration.html.
 
 ### Migração de schema
 
@@ -46,11 +47,11 @@
   - Migration: nenhuma.
   - Arquivos previstos: serviço, DTOs e repositórios de relatórios da tarefa 2, testes JUnit correspondentes, modelo e página Angular de relatórios e seus testes.
 
-- [ ] **Tarefa 4 — Exportar o relatório financeiro consolidado em PDF**
+- [x] **Tarefa 4 — Exportar o relatório financeiro consolidado em PDF**
   - Cobre: CA3, exportação de CA4, CA5 e CA6 no download.
-  - Pré-condição: resolver as duas dúvidas da spec sobre detalhamento de despesas e comportamento após interrupção. Selecionar a biblioteca de PDF compatível com o backend antes do RED; não presumir dependência já instalada.
-  - Teste primeiro: JUnit para conteúdo extraído do PDF, identificação, valores pago/a pagar, saldos, data determinística via Clock, nome do arquivo, obra vazia e 404 para obra alheia; Jasmine para download, prevenção de cliques duplicados, indicação de geração, falha com recuperação e descarte ao trocar de obra ou sair da página.
-  - Implementação: geração síncrona usando a mesma consolidação autorizada dos gráficos; consumir como Blob pelo service Angular, baixar com nome seguro e liberar a URL temporária. Não emitir novo pedido automaticamente ao retornar à tela.
+  - Pré-condição resolvida pelo autor: um único PDF com consolidado e lista individual de despesas ativas; em falha, apenas mensagem de erro. Biblioteca selecionada antes do RED: Apache PDFBox 3.0.8; adicionar a dependência e validar no Java 21.
+  - Teste primeiro: JUnit para conteúdo extraído do PDF, identificação, valores pago/a pagar, saldos, lista individual de despesas ativas, data determinística via Clock, nome do arquivo, obra vazia e 404 para obra alheia; Jasmine para download, prevenção de cliques duplicados, indicação de geração, falha com apenas mensagem de erro (sem retry automático ou ação específica de tentar novamente) e descarte ao trocar de obra ou sair da página.
+  - Implementação: geração síncrona usando a mesma consolidação autorizada dos gráficos e consulta autorizada de despesas ativas para o detalhamento no mesmo arquivo; consumir como Blob pelo service Angular, baixar com nome seguro e liberar a URL temporária. Preservar o botão de exportação existente, sem seletor de formatos. Não emitir novo pedido automaticamente ao retornar à tela.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/pom.xml`, controlador e serviço de relatórios, serviço gerador de PDF, testes JUnit correspondentes, service e página Angular de relatórios e seus testes.
 

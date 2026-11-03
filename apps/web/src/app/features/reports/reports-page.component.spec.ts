@@ -83,6 +83,82 @@ describe('ReportsPageComponent real report', () => {
     fixture.detectChanges();
   }
 
+  it('downloads the consolidated PDF once, indicates generation and revokes its URL', () => {
+    loadComparison();
+    fixture.componentInstance.selectedCategory.set('over');
+    const create = spyOn(URL, 'createObjectURL').and.returnValue('blob:report');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    let downloadedFilename: string | undefined;
+    const click = spyOn(HTMLAnchorElement.prototype, 'click').and.callFake(function (this: HTMLAnchorElement) {
+      downloadedFilename = this.download;
+    });
+    const button = root().querySelector<HTMLButtonElement>('.export')!;
+    button.click();
+    fixture.detectChanges();
+    button.click();
+    expect(button.disabled).toBeTrue();
+    expect(root().textContent).toContain('Gerando PDF');
+    const request = http.expectOne(r => r.url.endsWith('/projects/project-a/reports/pdf'));
+    request.flush(new Blob(['pdf'], { type: 'application/pdf' }), {
+      headers: { 'Content-Disposition': 'attachment; filename="relatorio-casa-2026-11-02.pdf"' },
+    });
+    fixture.detectChanges();
+    expect(create).toHaveBeenCalled();
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(downloadedFilename).toBe('relatorio-casa-2026-11-02.pdf');
+    expect(revoke).toHaveBeenCalledWith('blob:report');
+    expect(button.disabled).toBeFalse();
+  });
+
+  it('shows only a PDF error without retry controls or automatic retry', () => {
+    loadComparison();
+    root().querySelector<HTMLButtonElement>('.export')!.click();
+    http.expectOne(r => r.url.endsWith('/reports/pdf')).flush(new Blob(), { status: 500, statusText: 'Failure' });
+    fixture.detectChanges();
+    expect(root().textContent).toContain('Não foi possível gerar o PDF.');
+    expect(root().querySelector('button[aria-label="Tentar novamente"]')).toBeNull();
+    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+  });
+
+  it('discards a pending PDF when the project changes', () => {
+    loadComparison();
+    const create = spyOn(URL, 'createObjectURL');
+    root().querySelector<HTMLButtonElement>('.export')!.click();
+    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    TestBed.inject(ActiveProjectService).setActiveProject({ ...project, id: 'project-b' }, 'owner');
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/projects/project-b/reports')).flush({ projectId: 'project-b', projectName: 'B', categories: [], totalPlanned: 0, totalSpent: 0 });
+    expect(pending.cancelled).toBeTrue();
+    expect(create).not.toHaveBeenCalled();
+    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+  });
+
+  it('ignores a PDF after A to B to A even before effects run', () => {
+    loadComparison();
+    const create = spyOn(URL, 'createObjectURL').and.returnValue('blob:obsolete');
+    spyOn(URL, 'revokeObjectURL');
+    spyOn(HTMLAnchorElement.prototype, 'click');
+    root().querySelector<HTMLButtonElement>('.export')!.click();
+    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    const active = TestBed.inject(ActiveProjectService);
+    active.setActiveProject({ ...project, id: 'project-b' }, 'owner');
+    active.setActiveProject(project, 'owner');
+    pending.flush(new Blob(['pdf'], { type: 'application/pdf' }));
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('cancels pending export on leaving and does not export on returning', () => {
+    loadComparison();
+    root().querySelector<HTMLButtonElement>('.export')!.click();
+    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    fixture.destroy();
+    expect(pending.cancelled).toBeTrue();
+    fixture = TestBed.createComponent(ReportsPageComponent);
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/projects/project-a/reports')).flush({ projectId: 'project-a', projectName: 'Casa', categories: [], totalPlanned: 0, totalSpent: 0 });
+    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+  });
+
   it('uses one dynamic scale for planned and actual bars and omits unbudgeted categories', () => {
     loadComparison();
     const comparisons = root().querySelectorAll<HTMLElement>('.comparison-row');

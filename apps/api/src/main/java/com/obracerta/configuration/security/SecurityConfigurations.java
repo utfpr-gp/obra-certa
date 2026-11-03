@@ -65,7 +65,8 @@ public class SecurityConfigurations {
                 registry.addMapping("/**")
                         .allowedOrigins(allowedOrigins)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedHeaders("*")
+                        .exposedHeaders("Content-Disposition");
             }
         };
     }

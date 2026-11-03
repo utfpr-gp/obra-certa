@@ -25,7 +25,27 @@ class ReportServiceTest {
     @Mock UserContextHelper userContextHelper;
     @Mock ExpenseRepository expenseRepository;
     @Mock BudgetRepository budgetRepository;
+    @Mock ReportPdfService pdfService;
     @InjectMocks ReportService reportService;
+
+    @Test
+    void exportsSameAuthorizedConsolidationAndAllActiveExpensesWithoutPagination() {
+        prepareProject();
+        var expense = com.obracerta.model.entity.Expense.builder().id("active").build();
+        when(expenseRepository.findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"), org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(expense)));
+        reportService.exportPdf("project-1");
+        org.mockito.Mockito.verify(pdfService).generate(org.mockito.ArgumentMatchers.argThat(report -> report.projectName().equals("Casa") && report.totalSpent().signum() == 0), org.mockito.ArgumentMatchers.eq(List.of(expense)));
+        org.mockito.Mockito.verify(expenseRepository).findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"), org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.argThat(page -> page.isUnpaged() && page.getSort().getOrderFor("id") != null));
+    }
+
+    @Test
+    void rejectsForeignPdfBeforeQueryingExpensesOrGeneratingBytes() {
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("user-1").build());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.exportPdf("other"))
+                .isInstanceOf(com.obracerta.exception.ResourceNotFoundException.class);
+        org.mockito.Mockito.verifyNoInteractions(expenseRepository, budgetRepository, pdfService);
+    }
 
     @Test
     void aggregatesActiveExpensesByCategoryAndIgnoresDeletedExpenses() {
