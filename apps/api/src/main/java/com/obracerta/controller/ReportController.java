@@ -30,4 +30,10 @@ public class ReportController {
                         org.springframework.http.ContentDisposition.attachment().filename(pdf.filename()).build().toString())
                 .body(pdf.content());
     }
+
+    @GetMapping("/export")
+    public ResponseEntity<com.obracerta.model.dto.report.ReportExportDTO> exportSnapshot(@PathVariable String projectId) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(reportService.exportSnapshot(projectId));
+    }
 }

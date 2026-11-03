@@ -178,6 +178,37 @@ class ReportServiceTest {
         });
     }
 
+    @Test
+    void exportsConsolidatedReportAndAppendixFromTheSameAuthorizedActiveExpenses() {
+        prepareProject();
+        var expense = com.obracerta.model.entity.Expense.builder().id("active").build();
+        when(expenseRepository.findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"), org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(expense)));
+        var content = new byte[]{37, 80, 68, 70};
+        when(pdfService.generateAppendix(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(List.of(expense))))
+                .thenReturn(new com.obracerta.model.dto.report.ReportPdfDTO("relatorio-casa-2026-11-02.pdf", content));
+
+        var snapshot = reportService.exportSnapshot("project-1");
+
+        assertThat(snapshot.report().projectId()).isEqualTo("project-1");
+        assertThat(snapshot.report().projectName()).isEqualTo("Casa");
+        assertThat(snapshot.filename()).isEqualTo("relatorio-casa-2026-11-02.pdf");
+        assertThat(java.util.Base64.getDecoder().decode(snapshot.appendixPdf())).isEqualTo(content);
+        org.mockito.Mockito.verify(pdfService).generateAppendix(
+                org.mockito.ArgumentMatchers.eq(snapshot.report()), org.mockito.ArgumentMatchers.eq(List.of(expense)));
+        org.mockito.Mockito.verify(expenseRepository, org.mockito.Mockito.times(1))
+                .findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.eq("project-1"),
+                        org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectsForeignSnapshotBeforeAnyFinancialQueries() {
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("user-1").build());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.exportSnapshot("other"))
+                .isInstanceOf(com.obracerta.exception.ResourceNotFoundException.class);
+        org.mockito.Mockito.verifyNoInteractions(expenseRepository, budgetRepository, pdfService);
+    }
+
     private void prepareProject() {
         User user = User.builder().id("user-1").build();
         when(userContextHelper.getAuthenticatedUser()).thenReturn(user);

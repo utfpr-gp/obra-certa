@@ -16,15 +16,17 @@ describe('ReportService', () => {
   });
   afterEach(() => http.verify());
 
-  it('downloads the complete PDF as a Blob with response headers', () => {
-    const blob = new Blob(['pdf'], { type: 'application/pdf' });
-    service.exportPdf('project/1').subscribe(response => {
-      expect(response.body).toEqual(blob);
-      expect(response.headers.get('Content-Disposition')).toContain('relatorio-casa');
+  it('gets the correlated authorized visual export snapshot as JSON without a category filter', () => {
+    service.exportSnapshot('project/1').subscribe(snapshot => {
+      expect(snapshot.report.projectId).toBe('project/1');
+      expect(snapshot.filename).toBe('relatorio-casa-2026-11-02.pdf');
+      expect(snapshot.appendixPdf).toBe('JVBERg==');
     });
-    const request = http.expectOne(`${environment.apiUrl}/api/projects/project%2F1/reports/pdf`);
-    expect(request.request.responseType).toBe('blob');
-    request.flush(blob, { headers: { 'Content-Disposition': 'attachment; filename="relatorio-casa-2026-11-02.pdf"' } });
+    const request = http.expectOne(`${environment.apiUrl}/api/projects/project%2F1/reports/export`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('json');
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush({ report: { projectId: 'project/1' }, filename: 'relatorio-casa-2026-11-02.pdf', appendixPdf: 'JVBERg==' });
   });
 
   it('gets the authorized report distribution for a project', () => {
@@ -34,7 +36,7 @@ describe('ReportService', () => {
     request.flush({ totalSpent: 10 });
   });
 
-  it('preserves authentication on a PDF generation 500 and does not retry', () => {
+  it('preserves authentication on an export failure and does not retry', () => {
     const auth = jasmine.createSpyObj<Auth>('Auth', ['getToken', 'logout']);
     auth.getToken.and.returnValue('jwt-token');
     TestBed.resetTestingModule();
@@ -49,15 +51,15 @@ describe('ReportService', () => {
     http = TestBed.inject(HttpTestingController);
 
     let receivedStatus: number | undefined;
-    service.exportPdf('project-1').subscribe({ error: error => receivedStatus = error.status });
-    const request = http.expectOne(`${environment.apiUrl}/api/projects/project-1/reports/pdf`);
+    service.exportSnapshot('project-1').subscribe({ error: error => receivedStatus = error.status });
+    const request = http.expectOne(`${environment.apiUrl}/api/projects/project-1/reports/export`);
     expect(request.request.headers.get('Authorization')).toBe('Bearer jwt-token');
-    request.flush(new Blob(['{"status":500,"message":"Não foi possível gerar o PDF."}'],
-      { type: 'application/json' }), { status: 500, statusText: 'Internal Server Error' });
+    request.flush({ status: 500, message: 'Não foi possível gerar o relatório.' },
+      { status: 500, statusText: 'Internal Server Error' });
 
     expect(receivedStatus).toBe(500);
     expect(auth.logout).not.toHaveBeenCalled();
-    http.expectNone(`${environment.apiUrl}/api/projects/project-1/reports/pdf`);
+    http.expectNone(`${environment.apiUrl}/api/projects/project-1/reports/export`);
   });
 
   it('passes a 401 through the authentication interceptor', () => {

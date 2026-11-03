@@ -1,8 +1,14 @@
-import { HttpClient, HttpResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Report } from '../models/report.model';
+
+export interface ReportExport {
+  report: Report;
+  filename: string;
+  appendixPdf: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ReportService {
@@ -13,9 +19,7 @@ export class ReportService {
     return this.http.get<Report>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports`);
   }
 
-  exportPdf(projectId: string): Observable<HttpResponse<Blob>> {
-    return this.http.get(`${this.endpoint}/${encodeURIComponent(projectId)}/reports/pdf`, {
-      responseType: 'blob', observe: 'response',
-    });
+  exportSnapshot(projectId: string): Observable<ReportExport> {
+    return this.http.get<ReportExport>(`${this.endpoint}/${encodeURIComponent(projectId)}/reports/export`);
   }
 }

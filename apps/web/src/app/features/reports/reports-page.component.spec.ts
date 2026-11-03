@@ -2,18 +2,22 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActiveProjectService } from '../../core/services/active-project.service';
+import { ReportVisualExportService } from './report-visual-export.service';
 import { ReportsPageComponent } from './reports-page.component';
 
 describe('ReportsPageComponent real report', () => {
   let fixture: ComponentFixture<ReportsPageComponent>;
   let http: HttpTestingController;
+  let visual: jasmine.SpyObj<ReportVisualExportService>;
   const project = { id: 'project-a', name: 'Casa', type: 'RENOVATION' as const, status: 'IN_PROGRESS' as const, location: null, createdAt: '', updatedAt: '' };
   const root = () => fixture.nativeElement as HTMLElement;
 
   beforeEach(async () => {
+    visual = jasmine.createSpyObj<ReportVisualExportService>('ReportVisualExportService', ['generate']);
+    visual.generate.and.resolveTo(new Blob(['composed'], { type: 'application/pdf' }));
     await TestBed.configureTestingModule({
       imports: [ReportsPageComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: ReportVisualExportService, useValue: visual }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     TestBed.inject(ActiveProjectService).setActiveProject(project, 'owner');
@@ -83,7 +87,7 @@ describe('ReportsPageComponent real report', () => {
     fixture.detectChanges();
   }
 
-  it('downloads the consolidated PDF once, indicates generation and revokes its URL', () => {
+  it('downloads the consolidated PDF once, indicates generation and revokes its URL', async () => {
     loadComparison();
     fixture.componentInstance.selectedCategory.set('over');
     const create = spyOn(URL, 'createObjectURL').and.returnValue('blob:report');
@@ -98,10 +102,9 @@ describe('ReportsPageComponent real report', () => {
     button.click();
     expect(button.disabled).toBeTrue();
     expect(root().textContent).toContain('Gerando PDF');
-    const request = http.expectOne(r => r.url.endsWith('/projects/project-a/reports/pdf'));
-    request.flush(new Blob(['pdf'], { type: 'application/pdf' }), {
-      headers: { 'Content-Disposition': 'attachment; filename="relatorio-casa-2026-11-02.pdf"' },
-    });
+    const request = http.expectOne(r => r.url.endsWith('/projects/project-a/reports/export'));
+    request.flush(exportSnapshot());
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(create).toHaveBeenCalled();
     expect(click).toHaveBeenCalledTimes(1);
@@ -113,24 +116,24 @@ describe('ReportsPageComponent real report', () => {
   it('shows only a PDF error without retry controls or automatic retry', () => {
     loadComparison();
     root().querySelector<HTMLButtonElement>('.export')!.click();
-    http.expectOne(r => r.url.endsWith('/reports/pdf')).flush(new Blob(), { status: 500, statusText: 'Failure' });
+    http.expectOne(r => r.url.endsWith('/reports/export')).flush({ message: 'Failure' }, { status: 500, statusText: 'Failure' });
     fixture.detectChanges();
     expect(root().textContent).toContain('Não foi possível gerar o PDF.');
     expect(root().querySelector('button[aria-label="Tentar novamente"]')).toBeNull();
-    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+    http.expectNone(r => r.url.endsWith('/reports/export'));
   });
 
   it('discards a pending PDF when the project changes', () => {
     loadComparison();
     const create = spyOn(URL, 'createObjectURL');
     root().querySelector<HTMLButtonElement>('.export')!.click();
-    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    const pending = http.expectOne(r => r.url.endsWith('/reports/export'));
     TestBed.inject(ActiveProjectService).setActiveProject({ ...project, id: 'project-b' }, 'owner');
     fixture.detectChanges();
     http.expectOne(r => r.url.endsWith('/projects/project-b/reports')).flush({ projectId: 'project-b', projectName: 'B', categories: [], totalPlanned: 0, totalSpent: 0 });
     expect(pending.cancelled).toBeTrue();
     expect(create).not.toHaveBeenCalled();
-    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+    http.expectNone(r => r.url.endsWith('/reports/export'));
   });
 
   it('ignores a PDF after A to B to A even before effects run', () => {
@@ -139,24 +142,96 @@ describe('ReportsPageComponent real report', () => {
     spyOn(URL, 'revokeObjectURL');
     spyOn(HTMLAnchorElement.prototype, 'click');
     root().querySelector<HTMLButtonElement>('.export')!.click();
-    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    const pending = http.expectOne(r => r.url.endsWith('/reports/export'));
     const active = TestBed.inject(ActiveProjectService);
     active.setActiveProject({ ...project, id: 'project-b' }, 'owner');
     active.setActiveProject(project, 'owner');
-    pending.flush(new Blob(['pdf'], { type: 'application/pdf' }));
+    pending.flush(exportSnapshot());
     expect(create).not.toHaveBeenCalled();
   });
 
   it('cancels pending export on leaving and does not export on returning', () => {
     loadComparison();
     root().querySelector<HTMLButtonElement>('.export')!.click();
-    const pending = http.expectOne(r => r.url.endsWith('/reports/pdf'));
+    const pending = http.expectOne(r => r.url.endsWith('/reports/export'));
     fixture.destroy();
     expect(pending.cancelled).toBeTrue();
     fixture = TestBed.createComponent(ReportsPageComponent);
     fixture.detectChanges();
     http.expectOne(r => r.url.endsWith('/projects/project-a/reports')).flush({ projectId: 'project-a', projectName: 'Casa', categories: [], totalPlanned: 0, totalSpent: 0 });
-    http.expectNone(r => r.url.endsWith('/reports/pdf'));
+    http.expectNone(r => r.url.endsWith('/reports/export'));
+  });
+
+  function exportSnapshot() {
+    return { report: { projectId: 'project-a', projectName: 'Casa autoritativa', totalPlanned: 100, totalSpent: 120,
+      totalPaid: 100, totalPending: 20, categories: [
+        { categoryId: 'over', categoryName: 'Pintura', amount: 120, plannedAmount: 100, percentage: 100 },
+      ] }, filename: 'relatorio-casa-2026-11-02.pdf', appendixPdf: 'JVBERg==' };
+  }
+
+  it('uses the authoritative global snapshot without changing the screen category or financial data', async () => {
+    loadComparison();
+    fixture.componentInstance.selectedCategory.set('unplanned');
+    const create = spyOn(URL, 'createObjectURL').and.returnValue('blob:report');
+    spyOn(URL, 'revokeObjectURL');
+    spyOn(HTMLAnchorElement.prototype, 'click');
+    fixture.componentInstance.exportPdf();
+    const snapshot = exportSnapshot();
+    http.expectOne(r => r.url.endsWith('/reports/export')).flush(snapshot);
+    await fixture.whenStable();
+    expect(visual.generate.calls.mostRecent().args[0]).toEqual(snapshot);
+    expect(fixture.componentInstance.selectedCategory()).toBe('unplanned');
+    expect(fixture.componentInstance.totals().actualCents).toBe(5000);
+    expect(create.calls.mostRecent().args[0]).toEqual(new Blob(['composed'], { type: 'application/pdf' }));
+  });
+
+  it('shows one error for local capture or composition failure and preserves selection', async () => {
+    loadComparison();
+    fixture.componentInstance.selectedCategory.set('over');
+    visual.generate.and.rejectWith(new Error('capture failed'));
+    fixture.componentInstance.exportPdf();
+    http.expectOne(r => r.url.endsWith('/reports/export')).flush(exportSnapshot());
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.pdfError()).toBe('Não foi possível gerar o PDF.');
+    expect(fixture.componentInstance.generatingPdf()).toBeFalse();
+    expect(fixture.componentInstance.selectedCategory()).toBe('over');
+    expect(root().querySelectorAll('[role="alert"]').length).toBe(1);
+    http.expectNone(r => r.url.endsWith('/reports/export'));
+  });
+
+  for (const abandon of ['A-B-A', 'leave']) {
+    it(`discards a completed local composition after ${abandon}`, async () => {
+      loadComparison();
+      let complete!: (blob: Blob) => void;
+      visual.generate.and.returnValue(new Promise(resolve => complete = resolve));
+      const create = spyOn(URL, 'createObjectURL');
+      fixture.componentInstance.exportPdf();
+      http.expectOne(r => r.url.endsWith('/reports/export')).flush(exportSnapshot());
+      const isCurrent = visual.generate.calls.mostRecent().args[1];
+      expect(isCurrent()).toBeTrue();
+      if (abandon === 'leave') fixture.destroy();
+      else {
+        const active = TestBed.inject(ActiveProjectService);
+        active.setActiveProject({ ...project, id: 'project-b' }, 'owner');
+        active.setActiveProject(project, 'owner');
+      }
+      expect(isCurrent()).toBeFalse();
+      complete(new Blob(['abandoned']));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).not.toHaveBeenCalled();
+    });
+  }
+
+  it('rejects a mismatched remote snapshot before starting local capture', () => {
+    loadComparison();
+    fixture.componentInstance.exportPdf();
+    const snapshot = exportSnapshot();
+    snapshot.report.projectId = 'project-b';
+    http.expectOne(r => r.url.endsWith('/reports/export')).flush(snapshot);
+    expect(visual.generate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.pdfError()).toBe('Não foi possível gerar o PDF.');
   });
 
   it('uses one dynamic scale for planned and actual bars and omits unbudgeted categories', () => {

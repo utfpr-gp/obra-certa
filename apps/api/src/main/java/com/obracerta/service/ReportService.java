@@ -3,17 +3,24 @@ package com.obracerta.service;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.model.dto.report.ReportCategoryDTO;
+import com.obracerta.model.dto.report.ReportExportDTO;
+import com.obracerta.model.dto.report.ReportPdfDTO;
 import com.obracerta.model.dto.report.ReportResponseDTO;
+import com.obracerta.model.entity.Expense;
 import com.obracerta.model.entity.Project;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
 import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +47,28 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
-    public com.obracerta.model.dto.report.ReportPdfDTO exportPdf(String projectId) {
+    public ReportPdfDTO exportPdf(String projectId) {
+        AuthorizedSnapshot snapshot = authorizedSnapshot(projectId);
+        return pdfService.generate(snapshot.report(), snapshot.activeExpenses());
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public ReportExportDTO exportSnapshot(String projectId) {
+        AuthorizedSnapshot snapshot = authorizedSnapshot(projectId);
+        ReportPdfDTO appendix = pdfService.generateAppendix(snapshot.report(), snapshot.activeExpenses());
+        return new ReportExportDTO(snapshot.report(), appendix.filename(),
+                Base64.getEncoder().encodeToString(appendix.content()));
+    }
+
+    private AuthorizedSnapshot authorizedSnapshot(String projectId) {
         ReportResponseDTO report = getReport(projectId);
         String ownerId = identity.getAuthenticatedUser().getId();
-        var activeExpenses = expenses.findActiveByProjectAndOwner(projectId, ownerId,
-                org.springframework.data.domain.Pageable.unpaged(org.springframework.data.domain.Sort.by("purchaseDate", "id")));
-        return pdfService.generate(report, activeExpenses.getContent());
+        List<Expense> activeExpenses = expenses.findActiveByProjectAndOwner(projectId, ownerId,
+                Pageable.unpaged(Sort.by("purchaseDate", "id"))).getContent();
+        return new AuthorizedSnapshot(report, activeExpenses);
+    }
+
+    private record AuthorizedSnapshot(ReportResponseDTO report, List<Expense> activeExpenses) {
     }
 
     @Transactional(readOnly = true)

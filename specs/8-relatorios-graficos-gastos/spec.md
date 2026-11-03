@@ -25,6 +25,7 @@ O proprietário precisa entender a distribuição dos gastos e comparar as despe
 - [ ] **CA8 — Consistência do demonstrativo:** totais, saldos, percentuais e destaques derivam de uma única massa fictícia, com pelo menos uma categoria excedida; arredondar somente na apresentação. Os números da imagem são ilustrativos e não devem produzir totais contraditórios.
 - [ ] **CA9 — Controles do protótipo:** período permanece em todo o histórico; seleção de categoria atualiza as visualizações de forma consistente. O botão de PDF informa que a exportação será disponibilizada na integração, sem simular download concluído.
 - [ ] **CA10 — Abandono do protótipo:** sair da tela ou recarregar não grava dados financeiros nem dispara exportação; retornar restaura o cenário demonstrativo inicial.
+- [ ] **CA11 — PDF visual:** ao exportar, produzir um único PDF com a composição visual da página de Relatórios — indicadores, rosca, barras, resumo e detalhamento por categoria — seguida da lista individual de despesas ativas. Reutilizar a apresentação e dados autorizados, preservar todas as informações do CA3 e a paginação legível, sem elementos de navegação ou controles interativos. Manter CA4, CA5, CA6 e as regras de erro e abandono da exportação. Exportar todo o histórico e todas as categorias, com composição desktop mesmo quando acionado pelo celular, sem alterar a seleção de categoria da tela.
 
 ## Fora de escopo
 
@@ -54,3 +55,4 @@ O protótipo mantém somente estado local de apresentação. Navegar para outra 
 | --- | --- | --- |
 | 1 | Um único PDF contém o consolidado por categoria e a lista individual de despesas ativas. | Autor |
 | 2 | Em falha, apresentar apenas um erro, sem nova tentativa automática ou ação específica de tentar novamente. | Autor |
+| 3 | Aproveitar a página visual de Relatórios nas primeiras páginas do PDF e manter a lista individual de despesas nas seguintes, conforme proposta aprovada para a tarefa 6. | Autor |
