@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { LucideWallet, LucidePieChart, LucidePiggyBank, LucideTriangleAlert, LucideTrendingUp, LucideInfo, LucideCircleCheck, LucideCircleAlert } from '@lucide/angular';
 import { ReportPresentationModel } from './report-presentation.model';
 
@@ -13,4 +13,11 @@ import { ReportPresentationModel } from './report-presentation.model';
 export class ReportPresentationComponent {
   readonly model = input.required<ReportPresentationModel>();
   readonly exportMode = input(false);
+  readonly generatedAt = input<string | null>(null);
+  readonly generatedAtLabel = computed(() => {
+    const value = this.generatedAt();
+    if (!value) return '';
+    const [year, month, day] = value.split('-');
+    return year && month && day ? `${day}/${month}/${year}` : value;
+  });
 }

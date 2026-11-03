@@ -51,6 +51,7 @@ export class ReportVisualExportService {
       model.report.set(snapshot.report);
       component.setInput('model', model);
       component.setInput('exportMode', true);
+      component.setInput('generatedAt', snapshot.generatedAt);
       this.application.attachView(component.hostView);
       component.changeDetectorRef.detectChanges();
       await stage(document.fonts.ready);
@@ -69,9 +70,6 @@ export class ReportVisualExportService {
           width: this.pageWidth - 2 * this.margin, height,
         });
       }
-      const appendix = await stage(runtime.PDFDocument.load(snapshot.appendixPdf));
-      const pages = await stage(documentPdf.copyPages(appendix, appendix.getPageIndices()));
-      for (const page of pages) documentPdf.addPage(page);
       const bytes = await stage(documentPdf.save());
       return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
     } catch (error) {

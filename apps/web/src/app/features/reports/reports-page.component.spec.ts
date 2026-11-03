@@ -166,7 +166,7 @@ describe('ReportsPageComponent real report', () => {
     return { report: { projectId: 'project-a', projectName: 'Casa autoritativa', totalPlanned: 100, totalSpent: 120,
       totalPaid: 100, totalPending: 20, categories: [
         { categoryId: 'over', categoryName: 'Pintura', amount: 120, plannedAmount: 100, percentage: 100 },
-      ] }, filename: 'relatorio-casa-2026-11-02.pdf', appendixPdf: 'JVBERg==' };
+      ] }, filename: 'relatorio-casa-2026-11-02.pdf', generatedAt: '2026-11-02' };
   }
 
   it('uses the authoritative global snapshot without changing the screen category or financial data', async () => {

@@ -22,8 +22,8 @@
 - Na tarefa 1, massa fictícia isolada e marcada com `TODO #8`, valores monetários em centavos e totais coerentes. Os valores da imagem são referência visual, não regras de cálculo.
 - Rosca e barras com recursos nativos de HTML/CSS/SVG, legenda textual e valores acessíveis. Reutilizar ícones e tokens existentes. Desktop com duas áreas de gráficos; mobile em coluna, com detalhamento em cartões e controles de pelo menos 44px.
 - Na integração, `core/services/report.service.ts` será o único ponto HTTP dos relatórios. Troca da obra ativa deve descartar dados anteriores e ignorar respostas atrasadas. Exibir estados de carregamento, erro com nova tentativa e ausência de obra.
-- Na tarefa 6, compartilhar a apresentação da página com a versão visual de exportação, usando todas as categorias sem alterar o filtro da tela. Capturar seções e compor as páginas do PDF sob demanda, preservando o apêndice textual autorizado gerado com PDFBox. Validar `html-to-image` e `pdf-lib`, fixando versões antes do RED; manter o contrato padrão do PDF e acrescentar apenas a opção interna de apêndice sem consolidado repetido. Conferir o contexto após cada etapa assíncrona, inclusive importações e captura.
-- Para evitar divergência financeira entre duas consultas separadas, a exportação visual recebe da API um único contrato interno JSON autorizado com relatório completo, nome seguro e apêndice PDF em base64, produzidos a partir do mesmo snapshot de leitura. Preservar `GET /reports/pdf` e acrescentar `GET /reports/export` para esse contrato. A apresentação isolada de exportação recebe os dados desse retorno; não captura um relatório antigo enquanto anexa despesas de uma consulta nova.
+- Na tarefa 6, compartilhar a apresentação da página com a versão visual de exportação, usando todas as categorias sem alterar o filtro da tela. Capturar seções e compor as páginas do PDF sob demanda. Validar `html-to-image` e `pdf-lib`, fixando versões antes do RED. A partir da tarefa 7, o PDF visual não anexa apêndice textual e não desenha cabeçalho de página; data de geração, pago e a pagar ficam no cabeçalho da composição. Conferir o contexto após cada etapa assíncrona, inclusive importações e captura.
+- A exportação visual recebe da API um único contrato interno JSON autorizado com relatório completo, nome seguro e data de geração, produzidos a partir do mesmo snapshot de leitura. Preservar `GET /reports/pdf` com consolidação e lista individual de despesas para o contrato legado, e manter `GET /reports/export` para esse snapshot visual. A apresentação isolada de exportação recebe os dados desse retorno; não captura um relatório antigo.
 
 ## Tarefas
 
@@ -72,5 +72,14 @@
   - Validação visual: renderizar e inspecionar o PDF final inteiro, comparando gráficos, cores e valores com a página; verificar massa com várias categorias/despesas e obra vazia, acionando a exportação em desktop e em 360px.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/package.json` e lockfile; página de relatórios, apresentação compartilhada e testes; serviço local de captura/composição e testes; serviço HTTP de relatórios e testes; controlador/serviços de relatórios PDF e testes Java correspondentes. Ajustar somente os estilos necessários à exportação, sem alterar os limites de build.
+
+- [x] **Tarefa 7 — Remover a página de apêndice do PDF visual**
+  - Cobre: CA3 e CA11 revisados pela [proposta](proposta-pdf-somente-visual.md) aprovada pelo autor; preserva CA4, CA5 e CA6, o erro único, a prevenção de duplicidade e o descarte da exportação abandonada.
+  - Pré-condição: tarefa 6 fechada no commit `c141eae`; proposta de PDF somente visual aprovada pelo autor antes do RED.
+  - Teste primeiro: JUnit do contrato `/reports/export` sem apêndice, com data de geração e nome determinístico; remover os testes do apêndice que deixam de existir e preservar os do `/reports/pdf` legado. Jasmine provando que o PDF gerado tem exatamente as folhas visuais (nenhuma página de apêndice), que o cabeçalho da composição traz data de geração, pago e a pagar, e que obra vazia, falha e abandono continuam cobertos.
+  - Implementação: enxugar o contrato interno de exportação (relatório, nome e data de geração), deixar de gerar e anexar o apêndice, remover `generateAppendix` e o cabeçalho de página do caminho visual, exibir no cabeçalho da composição a data de geração e os totais pago/a pagar, e não alterar o comportamento de `GET /reports/pdf`.
+  - Validação visual: renderizar e inspecionar o PDF final inteiro, confirmando a ausência da página de apêndice e do cabeçalho de página, em desktop e em 360px, com massa de várias categorias e obra vazia.
+  - Migration: nenhuma.
+  - Arquivos previstos: `ReportExportDTO`, `ReportController`, `ReportService`, `ReportPdfService` e testes JUnit correspondentes; `core/services/report.service.{ts,spec.ts}`, `report-presentation.component.{ts,html,css}`, `report-presentation.model.ts`, `report-visual-export.service.{ts,spec.ts}` e testes da página. Não afrouxar os limites de build.
 
 ## Critérios sem tarefa

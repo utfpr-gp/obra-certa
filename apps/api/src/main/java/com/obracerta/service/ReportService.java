@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Base64;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,14 +38,17 @@ public class ReportService {
     private final ExpenseRepository expenses;
     private final BudgetRepository budgets;
     private final ReportPdfService pdfService;
+    private final Clock clock;
 
     public ReportService(ProjectRepository projects, UserContextHelper identity,
-                         ExpenseRepository expenses, BudgetRepository budgets, ReportPdfService pdfService) {
+                         ExpenseRepository expenses, BudgetRepository budgets, ReportPdfService pdfService,
+                         Clock clock) {
         this.projects = projects;
         this.identity = identity;
         this.expenses = expenses;
         this.budgets = budgets;
         this.pdfService = pdfService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -54,10 +59,10 @@ public class ReportService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ReportExportDTO exportSnapshot(String projectId) {
-        AuthorizedSnapshot snapshot = authorizedSnapshot(projectId);
-        ReportPdfDTO appendix = pdfService.generateAppendix(snapshot.report(), snapshot.activeExpenses());
-        return new ReportExportDTO(snapshot.report(), appendix.filename(),
-                Base64.getEncoder().encodeToString(appendix.content()));
+        ReportResponseDTO report = getReport(projectId);
+        LocalDate generatedOn = LocalDate.now(clock);
+        return new ReportExportDTO(report, ReportPdfService.filename(report.projectName(), generatedOn),
+                generatedOn.format(DateTimeFormatter.ISO_LOCAL_DATE));
     }
 
     private AuthorizedSnapshot authorizedSnapshot(String projectId) {

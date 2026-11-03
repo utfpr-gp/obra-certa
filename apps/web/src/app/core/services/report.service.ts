@@ -7,7 +7,7 @@ import { Report } from '../models/report.model';
 export interface ReportExport {
   report: Report;
   filename: string;
-  appendixPdf: string;
+  generatedAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
