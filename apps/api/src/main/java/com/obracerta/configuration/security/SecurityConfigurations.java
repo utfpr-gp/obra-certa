@@ -1,5 +1,6 @@
 package com.obracerta.configuration.security;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +34,10 @@ public class SecurityConfigurations {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
+                        // O despacho de erro (/error) reaproveita uma requisicao que ja passou pela
+                        // autorizacao. Sem esta liberacao ele roda anonimo e todo 400/409/500 vira 401,
+                        // o que desloga o usuario no frontend (Issue #33).
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
