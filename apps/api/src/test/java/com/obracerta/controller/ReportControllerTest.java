@@ -50,6 +50,18 @@ class ReportControllerTest {
     }
 
     @Test
+    void returnsInternalVisualSnapshotAndPreservesNotFound() throws Exception {
+        var report = new ReportResponseDTO("project-1", "Casa", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
+        when(reportService.exportSnapshot("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportExportDTO(report, "relatorio-casa-2026-11-02.pdf", "JVBERg=="));
+        mockMvc.perform(get("/api/projects/project-1/reports/export"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.report.projectId").value("project-1"))
+                .andExpect(jsonPath("$.filename").value("relatorio-casa-2026-11-02.pdf"))
+                .andExpect(jsonPath("$.appendixPdf").value("JVBERg=="));
+        when(reportService.exportSnapshot("other")).thenThrow(new ResourceNotFoundException());
+        mockMvc.perform(get("/api/projects/other/reports/export")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void returnsDistributionJson() throws Exception {
         when(reportService.getReport(eq("project-1"))).thenReturn(new ReportResponseDTO(
                 "project-1", "Minha obra", new BigDecimal("0.00"), new BigDecimal("10.00"),

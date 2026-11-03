@@ -23,6 +23,14 @@ public class ReportPdfService {
     public ReportPdfService(Clock clock) { this.clock = clock; }
 
     public ReportPdfDTO generate(ReportResponseDTO report, List<Expense> expenses) {
+        return generate(report, expenses, false);
+    }
+
+    public ReportPdfDTO generateAppendix(ReportResponseDTO report, List<Expense> expenses) {
+        return generate(report, expenses, true);
+    }
+
+    private ReportPdfDTO generate(ReportResponseDTO report, List<Expense> expenses, boolean appendixOnly) {
         LocalDate date = LocalDate.now(clock);
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"));
         DateTimeFormatter dates = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -38,11 +46,13 @@ public class ReportPdfService {
                 writer.line("Pago: " + money(currency, report.totalPaid()), false);
                 writer.line("A pagar: " + money(currency, report.totalPending()), false);
                 writer.line("Saldo: " + money(currency, report.totalPlanned().subtract(report.totalSpent())), false);
-                writer.line("Balanço por categoria", true);
-                for (var category : report.categories()) {
-                    writer.line(category.categoryName(), true);
-                    writer.line("Orçado: " + money(currency, category.plannedAmount()) + " | Realizado: " + money(currency, category.amount())
-                            + " | Saldo: " + money(currency, category.plannedAmount().subtract(category.amount())), false);
+                if (!appendixOnly) {
+                    writer.line("Balanço por categoria", true);
+                    for (var category : report.categories()) {
+                        writer.line(category.categoryName(), true);
+                        writer.line("Orçado: " + money(currency, category.plannedAmount()) + " | Realizado: " + money(currency, category.amount())
+                                + " | Saldo: " + money(currency, category.plannedAmount().subtract(category.amount())), false);
+                    }
                 }
                 writer.line("Despesas ativas - detalhamento individual", true);
                 if (expenses.isEmpty()) writer.line("Sem despesas ativas", false);

@@ -22,6 +22,8 @@
 - Na tarefa 1, massa fictícia isolada e marcada com `TODO #8`, valores monetários em centavos e totais coerentes. Os valores da imagem são referência visual, não regras de cálculo.
 - Rosca e barras com recursos nativos de HTML/CSS/SVG, legenda textual e valores acessíveis. Reutilizar ícones e tokens existentes. Desktop com duas áreas de gráficos; mobile em coluna, com detalhamento em cartões e controles de pelo menos 44px.
 - Na integração, `core/services/report.service.ts` será o único ponto HTTP dos relatórios. Troca da obra ativa deve descartar dados anteriores e ignorar respostas atrasadas. Exibir estados de carregamento, erro com nova tentativa e ausência de obra.
+- Na tarefa 6, compartilhar a apresentação da página com a versão visual de exportação, usando todas as categorias sem alterar o filtro da tela. Capturar seções e compor as páginas do PDF sob demanda, preservando o apêndice textual autorizado gerado com PDFBox. Validar `html-to-image` e `pdf-lib`, fixando versões antes do RED; manter o contrato padrão do PDF e acrescentar apenas a opção interna de apêndice sem consolidado repetido. Conferir o contexto após cada etapa assíncrona, inclusive importações e captura.
+- Para evitar divergência financeira entre duas consultas separadas, a exportação visual recebe da API um único contrato interno JSON autorizado com relatório completo, nome seguro e apêndice PDF em base64, produzidos a partir do mesmo snapshot de leitura. Preservar `GET /reports/pdf` e acrescentar `GET /reports/export` para esse contrato. A apresentação isolada de exportação recebe os dados desse retorno; não captura um relatório antigo enquanto anexa despesas de uma consulta nova.
 
 ## Tarefas
 
@@ -61,5 +63,14 @@
   - Implementação: corrigir a configuração/teste que impede o bootstrap H2/Flyway sem alterar migrations aplicadas; limpar o relatório no retry; manter o contexto por identificador da obra; transportar o orçamento por categoria necessário para que a tela não mostre saldos falsos, deixando cores, omissões e regras finais do comparativo para a Tarefa 3; remover o resíduo demonstrativo do fluxo integrado.
   - Migration: nenhuma.
   - Arquivos previstos: configuração de testes do `apps/api` e testes de `repository`, `service` e `controller`; DTOs/`ReportService`/repositories apenas se necessários ao contrato; `apps/web/src/app/core/models/report.model.ts`, `report.service.spec.ts`, `reports-page.component.{ts,spec.ts}`, além de testes do interceptor somente se necessário.
+
+- [x] **Tarefa 6 — Gerar PDF visual a partir da página de Relatórios**
+  - Cobre: CA11 e preservação de CA3, CA4, CA5 e CA6; mantém erro simples, prevenção de duplicidade e descarte da exportação abandonada.
+  - Pré-condição: fechamento da tarefa 4 e proposta visual aprovados pelo autor; validar e fixar as bibliotecas de captura/composição antes do RED.
+  - Teste primeiro: JUnit para apêndice autorizado sem repetição do consolidado, informações obrigatórias de quitação/data/nome, obra vazia, 404 e exclusão lógica; Jasmine para reutilização da apresentação, exportação global sem alterar seleção, captura dos gráficos, montagem de arquivo único, paginação e nome, falhas nas etapas locais/remotas e descarte por troca de obra/saída, inclusive A → B → A. Preservar as regressões existentes da exportação.
+  - Implementação: compartilhar a apresentação da página, gerar as páginas visuais e anexar o detalhamento autorizado ao mesmo PDF, com resolução legível e carregamento sob demanda. Manter download direto pelo botão existente e o estado da tela após concluir ou falhar. Não abrir diálogo de impressão nem acrescentar seletor de formatos.
+  - Validação visual: renderizar e inspecionar o PDF final inteiro, comparando gráficos, cores e valores com a página; verificar massa com várias categorias/despesas e obra vazia, acionando a exportação em desktop e em 360px.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/web/package.json` e lockfile; página de relatórios, apresentação compartilhada e testes; serviço local de captura/composição e testes; serviço HTTP de relatórios e testes; controlador/serviços de relatórios PDF e testes Java correspondentes. Ajustar somente os estilos necessários à exportação, sem alterar os limites de build.
 
 ## Critérios sem tarefa

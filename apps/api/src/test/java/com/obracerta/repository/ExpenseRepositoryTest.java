@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -151,6 +154,50 @@ class ExpenseRepositoryTest {
         assertThat(totalOf(totals, category.getId())).isEqualByComparingTo("125.00");
         assertThat(expenseRepository.sumActiveByCategoryAndOwner(project.getId(), anotherOwner.getId()))
                 .isEmpty();
+    }
+
+    @Test
+    void activeExpenseDetailQueryExcludesSoftDeletedExpensesAndMatchesTheAuthorizedConsolidation() {
+        User owner = persistUser();
+        User anotherOwner = persistUser();
+        Project project = persistProject(owner, "Obra do detalhamento");
+        Project anotherProject = persistProject(anotherOwner, "Obra alheia");
+        Supplier supplier = persistSupplier();
+        ExpenseCategory category = persistCategory("Detalhamento " + UUID.randomUUID());
+        Budget budget = persistBudget(owner, project, category);
+        Budget anotherBudget = persistBudget(anotherOwner, anotherProject, category);
+
+        Expense paid = persistExpense(owner, project, category, budget, supplier, "125.00");
+        Expense pending = persistExpense(owner, project, category, budget, supplier, "75.00");
+        pending.setPaid(false);
+        expenseRepository.saveAndFlush(pending);
+        Expense deleted = persistExpense(owner, project, category, budget, supplier, "999.00");
+        deleted.setDeletedAt(Instant.now());
+        expenseRepository.saveAndFlush(deleted);
+        persistExpense(anotherOwner, anotherProject, category, anotherBudget, supplier, "500.00");
+
+        Page<Expense> detail = expenseRepository.findActiveByProjectAndOwner(
+                project.getId(), owner.getId(), Pageable.unpaged(Sort.by("purchaseDate", "id")));
+
+        assertThat(detail.getContent()).extracting(Expense::getId)
+                .containsExactlyInAnyOrder(paid.getId(), pending.getId());
+        assertThat(expenseRepository.findActiveByProjectAndOwner(
+                project.getId(), anotherOwner.getId(), Pageable.unpaged(Sort.by("purchaseDate", "id")))
+                .getContent()).isEmpty();
+
+        BigDecimal detailTotal = detail.getContent().stream()
+                .map(Expense::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<ExpenseRepository.CategoryExpenseTotal> consolidation =
+                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId());
+        assertThat(consolidation).hasSize(1);
+        assertThat(totalOf(consolidation, category.getId())).isEqualByComparingTo(detailTotal);
+        assertThat(detailTotal).isEqualByComparingTo("200.00");
+
+        ExpenseRepository.ReportExpenseTotals payment =
+                expenseRepository.sumActiveTotalsByProjectAndOwner(project.getId(), owner.getId());
+        assertThat(payment.getTotalPaid()).isEqualByComparingTo("125.00");
+        assertThat(payment.getTotalPending()).isEqualByComparingTo("75.00");
     }
 
     private static BigDecimal totalOf(

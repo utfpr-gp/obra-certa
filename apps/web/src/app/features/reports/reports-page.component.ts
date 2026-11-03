@@ -1,80 +1,34 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { LucideCircleAlert, LucideCircleCheck, LucideFileText, LucideInfo, LucidePieChart, LucidePiggyBank, LucideTrendingUp, LucideTriangleAlert, LucideWallet } from '@lucide/angular';
+import { ReportPresentationModel } from './report-presentation.model';
+import { ReportPresentationComponent } from './report-presentation.component';
+import { ReportVisualExportService } from './report-visual-export.service';
+import { LucideFileText, LucideInfo } from '@lucide/angular';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ReportService } from '../../core/services/report.service';
 
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [LucideWallet, LucidePieChart, LucidePiggyBank, LucideTriangleAlert, LucideFileText, LucideInfo, LucideTrendingUp, LucideCircleCheck, LucideCircleAlert],
+  imports: [ReportPresentationComponent, LucideFileText, LucideInfo],
   templateUrl: './reports-page.component.html',
   styleUrl: './reports-page.component.css',
 })
-export class ReportsPageComponent {
+export class ReportsPageComponent extends ReportPresentationModel {
   readonly activeProject = inject(ActiveProjectService);
   private readonly reportService = inject(ReportService);
-  private readonly report = signal<import('../../core/models/report.model').Report | null>(null);
+  private readonly visualExport = inject(ReportVisualExportService);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly selectedCategory = signal('all');
   readonly generatingPdf = signal(false);
   readonly pdfError = signal<string | null>(null);
   private pdfRequest?: Subscription;
   private pdfGeneration = 0;
   private readonly destroyRef = inject(DestroyRef);
-  readonly reportProjectName = computed(() => this.report()?.projectName ?? '');
   private requestGeneration = 0;
-  private readonly colors = ['#00686d', '#00a2a8', '#8a6f2f', '#d77b24', '#8b5cf6', '#d64b5b', '#607d8b'];
-
-  readonly categories = computed(() => (this.report()?.categories ?? []).map((category, index) => ({
-    id: category.categoryId, name: category.categoryName, actualCents: Math.round(category.amount * 100),
-    plannedCents: Math.round(category.plannedAmount * 100), color: this.colors[index % this.colors.length],
-  })));
-  readonly noExpenses = computed(() => this.report() !== null && this.report()?.totalSpent === 0);
-  readonly visibleCategories = computed(() => this.categories().filter(category =>
-    this.selectedCategory() === 'all' || category.id === this.selectedCategory()));
-  readonly totals = computed(() => {
-    const categories = this.visibleCategories();
-    const allCategories = this.selectedCategory() === 'all';
-    const plannedCents = allCategories ? Math.round((this.report()?.totalPlanned ?? 0) * 100)
-      : categories.reduce((sum, category) => sum + category.plannedCents, 0);
-    const actualCents = allCategories ? Math.round((this.report()?.totalSpent ?? 0) * 100)
-      : categories.reduce((sum, category) => sum + category.actualCents, 0);
-    const exceeded = categories.filter(category => category.plannedCents > 0
-      && category.actualCents > category.plannedCents).length;
-    return { plannedCents, actualCents, balanceCents: plannedCents - actualCents,
-      consumption: plannedCents ? actualCents / plannedCents * 100 : null,
-      exceeded };
-  });
-  readonly rows = computed(() => {
-    let offset = 0;
-    const total = this.totals().actualCents;
-    return this.visibleCategories().map(category => {
-      const share = total ? category.actualCents / total * 100 : 0;
-      const row = { ...category, share, offset, segment: share - Math.min(0.28, share / 2),
-        balanceCents: category.plannedCents - category.actualCents,
-        consumption: category.plannedCents ? category.actualCents / category.plannedCents * 100 : null,
-        exceeded: category.plannedCents > 0 && category.actualCents > category.plannedCents };
-      offset += share;
-      return row;
-    });
-  });
-  readonly distributionRows = computed(() => this.rows().filter(row => row.actualCents > 0));
-  readonly comparisonRows = computed(() => this.rows().filter(row => row.plannedCents > 0));
-  readonly barMaximumCents = computed(() => Math.max(100,
-    ...this.comparisonRows().flatMap(row => [row.plannedCents, row.actualCents])));
-  readonly axisDivisor = computed(() => this.barMaximumCents() >= 100000 ? 100000 : 100);
-  readonly axisTicks = computed(() => Array.from({ length: 5 }, (_, index) =>
-    this.barMaximumCents() / this.axisDivisor() * index / 4));
-  readonly largestExpenses = computed(() => [...this.distributionRows()].sort((a, b) => b.actualCents - a.actualCents).slice(0, 2));
-  readonly exceededRows = computed(() => this.rows().filter(row => row.exceeded));
-  readonly displayedShareTotal = computed(() => this.rows().reduce((sum, row) => sum + Math.round(row.share * 10) / 10, 0));
-  private readonly currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-  private readonly integerCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-
   constructor() {
+    super();
     this.destroyRef.onDestroy(() => this.discardPdf());
     effect(() => {
       const project = this.activeProject.activeProject();
@@ -121,12 +75,6 @@ export class ReportsPageComponent {
       error: (error: HttpErrorResponse) => { if (generation === this.requestGeneration) { this.loading.set(false); this.error.set(error.status === 404 ? 'A obra não foi localizada.' : 'Não foi possível carregar os relatórios.'); } },
     });
   }
-  money(cents: number): string { return this.normalizeCurrency(this.currency.format(cents / 100)); }
-  compactMoney(cents: number): string { return this.normalizeCurrency(this.integerCurrency.format(cents / 100)); }
-  private normalizeCurrency(value: string): string { return value.replace(/[\u00a0\u202f]/g, ' '); }
-  percent(value: number | null, digits = 1): string { return value === null ? '—' : `${value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`; }
-  barWidth(cents: number): number { return cents / this.barMaximumCents() * 100; }
-  progressWidth(value: number | null): number { return Math.min(value ?? 0, 100); }
   selectCategory(event: Event): void { this.selectedCategory.set((event.target as HTMLSelectElement).value); }
   private discardPdf(): void {
     ++this.pdfGeneration;
@@ -142,27 +90,32 @@ export class ReportsPageComponent {
     const contextVersion = this.activeProject.contextVersion();
     this.generatingPdf.set(true);
     this.pdfError.set(null);
-    this.pdfRequest = this.reportService.exportPdf(project.id).subscribe({
-      next: response => {
-        if (this.destroyRef.destroyed || generation !== this.pdfGeneration || contextVersion !== this.activeProject.contextVersion() || this.activeProject.activeProject()?.id !== project.id) return;
-        this.generatingPdf.set(false);
-        if (!response.body) { this.pdfError.set('Não foi possível gerar o PDF.'); return; }
-        const filename = response.headers.get('Content-Disposition')?.match(/filename="?([^";]+)"?/)?.[1];
-        const safeFilename = filename && /^relatorio-[a-z0-9-]+-\d{4}-\d{2}-\d{2}\.pdf$/.test(filename)
-          ? filename : 'relatorio-obra.pdf';
-        const url = URL.createObjectURL(response.body);
-        try {
-          const anchor = document.createElement('a');
-          anchor.href = url;
-          anchor.download = safeFilename;
-          anchor.click();
-        } finally { URL.revokeObjectURL(url); }
+    const isCurrent = () => !this.destroyRef.destroyed && generation === this.pdfGeneration
+      && contextVersion === this.activeProject.contextVersion() && this.activeProject.activeProject()?.id === project.id;
+    const fail = () => {
+      if (!isCurrent()) return;
+      this.generatingPdf.set(false);
+      this.pdfError.set('Não foi possível gerar o PDF.');
+    };
+    this.pdfRequest = this.reportService.exportSnapshot(project.id).subscribe({
+      next: snapshot => {
+        if (!isCurrent()) return;
+        if (!snapshot?.report || snapshot.report.projectId !== project.id) { fail(); return; }
+        void this.visualExport.generate(snapshot, isCurrent).then(blob => {
+          if (!isCurrent() || !blob) return;
+          const safeFilename = /^relatorio-[a-z0-9-]+-\d{4}-\d{2}-\d{2}\.pdf$/.test(snapshot.filename)
+            ? snapshot.filename : 'relatorio-obra.pdf';
+          const url = URL.createObjectURL(blob);
+          try {
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = safeFilename;
+            anchor.click();
+          } finally { URL.revokeObjectURL(url); }
+          this.generatingPdf.set(false);
+        }).catch(fail);
       },
-      error: () => {
-        if (this.destroyRef.destroyed || generation !== this.pdfGeneration || contextVersion !== this.activeProject.contextVersion() || this.activeProject.activeProject()?.id !== project.id) return;
-        this.generatingPdf.set(false);
-        this.pdfError.set('Não foi possível gerar o PDF.');
-      },
+      error: fail,
     });
   }
 }

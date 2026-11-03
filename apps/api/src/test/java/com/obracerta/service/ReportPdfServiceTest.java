@@ -50,5 +50,28 @@ class ReportPdfServiceTest {
             assertThat(new PDFTextStripper().getText(document)).contains("fim0", "fim89", "Pago", "Αθήνα", "Москва");
         }
     }
+    @Test
+    void appendixKeepsIdentityPaymentsDateAndExpensesWithoutRepeatingCategoryConsolidation() throws Exception {
+        var report = new ReportResponseDTO("p1", "Reforma São João", money("1000"), money("1200"), money("900"), money("300"),
+                List.of(new ReportCategoryDTO("c1", "Elétrica", money("1200"), money("1000"), money("100"))));
+        var expense = Expense.builder().description("Instalação elétrica").purchaseDate(LocalDate.of(2026, 10, 31))
+                .category(ExpenseCategory.builder().name("Elétrica").build()).totalPrice(money("300")).paid(false).build();
+        var pdf = service.generateAppendix(report, List.of(expense));
+        assertThat(pdf.filename()).isEqualTo("relatorio-reforma-sao-joao-2026-11-02.pdf");
+        try (var document = Loader.loadPDF(pdf.content())) {
+            assertThat(new PDFTextStripper().getText(document)).contains("Reforma São João", "p1", "02/11/2026",
+                    "Pago: R$ 900,00", "A pagar: R$ 300,00", "Total orçado: R$ 1.000,00",
+                    "Total realizado: R$ 1.200,00", "Instalação elétrica", "31/10/2026")
+                    .doesNotContain("Balanço por categoria", "Orçado: R$");
+        }
+    }
+
+    @Test
+    void appendixSupportsAnEmptyProject() throws Exception {
+        var pdf = service.generateAppendix(new ReportResponseDTO("p", "Casa", money("0"), money("0"), money("0"), money("0"), List.of()), List.of());
+        try (var document = Loader.loadPDF(pdf.content())) {
+            assertThat(new PDFTextStripper().getText(document)).contains("Sem despesas ativas", "Pago: R$ 0,00", "A pagar: R$ 0,00");
+        }
+    }
     private BigDecimal money(String amount) { return new BigDecimal(amount); }
 }
