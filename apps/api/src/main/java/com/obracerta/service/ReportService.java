@@ -2,6 +2,7 @@ package com.obracerta.service;
 
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.exception.ResourceNotFoundException;
+import com.obracerta.exception.ExpenseValidationException;
 import com.obracerta.model.dto.report.ReportCategoryDTO;
 import com.obracerta.model.dto.report.ReportExportDTO;
 import com.obracerta.model.dto.report.ReportPdfDTO;
@@ -11,6 +12,7 @@ import com.obracerta.model.entity.Project;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
 import com.obracerta.repository.ExpenseRepository;
+import com.obracerta.repository.ExpenseCategoryRepository;
 import com.obracerta.repository.ProjectRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -37,16 +39,18 @@ public class ReportService {
     private final UserContextHelper identity;
     private final ExpenseRepository expenses;
     private final BudgetRepository budgets;
+    private final ExpenseCategoryRepository categories;
     private final ReportPdfService pdfService;
     private final Clock clock;
 
     public ReportService(ProjectRepository projects, UserContextHelper identity,
-                         ExpenseRepository expenses, BudgetRepository budgets, ReportPdfService pdfService,
+                         ExpenseRepository expenses, BudgetRepository budgets, ExpenseCategoryRepository categories, ReportPdfService pdfService,
                          Clock clock) {
         this.projects = projects;
         this.identity = identity;
         this.expenses = expenses;
         this.budgets = budgets;
+        this.categories = categories;
         this.pdfService = pdfService;
         this.clock = clock;
     }
@@ -58,11 +62,13 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ReportExportDTO exportSnapshot(String projectId) {
-        ReportResponseDTO report = getReport(projectId);
+    public ReportExportDTO exportSnapshot(String projectId, LocalDate from, LocalDate to, String category) {
+        ReportResponseDTO report = getReport(projectId, from, to, category);
+        String categoryName = category == null ? null : categories.findById(category)
+                .orElseThrow(ResourceNotFoundException::new).getName();
         LocalDate generatedOn = LocalDate.now(clock);
         return new ReportExportDTO(report, ReportPdfService.filename(report.projectName(), generatedOn),
-                generatedOn.format(DateTimeFormatter.ISO_LOCAL_DATE));
+                generatedOn.format(DateTimeFormatter.ISO_LOCAL_DATE), from, to, categoryName);
     }
 
     private AuthorizedSnapshot authorizedSnapshot(String projectId) {
@@ -78,11 +84,20 @@ public class ReportService {
 
     @Transactional(readOnly = true)
     public ReportResponseDTO getReport(String projectId) {
+        return getReport(projectId, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ReportResponseDTO getReport(String projectId, LocalDate from, LocalDate to, String category) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new ExpenseValidationException("A data inicial do período não pode ser posterior à final.");
+        }
         User user = identity.getAuthenticatedUser();
         Project project = projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, user.getId())
                 .orElseThrow(ResourceNotFoundException::new);
 
-        var activeBudgets = budgets.findByProjectIdAndOwnerIdAndDeletedAtIsNull(projectId, user.getId());
+        var activeBudgets = budgets.findByProjectIdAndOwnerIdAndDeletedAtIsNull(projectId, user.getId()).stream()
+                .filter(budget -> category == null || budget.getCategory().getId().equals(category)).toList();
         BigDecimal planned = activeBudgets
                 .stream()
                 .map(budget -> money(budget.getEstimatedAmount()))
@@ -94,11 +109,11 @@ public class ReportService {
                         budget -> money(budget.getEstimatedAmount()),
                         BigDecimal::add));
         List<ExpenseRepository.CategoryExpenseTotal> totals =
-                expenses.sumActiveByCategoryAndOwner(projectId, user.getId());
+                expenses.sumActiveByCategoryAndOwner(projectId, user.getId(), from, to, category);
         BigDecimal spent = totals.stream().map(total -> money(total.getTotal()))
                 .reduce(ZERO, BigDecimal::add);
         ExpenseRepository.ReportExpenseTotals paymentTotals =
-                expenses.sumActiveTotalsByProjectAndOwner(projectId, user.getId());
+                expenses.sumActiveTotalsByProjectAndOwner(projectId, user.getId(), from, to, category);
         BigDecimal paid = paymentTotals == null ? ZERO : money(paymentTotals.getTotalPaid());
         BigDecimal pending = paymentTotals == null ? ZERO : money(paymentTotals.getTotalPending());
 
@@ -109,12 +124,12 @@ public class ReportService {
                 ExpenseRepository.CategoryExpenseTotal::getCategoryId, total -> money(total.getTotal())));
         List<ReportCategoryDTO> categories = categoryNames.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
-                .map(category -> new ReportCategoryDTO(
-                        category.getKey(),
-                        category.getValue(),
-                        spentByCategory.getOrDefault(category.getKey(), ZERO),
-                        plannedByCategory.getOrDefault(category.getKey(), ZERO),
-                        percentage(spentByCategory.getOrDefault(category.getKey(), ZERO), spent)))
+                .map(entry -> new ReportCategoryDTO(
+                        entry.getKey(),
+                        entry.getValue(),
+                        spentByCategory.getOrDefault(entry.getKey(), ZERO),
+                        plannedByCategory.getOrDefault(entry.getKey(), ZERO),
+                        percentage(spentByCategory.getOrDefault(entry.getKey(), ZERO), spent)))
                 .toList();
         return new ReportResponseDTO(project.getId(), project.getName(), planned, spent, paid, pending, categories);
     }

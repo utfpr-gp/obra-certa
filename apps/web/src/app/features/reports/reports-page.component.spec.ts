@@ -169,6 +169,119 @@ describe('ReportsPageComponent real report', () => {
       ] }, filename: 'relatorio-casa-2026-11-02.pdf', generatedAt: '2026-11-02' };
   }
 
+  function date(id: string, value: string) {
+    const input = root().querySelector<HTMLInputElement>(id)!;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  it('applies and clears a period only on click, updating every presentation from the response', () => {
+    loadComparison();
+    const from = root().querySelector<HTMLInputElement>('#report-from');
+    expect(from).not.toBeNull();
+    if (!from) return;
+    expect(from.type).toBe('date');
+    expect(from.value).toBe('');
+    date('#report-from', '2026-10-01');
+    date('#report-to', '2026-10-31');
+    http.expectNone(r => r.url.endsWith('/reports'));
+    root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+    const request = http.expectOne(r => r.url.endsWith('/reports'));
+    expect(request.request.params.get('from')).toBe('2026-10-01');
+    expect(request.request.params.get('to')).toBe('2026-10-31');
+    request.flush({ projectId: 'project-a', projectName: 'Casa', totalPlanned: 500000, totalSpent: 10,
+      totalPaid: 10, totalPending: 0, categories: [
+        { categoryId: 'over', categoryName: 'Pintura', plannedAmount: 500000, amount: 10, percentage: 100 },
+      ] });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.totals().plannedCents).toBe(50000000);
+    expect(fixture.componentInstance.totals().actualCents).toBe(1000);
+    expect(root().querySelectorAll('.distribution-item').length).toBe(1);
+    expect(root().querySelectorAll('.comparison-row').length).toBe(1);
+    expect(root().querySelectorAll('.detail-row').length).toBe(1);
+    expect(root().querySelector('[data-testid="report-summary"]')?.textContent).toContain('R$ 10,00');
+    root().querySelector<HTMLButtonElement>('[data-testid="clear-period"]')!.click();
+    const cleared = http.expectOne(r => r.url.endsWith('/reports'));
+    expect(cleared.request.params.keys()).toEqual([]);
+    cleared.flush({ projectId: 'project-a', categories: [], totalPlanned: 500000, totalSpent: 0 });
+    fixture.detectChanges();
+    expect(from.value).toBe('');
+  });
+
+  it('blocks an inverted range with one error and preserves the displayed report', () => {
+    loadComparison();
+    expect(root().querySelector('#report-from')).not.toBeNull();
+    if (!root().querySelector('#report-from')) return;
+    date('#report-from', '2026-11-02');
+    date('#report-to', '2026-11-01');
+    root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+    fixture.detectChanges();
+    http.expectNone(r => r.url.endsWith('/reports'));
+    expect(root().querySelectorAll('[role="alert"]').length).toBe(1);
+    expect(root().textContent).toContain('A data inicial do período não pode ser posterior à final.');
+    expect(fixture.componentInstance.totals().actualCents).toBe(35005000);
+  });
+
+  it('exports the applied period and category while ignoring dates still being edited', () => {
+    loadComparison();
+    date('#report-from', '2026-10-01');
+    root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+    http.expectOne(r => r.url.endsWith('/reports')).flush(exportSnapshot().report);
+    fixture.detectChanges();
+    date('#report-from', '2026-11-01');
+    const category = root().querySelector<HTMLSelectElement>('#report-category')!;
+    category.value = 'over';
+    category.dispatchEvent(new Event('change'));
+    fixture.componentInstance.exportPdf();
+    const request = http.expectOne(r => r.url.endsWith('/reports/export'));
+    expect(request.request.params.get('from')).toBe('2026-10-01');
+    expect(request.request.params.has('to')).toBeFalse();
+    expect(request.request.params.get('category')).toBe('over');
+    request.flush({}, { status: 500, statusText: 'Failure' });
+  });
+
+  it('restores empty dates and full history when changing the active project', () => {
+    loadComparison();
+    date('#report-from', '2026-10-01');
+    root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+    http.expectOne(r => r.url.endsWith('/reports')).flush(exportSnapshot().report);
+    TestBed.inject(ActiveProjectService).setActiveProject({ ...project, id: 'project-b' }, 'owner');
+    fixture.detectChanges();
+    const request = http.expectOne(r => r.url.endsWith('/projects/project-b/reports'));
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush({ projectId: 'project-b', categories: [], totalPlanned: 0, totalSpent: 0 });
+    fixture.detectChanges();
+    expect(root().querySelector<HTMLInputElement>('#report-from')!.value).toBe('');
+    expect(root().querySelector<HTMLInputElement>('#report-to')!.value).toBe('');
+  });
+
+  for (const filter of ['period', 'category']) {
+    it(`discards local PDF composition when the applied ${filter} changes`, async () => {
+      loadComparison();
+      let complete!: (blob: Blob) => void;
+      visual.generate.and.returnValue(new Promise(resolve => complete = resolve));
+      const create = spyOn(URL, 'createObjectURL');
+      fixture.componentInstance.exportPdf();
+      http.expectOne(r => r.url.endsWith('/reports/export')).flush(exportSnapshot());
+      const isCurrent = visual.generate.calls.mostRecent().args[1];
+      if (filter === 'period') {
+        date('#report-from', '2026-10-01');
+        root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+        http.expectOne(r => r.url.endsWith('/reports')).flush(exportSnapshot().report);
+      } else {
+        const category = root().querySelector<HTMLSelectElement>('#report-category')!;
+        category.value = 'over';
+        category.dispatchEvent(new Event('change'));
+      }
+      expect(isCurrent()).toBeFalse();
+      complete(new Blob(['abandoned']));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).not.toHaveBeenCalled();
+    });
+  }
+
   it('uses the authoritative global snapshot without changing the screen category or financial data', async () => {
     loadComparison();
     fixture.componentInstance.selectedCategory.set('unplanned');

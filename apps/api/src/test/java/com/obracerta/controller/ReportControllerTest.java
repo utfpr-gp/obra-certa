@@ -1,5 +1,6 @@
 package com.obracerta.controller;
 
+import com.obracerta.exception.ExpenseValidationException;
 import com.obracerta.model.dto.report.ReportResponseDTO;
 import com.obracerta.model.dto.report.ReportCategoryDTO;
 import com.obracerta.service.ReportService;
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,14 +54,76 @@ class ReportControllerTest {
     @Test
     void returnsInternalVisualSnapshotWithoutAppendixAndPreservesNotFound() throws Exception {
         var report = new ReportResponseDTO("project-1", "Casa", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
-        when(reportService.exportSnapshot("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportExportDTO(report, "relatorio-casa-2026-11-02.pdf", "2026-11-02"));
+        when(reportService.exportSnapshot("project-1", null, null, null)).thenReturn(new com.obracerta.model.dto.report.ReportExportDTO(
+                report, "relatorio-casa-2026-11-02.pdf", "2026-11-02", null, null, null));
         mockMvc.perform(get("/api/projects/project-1/reports/export"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.report.projectId").value("project-1"))
                 .andExpect(jsonPath("$.filename").value("relatorio-casa-2026-11-02.pdf"))
                 .andExpect(jsonPath("$.generatedAt").value("2026-11-02"))
+                .andExpect(jsonPath("$.from").doesNotExist())
+                .andExpect(jsonPath("$.categoryName").doesNotExist())
                 .andExpect(jsonPath("$.appendixPdf").doesNotExist());
-        when(reportService.exportSnapshot("other")).thenThrow(new ResourceNotFoundException());
+        when(reportService.exportSnapshot("other", null, null, null)).thenThrow(new ResourceNotFoundException());
         mockMvc.perform(get("/api/projects/other/reports/export")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returnsTheSnapshotWithTheAppliedPeriodAndCategory() throws Exception {
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+        var report = new ReportResponseDTO("project-1", "Casa", BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, List.of());
+        when(reportService.exportSnapshot("project-1", from, to, "cat-1")).thenReturn(
+                new com.obracerta.model.dto.report.ReportExportDTO(
+                        report, "relatorio-casa-2026-11-02.pdf", "2026-11-02", from, to, "Alvenaria"));
+
+        mockMvc.perform(get("/api/projects/project-1/reports/export")
+                        .param("from", "2026-10-01").param("to", "2026-10-31").param("category", "cat-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.from").value("2026-10-01"))
+                .andExpect(jsonPath("$.to").value("2026-10-31"))
+                .andExpect(jsonPath("$.categoryName").value("Alvenaria"));
+    }
+
+    @Test
+    void passesTheOptionalPeriodToTheReportAndReturnsOne400ForAnInvertedRange() throws Exception {
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+        when(reportService.getReport("project-1", from, to, null)).thenReturn(new ReportResponseDTO(
+                "project-1", "Casa", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of()));
+
+        mockMvc.perform(get("/api/projects/project-1/reports")
+                        .param("from", "2026-10-01").param("to", "2026-10-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectId").value("project-1"));
+
+        when(reportService.getReport("project-1", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 1), null))
+                .thenThrow(new ExpenseValidationException("A data inicial do período não pode ser posterior à final."));
+        mockMvc.perform(get("/api/projects/project-1/reports")
+                        .param("from", "2026-11-02").param("to", "2026-11-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("A data inicial do período não pode ser posterior à final."));
+    }
+
+    @Test
+    void rejectsANonIsoDateAsTheSingleErrorPayload() throws Exception {
+        mockMvc.perform(get("/api/projects/project-1/reports").param("from", "31/10/2026"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter 'from'"));
+    }
+
+    @Test
+    void keepsTheLegacyPdfEndpointWithoutPeriodOrCategoryParameters() throws Exception {
+        when(reportService.exportPdf("project-1")).thenReturn(new com.obracerta.model.dto.report.ReportPdfDTO(
+                "relatorio-casa-2026-11-02.pdf", new byte[]{37, 80, 68, 70}));
+
+        mockMvc.perform(get("/api/projects/project-1/reports/pdf")
+                        .param("from", "2026-10-01").param("to", "2026-10-31").param("category", "cat-1"))
+                .andExpect(status().isOk());
+
+        verify(reportService).exportPdf("project-1");
     }
 
     @Test

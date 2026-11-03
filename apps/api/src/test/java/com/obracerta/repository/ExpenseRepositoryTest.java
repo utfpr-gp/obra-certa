@@ -148,12 +148,65 @@ class ExpenseRepositoryTest {
         persistExpense(anotherOwner, anotherProject, category, anotherBudget, supplier, "500.00");
 
         List<ExpenseRepository.CategoryExpenseTotal> totals =
-                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId());
+                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId(), null, null, null);
 
         assertThat(totals).hasSize(1);
         assertThat(totalOf(totals, category.getId())).isEqualByComparingTo("125.00");
-        assertThat(expenseRepository.sumActiveByCategoryAndOwner(project.getId(), anotherOwner.getId()))
+        assertThat(expenseRepository.sumActiveByCategoryAndOwner(project.getId(), anotherOwner.getId(), null, null, null))
                 .isEmpty();
+    }
+
+    @Test
+    void sumsActiveExpensesWithinInclusivePurchaseDatesAndAnOptionalCategoryOfTheOwner() {
+        User owner = persistUser();
+        User anotherOwner = persistUser();
+        Project project = persistProject(owner, "Obra filtrada por período");
+        Project anotherProject = persistProject(anotherOwner, "Obra alheia ao período");
+        Supplier supplier = persistSupplier();
+        ExpenseCategory alvenaria = persistCategory("Período alvenaria " + UUID.randomUUID());
+        ExpenseCategory pintura = persistCategory("Período pintura " + UUID.randomUUID());
+        Budget alvenariaBudget = persistBudget(owner, project, alvenaria);
+        Budget pinturaBudget = persistBudget(owner, project, pintura);
+        Budget anotherBudget = persistBudget(anotherOwner, anotherProject, alvenaria);
+
+        persistExpense(owner, project, alvenaria, alvenariaBudget, supplier, "10.00", LocalDate.of(2026, 9, 30));
+        persistExpense(owner, project, alvenaria, alvenariaBudget, supplier, "20.00", LocalDate.of(2026, 10, 1));
+        persistExpense(owner, project, alvenaria, alvenariaBudget, supplier, "30.00", LocalDate.of(2026, 10, 15));
+        Expense pending = persistExpense(owner, project, pintura, pinturaBudget, supplier, "40.00", LocalDate.of(2026, 10, 31));
+        pending.setPaid(false);
+        expenseRepository.saveAndFlush(pending);
+        persistExpense(owner, project, pintura, pinturaBudget, supplier, "50.00", LocalDate.of(2026, 11, 1));
+        Expense deleted = persistExpense(owner, project, alvenaria, alvenariaBudget, supplier, "999.00", LocalDate.of(2026, 10, 10));
+        deleted.setDeletedAt(Instant.now());
+        expenseRepository.saveAndFlush(deleted);
+        persistExpense(anotherOwner, anotherProject, alvenaria, anotherBudget, supplier, "500.00", LocalDate.of(2026, 10, 10));
+
+        List<ExpenseRepository.CategoryExpenseTotal> period = expenseRepository.sumActiveByCategoryAndOwner(
+                project.getId(), owner.getId(), LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null);
+
+        assertThat(period).hasSize(2);
+        assertThat(totalOf(period, alvenaria.getId())).isEqualByComparingTo("50.00");
+        assertThat(totalOf(period, pintura.getId())).isEqualByComparingTo("40.00");
+
+        List<ExpenseRepository.CategoryExpenseTotal> allHistory = expenseRepository.sumActiveByCategoryAndOwner(
+                project.getId(), owner.getId(), null, null, null);
+        assertThat(totalOf(allHistory, alvenaria.getId())).isEqualByComparingTo("60.00");
+        assertThat(totalOf(allHistory, pintura.getId())).isEqualByComparingTo("90.00");
+
+        List<ExpenseRepository.CategoryExpenseTotal> onlyPintura = expenseRepository.sumActiveByCategoryAndOwner(
+                project.getId(), owner.getId(), null, null, pintura.getId());
+        assertThat(onlyPintura).singleElement()
+                .satisfies(total -> assertThat(total.getTotal()).isEqualByComparingTo("90.00"));
+
+        ExpenseRepository.ReportExpenseTotals payment = expenseRepository.sumActiveTotalsByProjectAndOwner(
+                project.getId(), owner.getId(), LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null);
+        assertThat(payment.getTotalPaid()).isEqualByComparingTo("50.00");
+        assertThat(payment.getTotalPending()).isEqualByComparingTo("40.00");
+
+        ExpenseRepository.ReportExpenseTotals paymentOfPintura = expenseRepository.sumActiveTotalsByProjectAndOwner(
+                project.getId(), owner.getId(), LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), pintura.getId());
+        assertThat(paymentOfPintura.getTotalPaid()).isEqualByComparingTo("0.00");
+        assertThat(paymentOfPintura.getTotalPending()).isEqualByComparingTo("40.00");
     }
 
     @Test
@@ -189,13 +242,13 @@ class ExpenseRepositoryTest {
                 .map(Expense::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         List<ExpenseRepository.CategoryExpenseTotal> consolidation =
-                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId());
+                expenseRepository.sumActiveByCategoryAndOwner(project.getId(), owner.getId(), null, null, null);
         assertThat(consolidation).hasSize(1);
         assertThat(totalOf(consolidation, category.getId())).isEqualByComparingTo(detailTotal);
         assertThat(detailTotal).isEqualByComparingTo("200.00");
 
         ExpenseRepository.ReportExpenseTotals payment =
-                expenseRepository.sumActiveTotalsByProjectAndOwner(project.getId(), owner.getId());
+                expenseRepository.sumActiveTotalsByProjectAndOwner(project.getId(), owner.getId(), null, null, null);
         assertThat(payment.getTotalPaid()).isEqualByComparingTo("125.00");
         assertThat(payment.getTotalPending()).isEqualByComparingTo("75.00");
     }
@@ -257,6 +310,17 @@ class ExpenseRepositoryTest {
             Budget budget,
             Supplier supplier,
             String amount) {
+        return persistExpense(user, project, category, budget, supplier, amount, LocalDate.of(2026, 10, 1));
+    }
+
+    private Expense persistExpense(
+            User user,
+            Project project,
+            ExpenseCategory category,
+            Budget budget,
+            Supplier supplier,
+            String amount,
+            LocalDate purchaseDate) {
         BigDecimal total = new BigDecimal(amount);
         return expenseRepository.saveAndFlush(Expense.builder()
                 .budget(budget)
@@ -270,7 +334,7 @@ class ExpenseRepositoryTest {
                 .unit("un")
                 .unitPrice(total)
                 .totalPrice(total)
-                .purchaseDate(LocalDate.of(2026, 10, 1))
+                .purchaseDate(purchaseDate)
                 .build());
     }
 }

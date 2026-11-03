@@ -1,9 +1,12 @@
 package com.obracerta.service;
 
 import com.obracerta.configuration.security.UserContextHelper;
+import com.obracerta.exception.ExpenseValidationException;
+import com.obracerta.model.entity.ExpenseCategory;
 import com.obracerta.model.entity.Project;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.BudgetRepository;
+import com.obracerta.repository.ExpenseCategoryRepository;
 import com.obracerta.repository.ExpenseRepository;
 import com.obracerta.repository.ProjectRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -28,13 +32,14 @@ class ReportServiceTest {
     @Mock UserContextHelper userContextHelper;
     @Mock ExpenseRepository expenseRepository;
     @Mock BudgetRepository budgetRepository;
+    @Mock ExpenseCategoryRepository categoryRepository;
     @Mock ReportPdfService pdfService;
     private ReportService reportService;
 
     @BeforeEach
     void setUp() {
         reportService = new ReportService(projectRepository, userContextHelper, expenseRepository, budgetRepository,
-                pdfService, Clock.fixed(Instant.parse("2026-11-02T15:30:00Z"), ZoneOffset.UTC));
+                categoryRepository, pdfService, Clock.fixed(Instant.parse("2026-11-02T15:30:00Z"), ZoneOffset.UTC));
     }
 
     @Test
@@ -63,9 +68,9 @@ class ReportServiceTest {
         when(userContextHelper.getAuthenticatedUser()).thenReturn(user);
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(Optional.of(project));
-        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(List.of(total("cat-1", "Alvenaria", "125.50")));
-        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(new ExpenseRepository.ReportExpenseTotals() {
                     public java.math.BigDecimal getTotalPaid() { return new java.math.BigDecimal("125.50"); }
                     public java.math.BigDecimal getTotalPending() { return new java.math.BigDecimal("0.00"); }
@@ -77,7 +82,7 @@ class ReportServiceTest {
         when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(List.of(budget));
 
-        var report = reportService.getReport("project-1");
+        var report = reportService.getReport("project-1", null, null, null);
 
         assertThat(report.projectName()).isEqualTo("Minha obra");
         assertThat(report.totalSpent()).isEqualByComparingTo("125.50");
@@ -97,7 +102,7 @@ class ReportServiceTest {
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull("other", "user-1"))
                 .thenReturn(Optional.empty());
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.getReport("other"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.getReport("other", null, null, null))
                 .isInstanceOf(com.obracerta.exception.ResourceNotFoundException.class);
     }
 
@@ -110,15 +115,15 @@ class ReportServiceTest {
                 .thenReturn(Optional.of(project));
         when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(List.of());
-        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(List.of());
-        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(new ExpenseRepository.ReportExpenseTotals() {
                     public java.math.BigDecimal getTotalPaid() { return java.math.BigDecimal.ZERO; }
                     public java.math.BigDecimal getTotalPending() { return java.math.BigDecimal.ZERO; }
                 });
 
-        var report = reportService.getReport("project-1");
+        var report = reportService.getReport("project-1", null, null, null);
 
         assertThat(report.projectName()).isEqualTo("Obra vazia");
         assertThat(report.totalPlanned()).isEqualByComparingTo("0.00");
@@ -134,6 +139,13 @@ class ReportServiceTest {
         };
     }
 
+    private ExpenseRepository.ReportExpenseTotals totals(String paid, String pending) {
+        return new ExpenseRepository.ReportExpenseTotals() {
+            public java.math.BigDecimal getTotalPaid() { return new java.math.BigDecimal(paid); }
+            public java.math.BigDecimal getTotalPending() { return new java.math.BigDecimal(pending); }
+        };
+    }
+
     @Test
     void includesBudgetsWithoutExpensesAlongsideUnbudgetedEqualAndExceededCategories() {
         prepareProject();
@@ -141,12 +153,12 @@ class ReportServiceTest {
                 .thenReturn(List.of(budget("empty", "Acabamento", "400.00"),
                         budget("equal", "Elétrica", "100.00"), budget("over", "Pintura", "200.00"),
                         budget("zero", "Serviços", "0.00")));
-        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(List.of(total("equal", "Elétrica", "100.00"),
                         total("over", "Pintura", "250.00"), total("unplanned", "Material", "50.00"),
                         total("zero", "Serviços", "25.00")));
 
-        var report = reportService.getReport("project-1");
+        var report = reportService.getReport("project-1", null, null, null);
 
         assertThat(report.totalPlanned()).isEqualByComparingTo("700.00");
         assertThat(report.totalSpent()).isEqualByComparingTo("425.00");
@@ -171,10 +183,10 @@ class ReportServiceTest {
         prepareProject();
         when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
                 .thenReturn(List.of(budget("empty", "Acabamento", "400.00")));
-        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1"))
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", null, null, null))
                 .thenReturn(List.of());
 
-        var report = reportService.getReport("project-1");
+        var report = reportService.getReport("project-1", null, null, null);
 
         assertThat(report.totalPlanned()).isEqualByComparingTo("400.00");
         assertThat(report.totalSpent()).isZero();
@@ -188,15 +200,86 @@ class ReportServiceTest {
     }
 
     @Test
+    void appliesTheInclusivePeriodToExpenseSumsAndKeepsTheWholeBudget() {
+        prepareProject();
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+        when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(List.of(budget("cat-1", "Alvenaria", "400.00"), budget("cat-2", "Pintura", "100.00")));
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", from, to, null))
+                .thenReturn(List.of(total("cat-1", "Alvenaria", "50.00")));
+        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1", from, to, null))
+                .thenReturn(totals("30.00", "20.00"));
+
+        var report = reportService.getReport("project-1", from, to, null);
+
+        assertThat(report.totalPlanned()).isEqualByComparingTo("500.00");
+        assertThat(report.totalSpent()).isEqualByComparingTo("50.00");
+        assertThat(report.totalPaid()).isEqualByComparingTo("30.00");
+        assertThat(report.totalPending()).isEqualByComparingTo("20.00");
+        assertThat(report.categories()).filteredOn(category -> category.categoryId().equals("cat-2"))
+                .singleElement().satisfies(category -> {
+                    assertThat(category.amount()).isZero();
+                    assertThat(category.plannedAmount()).isEqualByComparingTo("100.00");
+                });
+        org.mockito.Mockito.verify(expenseRepository)
+                .sumActiveByCategoryAndOwner("project-1", "user-1", from, to, null);
+        org.mockito.Mockito.verify(expenseRepository)
+                .sumActiveTotalsByProjectAndOwner("project-1", "user-1", from, to, null);
+    }
+
+    @Test
+    void rejectsAnInvertedPeriodBeforeQueryingAnything() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.getReport("project-1",
+                        LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 1), null))
+                .isInstanceOf(ExpenseValidationException.class)
+                .hasMessage("A data inicial do período não pode ser posterior à final.");
+        org.mockito.Mockito.verifyNoInteractions(userContextHelper, projectRepository, expenseRepository,
+                budgetRepository, categoryRepository, pdfService);
+    }
+
+    @Test
+    void exportsTheSnapshotWithTheAppliedPeriodAndCategory() {
+        prepareProject();
+        LocalDate from = LocalDate.of(2026, 10, 1);
+        LocalDate to = LocalDate.of(2026, 10, 31);
+        when(categoryRepository.findById("cat-1")).thenReturn(Optional.of(
+                ExpenseCategory.builder().id("cat-1").name("Alvenaria").build()));
+        when(budgetRepository.findByProjectIdAndOwnerIdAndDeletedAtIsNull("project-1", "user-1"))
+                .thenReturn(List.of(budget("cat-1", "Alvenaria", "400.00"), budget("cat-2", "Pintura", "100.00")));
+        when(expenseRepository.sumActiveByCategoryAndOwner("project-1", "user-1", from, to, "cat-1"))
+                .thenReturn(List.of(total("cat-1", "Alvenaria", "50.00")));
+        when(expenseRepository.sumActiveTotalsByProjectAndOwner("project-1", "user-1", from, to, "cat-1"))
+                .thenReturn(totals("30.00", "20.00"));
+
+        var snapshot = reportService.exportSnapshot("project-1", from, to, "cat-1");
+
+        assertThat(snapshot.from()).isEqualTo(from);
+        assertThat(snapshot.to()).isEqualTo(to);
+        assertThat(snapshot.categoryName()).isEqualTo("Alvenaria");
+        assertThat(snapshot.filename()).isEqualTo("relatorio-casa-2026-11-02.pdf");
+        assertThat(snapshot.report().totalPlanned()).isEqualByComparingTo("400.00");
+        assertThat(snapshot.report().totalSpent()).isEqualByComparingTo("50.00");
+        assertThat(snapshot.report().totalPaid()).isEqualByComparingTo("30.00");
+        assertThat(snapshot.report().totalPending()).isEqualByComparingTo("20.00");
+        assertThat(snapshot.report().categories()).extracting(category -> category.categoryId())
+                .containsExactly("cat-1");
+    }
+
+    @Test
     void exportsTheAuthorizedReportWithDeterministicFilenameAndGenerationDate() {
         prepareProject();
 
-        var snapshot = reportService.exportSnapshot("project-1");
+        var snapshot = reportService.exportSnapshot("project-1", null, null, null);
 
         assertThat(snapshot.report().projectId()).isEqualTo("project-1");
         assertThat(snapshot.report().projectName()).isEqualTo("Casa");
         assertThat(snapshot.filename()).isEqualTo("relatorio-casa-2026-11-02.pdf");
         assertThat(snapshot.generatedAt()).isEqualTo("2026-11-02");
+        assertThat(snapshot.from()).isNull();
+        assertThat(snapshot.to()).isNull();
+        assertThat(snapshot.categoryName()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(categoryRepository);
         org.mockito.Mockito.verifyNoInteractions(pdfService);
         org.mockito.Mockito.verify(expenseRepository, org.mockito.Mockito.never())
                 .findActiveByProjectAndOwner(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
@@ -206,7 +289,7 @@ class ReportServiceTest {
     @Test
     void rejectsForeignSnapshotBeforeAnyFinancialQueries() {
         when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("user-1").build());
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.exportSnapshot("other"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reportService.exportSnapshot("other", null, null, null))
                 .isInstanceOf(com.obracerta.exception.ResourceNotFoundException.class);
         org.mockito.Mockito.verifyNoInteractions(expenseRepository, budgetRepository, pdfService);
     }

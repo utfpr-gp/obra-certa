@@ -49,6 +49,9 @@ export class ReportVisualExportService {
       cleanup = () => { this.application.detachView(component.hostView); component.destroy(); host.remove(); };
       const model = new ReportPresentationModel();
       model.report.set(snapshot.report);
+      model.appliedFrom.set(snapshot.from ?? '');
+      model.appliedTo.set(snapshot.to ?? '');
+      model.exportCategoryName.set(snapshot.categoryName ?? null);
       component.setInput('model', model);
       component.setInput('exportMode', true);
       component.setInput('generatedAt', snapshot.generatedAt);

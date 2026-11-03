@@ -38,6 +38,10 @@ describe('ReportVisualExportService', () => {
     expect(blocks.some(node => node.querySelector('[data-testid="report-donut"]'))).toBeTrue();
     expect(blocks.some(node => node.querySelector('[data-testid="report-bars"]'))).toBeTrue();
     expect(blocks.some(node => node.textContent?.includes('Pintura'))).toBeTrue();
+    expect(blocks.some(node => node.textContent?.includes('Orçamento global'))).toBeTrue();
+    expect(blocks.some(node => node.textContent?.includes('Total global da obra'))).toBeTrue();
+    expect(blocks.every(node => !node.textContent?.includes('Orçamento selecionado'))).toBeTrue();
+    expect(blocks.every(node => !node.textContent?.includes('Total da categoria'))).toBeTrue();
     expect(blocks.every(node => !node.querySelector('button, select, input'))).toBeTrue();
     expect(capture.calls.allArgs().every(args => args[1].pixelRatio === 2)).toBeTrue();
     expect(document.querySelector('[data-testid="report-export-host"]')).toBeNull();
@@ -80,10 +84,44 @@ describe('ReportVisualExportService', () => {
     expect(capture.calls.count()).toBeGreaterThan(3);
   });
 
+  it('prints the authorized applied period and category in the exported composition', async () => {
+    Object.assign(snapshot, { from: '2026-10-01', to: '2026-10-31', categoryName: 'Pintura' });
+    let heading = '';
+    let content = '';
+    capture.and.callFake(async (node: HTMLElement) => {
+      heading += node.querySelector('[data-testid="report-export-heading"]')?.textContent ?? '';
+      content += node.textContent ?? '';
+      return png;
+    });
+    await service.generate(snapshot, () => true);
+    expect(heading).toContain('01/10/2026 a 31/10/2026');
+    expect(heading).toContain('Pintura');
+    expect(heading).not.toContain('Todo o histórico');
+    expect(heading).not.toContain('Todas as categorias');
+    expect(content).toContain('Orçamento selecionado');
+    expect(content).toContain('Total da categoria');
+  });
+
   it('exports an empty project', async () => {
     snapshot.report.categories = [];
     snapshot.report.totalSpent = 0;
     expect(await service.generate(snapshot, () => true)).not.toBeNull();
+  });
+
+  it('keeps category labels and zero totals when the authorized category has no activity or budget', async () => {
+    Object.assign(snapshot, { categoryName: 'Pintura' });
+    Object.assign(snapshot.report, { categories: [], totalPlanned: 0, totalSpent: 0, totalPaid: 0, totalPending: 0 });
+    let content = '';
+    capture.and.callFake(async (node: HTMLElement) => { content += node.textContent ?? ''; return png; });
+    const result = await service.generate(snapshot, () => true);
+    expect(result?.type).toBe('application/pdf');
+    expect(content).toContain('Pintura');
+    expect(content).toContain('Orçamento selecionado');
+    expect(content).toContain('Total da categoria');
+    expect(content).not.toContain('Orçamento global');
+    expect(content).not.toContain('Total global da obra');
+    expect(content).toContain('R$ 0,00');
+    expect(content).not.toContain('NaN');
   });
 
   it('discards after dynamic import before creating a DOM host', async () => {
