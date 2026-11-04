@@ -65,7 +65,8 @@ describe('HomePage', () => {
   beforeEach(async () => {
     localStorage.clear();
     alerts = new Subject<PaymentAlerts>();
-    paymentService = jasmine.createSpyObj<PaymentService>('PaymentService', ['getAlerts']);
+    paymentService = jasmine.createSpyObj<PaymentService>('PaymentService', ['getAlerts', 'requiresReconciliation']);
+    paymentService.requiresReconciliation.and.returnValue(false);
     paymentService.getAlerts.and.returnValue(alerts);
     projectService = jasmine.createSpyObj<ProjectService>('ProjectService', [
       'getProjects',
@@ -112,6 +113,15 @@ describe('HomePage', () => {
 
   it('should create the home page', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('offers the payment action only on pending alert rows and opens the shared modal', () => {
+    alerts.next(response()); fixture.detectChanges();
+    const actions = page().querySelectorAll<HTMLButtonElement>('[data-testid="mark-payment-paid"]');
+    expect(actions.length).toBe(3);
+    actions[0]?.click(); fixture.detectChanges();
+    expect(page().querySelector('app-payment-modal')).not.toBeNull();
+    expect(query('payment-modal')?.textContent).toContain('Cimento');
   });
 
   function response(description = 'Cimento'): PaymentAlerts {

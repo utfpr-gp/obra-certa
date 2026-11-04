@@ -38,7 +38,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller/PaymentController.java,service/PaymentService.java,repository/ExpenseRepository.java,repository/PendingPaymentRepository.java,model/dto/payment/PaymentSettlementRequestDTO.java}`; testes em `apps/api/src/test/java/com/obracerta/{service,controller,repository}/`.
 
-- [ ] **Tarefa 3 — Quitar contas pelo modal da Home**
+- [x] **Tarefa 3 — Quitar contas pelo modal da Home**
   - Cobre: CA3 na Home, CA5 na Home, CA7, CA8 no envio/reconciliação e CA9 no modal/envio; integra CA4 à interface. CA3 e CA5 nas duas telas ficam completos na tarefa 4.
   - Teste primeiro: specs do modal, serviço HTTP e Home para abertura, data sugerida, datas inválidas/iguais/futuras, confirmação pelo PUT real contratado, apresentação da data UTC, cancelamento/X/Escape/backdrop, bloqueio de duplicação/fechamento, atualização de alertas e total, falha de atualização após sucesso, timeout e reconciliação antes de nova tentativa manual. Cobrir GET pago/pendente/404/erro, 401 sem restauração e troca A → B → A durante envio. Testar os estados usando respostas HTTP controladas; verificar no JUnit o contrato consumido, reaproveitando os testes da tarefa 2.
   - Entrega: modal compartilhado conectado à API e ação rápida funcional na Home, preservando os demais dados do painel.

@@ -20,6 +20,38 @@ describe('PaymentService', () => {
   });
   afterEach(() => { http.verify(); localStorage.clear(); });
 
+  const settlement = (): PaymentService => service;
+
+  it('settles through the dedicated PUT with only the paymentDate and returns the persisted expense', () => {
+    const response = { id: 'expense', projectId: 'project', paid: true, paidAt: '2026-11-06T00:00:00Z' };
+    settlement().settle('project', 'expense', '2026-11-06').subscribe(result => expect(result.paidAt).toBe(response.paidAt));
+    const request = http.expectOne(`${environment.apiUrl}/api/projects/project/expenses/expense/payment`);
+    expect(request.request.method).toBe('PUT'); expect(request.request.body).toEqual({ paymentDate: '2026-11-06' });
+    request.flush(response);
+  });
+
+  it('reconciles using the existing expense GET and rejects a mismatched project', () => {
+    let failed = false;
+    settlement().reconcile('project', 'expense').subscribe({ error: () => failed = true });
+    const request = http.expectOne(`${environment.apiUrl}/api/expenses/expense`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ id: 'expense', projectId: 'other', paid: true }); expect(failed).toBeTrue();
+  });
+
+  for (const operation of ['settle', 'reconcile'] as const) {
+    it(`bounds ${operation} to 30 seconds without automatic retries`, fakeAsync(() => {
+      let failed = false;
+      const requestUrl = operation === 'settle'
+        ? `${environment.apiUrl}/api/projects/project/expenses/expense/payment`
+        : `${environment.apiUrl}/api/expenses/expense`;
+      const result = operation === 'settle' ? settlement().settle('project', 'expense', '2026-11-06')
+        : settlement().reconcile('project', 'expense');
+      result.subscribe({ error: () => failed = true }); const request = http.expectOne(requestUrl);
+      tick(29999); expect(failed).toBeFalse(); tick(1); expect(failed).toBeTrue();
+      expect(request.cancelled).toBeTrue(); http.expectNone(requestUrl);
+    }));
+  }
+
   it('gets the complete typed alert response for the selected project', () => {
     const response = { projectId: 'project', referenceDate: '2026-11-04', count: 0, totalAmount: 0, items: [] };
     service.getAlerts('project').subscribe(result => expect(result).toEqual(response));

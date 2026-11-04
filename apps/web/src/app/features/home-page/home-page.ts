@@ -1,6 +1,8 @@
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { PaymentAlerts, PaymentUrgency } from '../../core/models/payment.model';
+import { PaymentAlertItem, PaymentAlerts, PaymentTarget, PaymentUrgency } from '../../core/models/payment.model';
+import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { PaymentService } from '../../core/services/payment.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -32,6 +34,7 @@ import {
   standalone: true,
   imports: [
     CommonModule,
+    PaymentModalComponent,
     RouterLink,
     RadialGaugeComponent,
     KpiCardComponent,
@@ -61,6 +64,13 @@ export class HomePage {
   readonly paymentAlerts = signal<PaymentAlerts | null>(null);
   readonly paymentLoading = signal(false);
   readonly paymentError = signal(false);
+  readonly paymentSettlement = signal<ExpenseResponse | null>(null);
+  private readonly paymentSelection = signal<{ projectId: string; context: number; target: PaymentTarget } | null>(null);
+  readonly selectedPayment = computed(() => {
+    const selection = this.paymentSelection();
+    return selection?.context === this.activeProjectService.contextVersion()
+      && selection.projectId === this.activeProject()?.id ? selection : null;
+  });
 
   readonly activeProject = this.activeProjectService.activeProject;
   readonly projects = signal<Project[]>([]);
@@ -121,7 +131,11 @@ export class HomePage {
     this.watchBudgetAvailability();
     effect(() => {
       this.activeProjectService.contextVersion();
-      untracked(() => this.reloadPaymentAlerts());
+      untracked(() => {
+        this.paymentSelection.set(null);
+        this.paymentSettlement.set(null);
+        this.reloadPaymentAlerts();
+      });
     });
     this.destroyRef.onDestroy(() => {
       this.destroyed = true;
@@ -187,7 +201,25 @@ export class HomePage {
   }
 
   formatCivilDate(value: string): string {
-    return value.split('-').reverse().join('/');
+    return value.slice(0, 10).split('-').reverse().join('/');
+  }
+
+  openPayment(item: PaymentAlertItem): void {
+    const projectId = this.activeProject()?.id;
+    const alerts = this.paymentAlerts();
+    if (!projectId || !alerts || alerts.projectId !== projectId || !alerts.items.includes(item)) return;
+    this.paymentSelection.set({ projectId, context: this.activeProjectService.contextVersion(),
+      target: { ...item, referenceDate: alerts.referenceDate } });
+  }
+
+  closePayment(): void { this.paymentSelection.set(null); }
+
+  onPaymentSettled(expense: ExpenseResponse): void {
+    const selection = this.selectedPayment();
+    if (!selection || expense.projectId !== selection.projectId || expense.id !== selection.target.expenseId || !expense.paid) return;
+    this.closePayment();
+    this.paymentSettlement.set(expense);
+    this.reloadPaymentAlerts();
   }
 
   reloadProjects(): void {
