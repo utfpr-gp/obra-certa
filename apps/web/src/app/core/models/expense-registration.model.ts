@@ -4,6 +4,12 @@ export interface ExpenseSupplier {
   document: string | null;
 }
 
+export interface ExpenseDeleteResponse {
+  id: string;
+  deleted: boolean;
+  receiptDeletionFailed: boolean;
+}
+
 export interface ExpenseCreate {
   projectId: string;
   description: string;
@@ -34,4 +40,9 @@ export interface ExpenseResponse {
   unitPrice: number | null;
   totalPrice: number;
   receiptState: 'NONE' | 'PENDING' | 'UPLOADED';
+  paidAt?: string | null;
+  receiptDeletionFailed?: boolean;
 }
+
+export type ExpenseUpdate = Pick<ExpenseCreate,
+  'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;

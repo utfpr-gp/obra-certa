@@ -162,11 +162,12 @@
 
 ---
 
-### ⚪ US04 — Edição e Exclusão de Despesas
+### 🟢 US04 — Edição e Exclusão de Despesas
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** ⚪ Draft  
+- **Status:** 🟢 Live  
+- **Rastreabilidade:** [Issue #6](https://github.com/utfpr-gp/obra-certa/issues/6), [spec aprovada e plano concluído](../specs/6-edicao-exclusao-despesas/). Sete tarefas implementadas, com revisões e ajustes visuais registrados. Acesso pela consulta individual `/despesas/:id`, com retorno para `/contas`; listagem permanece na US05. Auditoria final aprovada em 01/11/2026; integração por PR pendente. Live indica implementação local, sem declarar implantação em produção.
 - **Dependências:** US03 (Cadastro de Despesas)  
 - **História:** Como proprietário com uma obra selecionada, quero editar ou excluir despesas registradas da minha obra, para corrigir divergências, gerenciar status de pagamento ou remover despesas canceladas preservando a integridade dos orçamentos.
 - **Regras de Negócio Associadas:** RN01, RN04, RN05, RN06, RN07
@@ -178,14 +179,14 @@
    - **Então** o sistema atualiza o registro e recalcula os orçamentos (ajustando a categoria anterior e a nova caso tenha ocorrido troca).
 2. **Caminho Feliz (Transição de status Pago ⇄ Pendente na edição):**
    - **Dado** que o proprietário altera o status financeiro da despesa:
-     - **De Paga para Pendente:** exige nova data de vencimento (`vencimento >= data da despesa`) e gera o registro de pagamento pendente;
+     - **De Paga para Pendente:** exige nova data de vencimento (`vencimento >= data da despesa`) e mantém a despesa como pagamento futuro no vencimento informado. Reutiliza o registro de pagamento existente, criando um somente se ainda não houver; não cria ciclos separados de quitação nem duplica compromissos. Decisão do autor em 31/10/2026;
      - **De Pendente para Paga:** altera o status do pagamento vinculado para "Pago", movendo-o para histórico quitado sem excluir o registro;
    - **Quando** confirma a edição,
    - **Então** os status e prazos são atualizados conforme a transição.
 3. **Caminho Feliz (Substituição ou remoção de comprovante):**
    - **Dado** que o proprietário edita uma despesa que possui anexo,
    - **Quando** remove o anexo ou envia um novo arquivo válido (JPEG, PNG ou PDF até 10MB),
-   - **Então** o sistema apaga o arquivo anterior do armazenamento e, caso aplicável, associa o novo.
+   - **Então** o sistema solicita a remoção física do arquivo anterior, sem exclusão lógica nem retenção intencional de versões. Na substituição, primeiro confirma o envio e a associação do novo comprovante e somente depois solicita a exclusão do antigo; falha no novo envio preserva o atual. Se apenas a exclusão do antigo falhar, o novo permanece disponível, o antigo deixa de ser oferecido pela aplicação e a resposta informa a falha, sem anunciar arquivo apagado. Falha na associação preserva o antigo e permite uma tentativa imediata de apagar o novo sem vínculo; falha dessa tentativa também é informada. Na remoção sem substituição, primeiro solicita a exclusão física e, após confirmá-la, retira o vínculo e exibe “Sem comprovante”. Falha no armazenamento mantém o vínculo, informa o erro e permite nova tentativa manual. Se apenas a atualização no banco falhar depois de apagar o arquivo, não anuncia sucesso; a repetição manual aceita arquivo já ausente e conclui a retirada do vínculo. Por decisão do autor, não criar tabela, fila, agendamento ou repetição automática de limpeza nesta entrega; falhas na exclusão podem deixar objetos no armazenamento sem garantia de remoção posterior.
 4. **Caminho Feliz com Alerta (Edição provocando estouro orçamentário):**
    - **Dado** que a alteração de valor faz os gastos da categoria alcançarem ou superarem 100% do teto previsto,
    - **Quando** a despesa é salva,
@@ -193,7 +194,7 @@
 5. **Caminho Feliz (Exclusão lógica com diálogo de confirmação):**
    - **Dado** que o proprietário solicita a exclusão de uma despesa,
    - **Quando** o sistema exibe o diálogo de confirmação e ele confirma,
-   - **Então** o sistema aplica exclusão lógica (soft delete) na despesa, inativa pagamentos vinculados, estorna o valor do orçamento da categoria e remove fisicamente o arquivo do comprovante do armazenamento.
+   - **Então** o sistema aplica exclusão lógica (soft delete) na despesa, preservando seu registro no banco, inativa pagamentos vinculados e retira seu valor dos gastos ativos da categoria, sem alterar o teto planejado. Após confirmar a exclusão no banco, solicita a remoção física do comprovante; se o armazenamento falhar, a despesa continua excluída e a resposta informa a falha em apagar o arquivo, sem exigir nova exclusão da despesa nem anunciar arquivo removido. Não registra trabalho nem agenda limpeza posterior.
 6. **Caminho Alternativo (Cancelamento da exclusão):**
    - **Dado** que o diálogo de confirmação de exclusão está aberto,
    - **Quando** o proprietário clica em cancelar,
@@ -201,7 +202,7 @@
 7. **Caminho Alternativo (Sessão expirada durante confirmação de exclusão):**
    - **Dado** que a sessão do usuário expira enquanto o diálogo de confirmação de exclusão estava aberto,
    - **Quando** o proprietário confirma a exclusão,
-   - **Então** o sistema retém a ação, exibe modal de autenticação rápida inline e, após validação das credenciais, efetiva a exclusão lógica sem fechar silenciosamente nem exigir novo clique.
+   - **Então** a API recusa a operação com `401`, sem alterar a despesa, os pagamentos ou o comprovante, e a aplicação encerra a sessão e redireciona para o login. Após autenticar novamente, o usuário deve voltar manualmente à despesa e solicitar e confirmar sua exclusão outra vez. A intenção de exclusão não é preservada nem reenviada automaticamente. Decisão do autor em 31/10/2026.
 8. **Caminho Triste (Tentativa de alteração/exclusão em obra de terceiro / Anti-IDOR):**
    - **Dado** que há tentativa de editar ou excluir despesa pertencente a outro usuário ou obra de terceiro,
    - **Quando** a operação é solicitada,

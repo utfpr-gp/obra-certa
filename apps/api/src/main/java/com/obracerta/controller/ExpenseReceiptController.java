@@ -17,6 +17,8 @@ public class ExpenseReceiptController {
     public ExpenseResponseDTO upload(@PathVariable String id,@RequestParam("file") MultipartFile file) {
         return service.upload(id,file);
     }
+    @DeleteMapping
+    public ExpenseResponseDTO remove(@PathVariable String id) { return service.remove(id); }
     @GetMapping
     public ResponseEntity<Resource> download(@PathVariable String id) {
         var receipt=service.download(id);

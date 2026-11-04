@@ -113,7 +113,7 @@ Para garantir que a interface nunca deixe o usuário em becos sem saída, aplica
 3. **Upload de Comprovante em Rede Instável:**
    - O upload de anexo exibe barra de progresso visual percentual. Em caso de oscilação de sinal no canteiro, o sistema salva os dados da despesa e sinaliza o comprovante como pendente de envio, com botão de reenvio (`Retry`), evitando perder os dados digitados.
 4. **Sessão Expirada em Formulários e Modais de Confirmação:**
-   - **US03, entrega até a tarefa 8:** `401` encerra a sessão e redireciona ao login. Os campos não são restaurados após novo login e não há reenvio automático. A recuperação inicialmente prevista foi retirada pelo autor em 2026-10-30; a diretriz de reautenticação abaixo não se aplica a esse cadastro.
+   - **US03 e US04 implementadas:** `401` encerra a sessão e redireciona ao login. Os campos e a intenção de exclusão não são restaurados após novo login e não há reenvio automático. O usuário retorna manualmente à despesa e solicita a operação novamente. A recuperação inicialmente prevista foi retirada pelo autor (US03 em 30/10/2026 e US04 em 31/10/2026); a diretriz de reautenticação abaixo não se aplica a essas entregas.
    - Formulários longos e modais de confirmação de exclusão retêm os dados em memória. Ao receber `401`, abrem modal compacto de reautenticação (*"Confirme sua senha para continuar"*), executando a ação original imediatamente após o login sem fechar a tela nem perder dados.
 5. **Onboarding Imediato (Zero Obras):**
    - Usuário sem nenhuma obra cadastrada nunca visualiza painéis em branco ou tabelas vazias; visualiza um card centralizado acolhedor com ilustração orientativa e CTA destacado: `[+ Cadastrar Minha Primeira Obra]`.

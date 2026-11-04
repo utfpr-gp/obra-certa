@@ -12,6 +12,8 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import java.io.InputStream;
 import java.net.URI;
 
@@ -63,6 +65,15 @@ public class S3ReceiptStorage implements ReceiptStorage {
     @Override public InputStream get(String key) {
         try { return client().getObject(request -> request.bucket(bucket).key(key)); }
         catch (RuntimeException exception) { throw unavailable(); }
+    }
+    @Override public void delete(String key) {
+        try { client().deleteObject(request -> request.bucket(bucket).key(key)); }
+        catch (NoSuchKeyException exception) { /* An absent object is already removed. */ }
+        catch (S3Exception exception) {
+            if (exception.statusCode()==404 && exception.awsErrorDetails()!=null
+                    && "NoSuchKey".equals(exception.awsErrorDetails().errorCode())) return;
+            throw unavailable();
+        } catch (RuntimeException exception) { throw unavailable(); }
     }
     @jakarta.annotation.PreDestroy public synchronized void close() { if (client!=null) client.close(); }
     private static ReceiptException unavailable() {

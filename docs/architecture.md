@@ -299,6 +299,30 @@ erDiagram
     }
 ```
 
+### Persistência implementada na US04 (V10)
+
+- A V10 acrescenta `pending_payments.status` (`PENDING` ou `PAID`, obrigatório) e `paid_at` (instante de quitação, nulo quando desconhecido). O backfill usa `expenses.paid`; pagamentos sem despesa correspondente recebem `PENDING`. As migrations já aplicadas permanecem imutáveis e Hibernate continua em `validate`.
+- A edição da despesa e do pagamento é atômica. Paga → pendente exige vencimento válido, reutiliza o pagamento existente e limpa `paid_at`; pendente → paga registra o instante pelo `Clock` injetado. Paga → paga preserva a data anterior, inclusive nulo legado. A unicidade de `expense_id` impede duplicação de pagamentos.
+- A exclusão lógica preserva os registros financeiros, incluindo pagamentos quitados, com o mesmo instante em `expenses.deleted_at` e `pending_payments.deleted_at`. Os agregados já ignoram despesas excluídas e não alteram o teto.
+
+```mermaid
+erDiagram
+    expenses ||--o| pending_payments : preserva_historico
+    expenses {
+        varchar id PK "VARCHAR(36)"
+        boolean paid "NOT NULL"
+        timestamptz deleted_at "soft delete"
+    }
+    pending_payments {
+        varchar id PK "VARCHAR(36)"
+        varchar expense_id FK,UK "NOT NULL"
+        varchar status "NOT NULL, CHECK PENDING ou PAID"
+        date due_date "vencimento preservado ao quitar"
+        timestamptz paid_at "nullable, instante efetivo da quitacao"
+        timestamptz deleted_at "soft delete"
+    }
+```
+
 ### Constraints e Índices Especiais no PostgreSQL:
 O índice de orçamento do item 1 está implementado pela V6. Os demais itens descrevem a evolução do modelo; sua aplicação física deve ser conferida nas migrations da respectiva história.
 1. **Índice Único Parcial para Orçamento Único por Categoria:**
@@ -388,7 +412,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 1. **Prefixos e Verbos:**
    - Prefixo obrigatório: `/api/`;
    - Recursos no plural, em inglês e kebab-case (`/api/projects`, `/api/expenses`, `/api/expense-categories`, `/api/budgets`);
-   - Métodos semânticos: `POST` de criação retorna `201 Created` com header `Location`; `GET` retorna `200 OK`; `PUT`/`PATCH` retorna `200 OK`; `DELETE` retorna `204 No Content` no primeiro e `404 Not Found` em repetições. A ação `POST .../zero` da US07 retorna `200 OK` com o orçamento recalculado, pois atualiza um registro existente.
+   - Métodos semânticos: `POST` de criação retorna `201 Created` com header `Location`; `GET` retorna `200 OK`; `PUT`/`PATCH` retorna `200 OK`; `DELETE` retorna `204 No Content` no primeiro e `404 Not Found` em repetições, salvo os contratos com resultado explícito da US04 abaixo. A ação `POST .../zero` da US07 retorna `200 OK` com o orçamento recalculado, pois atualiza um registro existente.
 2. **Padrão de Paginação com Summary Agregado (`PageResponse<T>`):**
    - Para consultas volumosas (despesas), utiliza-se o padrão com summary financeiro agregado:
    ```json
@@ -447,10 +471,26 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 - No cadastro inline, nome do fornecedor é obrigatório e CNPJ é opcional. A tela aplica máscara `00.000.000/0000-00`; a API valida 14 dígitos quando preenchido e normaliza a pontuação. Ausência de documento é persistida como `NULL` e não é usada para reutilizar fornecedores. A coluna já aceita nulo; nenhuma migration adicional é necessária.
 - Modo direto exige total; modo calculado exige quantidade e valor unitário, calcula com `BigDecimal` e arredonda o total com `HALF_UP`. Pagamento a prazo exige vencimento igual ou posterior à compra. Gastos continuam no agregado da US07; alertas de teto ausente ou consumo de pelo menos 100% não bloqueiam a gravação.
 - Comprovantes: MIME declarado e extensão correspondente JPEG/PNG/PDF; arquivo não vazio e até 10 MiB (10 × 1024 × 1024 bytes). Sem inspeção de bytes, decodificação de imagens ou biblioteca de PDF. Tipo inválido retorna `400`; tamanho excedido, `413`.
-- Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado e listagem completa ficam para histórias posteriores.
+- Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado são entregues pela US04 abaixo; listagem completa permanece na US05.
 - Entrada: `/contas` → “Cadastrar conta” → `/contas/nova`; consulta individual em `/despesas/:id`.
 
 ---
+
+### Contrato implementado da US04
+
+| Método e caminho | Retorno | Comportamento |
+| --- | --- | --- |
+| `PUT /api/expenses/{id}` | `200`, `ExpenseResponseDTO` | Edita descrição, compra, categoria, valores e pagamento na mesma despesa; obra e fornecedor não são transferidos. |
+| `DELETE /api/expenses/{id}` | `200`, `ExpenseDeleteResponseDTO` | Exclui financeiramente e retorna `receiptDeletionFailed`, distinguindo sucesso financeiro de falha ao apagar o comprovante. Nova mutação ou consulta da despesa excluída retorna `404`. |
+| `DELETE /api/expenses/{id}/receipt` | `200`, `ExpenseResponseDTO` | Remove primeiro o arquivo, depois limpa estado/metadados; arquivo já ausente é aceito. Falha mantém erro e tentativa manual, sem limpeza agendada. |
+| `PUT /api/expenses/{id}/receipt` | `200`, `ExpenseResponseDTO` | Envia para nova chave UUID, confirma associação e somente depois tenta apagar o anterior. Falha de associação preserva o antigo e permite uma tentativa imediata de apagar o novo sem vínculo. |
+
+- `ExpenseResponseDTO` acrescenta `paidAt` e `receiptDeletionFailed`. O último é resultado transitório da tentativa imediata de exclusão física, não pendência persistida; consultas posteriores o retornam falso. Nenhuma resposta anuncia arquivo apagado quando a tentativa falhou.
+- Autorização antecede acesso ao armazenamento: despesa alheia, inexistente, excluída ou de obra excluída retorna `404`. Entradas inválidas retornam `400` sem gravação parcial; falhas de armazenamento ou persistência tratadas retornam `503`, conforme o caminho da operação. A exclusão financeira só é anunciada após seu commit.
+- A consulta individual contém edição, confirmação de exclusão e comprovantes, com retorno para `/contas`. Cancelar, X e Escape antes de enviar não gravam; backdrop é inerte. Os controles bloqueiam envio repetido. A versão da obra protege A → B → A e a versão de consulta impede que um GET anterior reexiba despesa já excluída. Atualizar metadados da mesma obra preserva o formulário aberto.
+- Em falha ou resposta perdida, a interface permite consultar o estado e tentar manualmente, sem reenvio automático. GET com `404` retira os dados indisponíveis sem afirmar que a exclusão foi confirmada. Os campos da edição são preservados enquanto o modal e o contexto continuam abertos.
+- Em `401`, todas as mutações mantêm a cadeia de segurança e o interceptor existentes: logout, limpeza da obra e login. O usuário volta manualmente à despesa para tentar novamente; não há reautenticação inline nem restauração de intenção após login.
+- Não há listagem US05, catálogo global US15 nem tabela/fila/agendamento de limpeza. Falhas na tentativa física podem deixar objetos no armazenamento, sem garantia de recuperação posterior.
 
 ## 🛡️ 7. Segurança, Isolamento e Soft Delete
 
@@ -464,7 +504,9 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
    - Ao vincular um `supplier_id` em uma despesa, o serviço valida que o fornecedor pertence ao mesmo usuário dono da obra.
 4. **Política de Soft Delete e Integridade:**
    - Exclusão de obra marca `deleted_at = now()` em `projects` e propaga o carimbo para `budgets`, `expenses` e `pending_payments` filhos;
-   - Exclusão de despesa marca `deleted_at` na despesa e no pagamento pendente, e remove fisicamente o arquivo do comprovante do storage.
+   - Exclusão de despesa marca o mesmo instante de `deleted_at` na despesa e no pagamento vinculado, preserva status e data de quitação e retira valores dos agregados ativos, sem alterar o teto. Depois do commit financeiro, tenta remover fisicamente o comprovante; falha nessa tentativa é informada e não desfaz a exclusão.
+   - **Remoção isolada de comprovante — Tarefa 3 da US04 implementada:** solicitar primeiro a exclusão física e só depois retirar os metadados no PostgreSQL. Falha no storage mantém o vínculo para tentativa manual. Se o storage concluir e a gravação no banco falhar, retornar erro; repetição manual trata objeto ausente como sucesso e conclui a retirada do vínculo.
+   - **Substituição e exclusão da despesa — US04 implementada:** tentam apagar a chave antiga somente depois de confirmar a mudança no banco. Falha ao apagar arquivo não desfaz a troca confirmada nem a exclusão financeira; a resposta informa a falha daquela tentativa. Não há tabela de trabalhos, fila, agendamento ou mecanismo de recuperação futura. `receiptDeletionFailed` é um resultado transitório da operação, não estado de limpeza persistido. A aplicação não garante remoção posterior de um objeto cuja exclusão falhou.
 
 ---
 

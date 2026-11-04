@@ -27,6 +27,38 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class S3ReceiptStorageTest {
+    @Test void deletesTheExactPrivateObjectPhysically() {
+        var client=mock(S3Client.class);
+        new S3ReceiptStorage("private-bucket",client).delete("expenses/owned/receipt");
+        verify(client).deleteObject(org.mockito.ArgumentMatchers.<Consumer<software.amazon.awssdk.services.s3.model.DeleteObjectRequest.Builder>>argThat(consumer -> {
+            var builder=software.amazon.awssdk.services.s3.model.DeleteObjectRequest.builder();
+            consumer.accept(builder);
+            assertThat(builder.build().bucket()).isEqualTo("private-bucket");
+            assertThat(builder.build().key()).isEqualTo("expenses/owned/receipt");
+            return true;
+        }));
+        verifyNoMoreInteractions(client);
+    }
+    @Test void missingObjectIsAlreadyRemoved() {
+        var client=mock(S3Client.class);
+        doThrow(software.amazon.awssdk.services.s3.model.NoSuchKeyException.builder().statusCode(404).build())
+                .when(client).deleteObject(org.mockito.ArgumentMatchers.<Consumer<software.amazon.awssdk.services.s3.model.DeleteObjectRequest.Builder>>any());
+        assertThatCode(() -> new S3ReceiptStorage("private-bucket",client).delete("missing")).doesNotThrowAnyException();
+    }
+    @Test void storageFailuresNeverPretendDeletionSucceeded() {
+        for (RuntimeException error : java.util.List.of(
+                software.amazon.awssdk.services.s3.model.S3Exception.builder().statusCode(403).message("denied").build(),
+                software.amazon.awssdk.services.s3.model.NoSuchBucketException.builder().statusCode(404).build(),
+                software.amazon.awssdk.core.exception.SdkClientException.create("connection failed"))) {
+            var client=mock(S3Client.class);
+            doThrow(error).when(client).deleteObject(org.mockito.ArgumentMatchers.<Consumer<software.amazon.awssdk.services.s3.model.DeleteObjectRequest.Builder>>any());
+            assertThatThrownBy(() -> new S3ReceiptStorage("private-bucket",client).delete("key"))
+                    .isInstanceOf(ReceiptException.class)
+                    .satisfies(exception -> assertThat(((ReceiptException)exception).status().value()).isEqualTo(503));
+        }
+        assertThatThrownBy(() -> new S3ReceiptStorage("","","","","",true).delete("key"))
+                .isInstanceOf(ReceiptException.class);
+    }
     @ParameterizedTest
     @ValueSource(strings={".","apps/api"})
     void loadsRootDotEnvFromNativeWorkingDirectories(String workingDirectory, @TempDir Path root) throws Exception {
