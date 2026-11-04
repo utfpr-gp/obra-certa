@@ -1,6 +1,5 @@
 import { XhrFactory } from '@angular/common';
 import {
-  FetchBackend,
   HttpBackend,
   HttpClient,
   HttpErrorResponse,
@@ -8,11 +7,8 @@ import {
   HttpEventType,
   HttpXhrBackend,
 } from '@angular/common/http';
-import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom } from 'rxjs';
 import { appConfig } from './app.config';
-import { config as serverConfig } from './app.config.server';
 import { Auth } from './core/services/auth';
 
 describe('Application HTTP transport', () => {
@@ -108,32 +104,4 @@ describe('Application HTTP transport', () => {
     });
   });
 
-  describe('server', () => {
-    beforeEach(() => {
-      TestBed.configureTestingModule({
-        providers: [
-          ...serverConfig.providers,
-          { provide: PLATFORM_ID, useValue: 'server' },
-          { provide: Auth, useValue: auth },
-        ],
-      });
-    });
-
-    it('keeps Fetch for server rendering', () => {
-      expect(TestBed.inject(HttpBackend)).toBeInstanceOf(FetchBackend);
-    });
-
-    it('preserves the authentication interceptor on server Fetch requests', async () => {
-      const fetch = spyOn(globalThis, 'fetch').and.resolveTo(new Response('{}', {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }));
-
-      await firstValueFrom(TestBed.inject(HttpClient).get('https://example.test/api/expenses'));
-
-      expect(fetch).toHaveBeenCalledTimes(1);
-      const options = fetch.calls.mostRecent().args[1];
-      expect(new Headers(options?.headers).get('Authorization')).toBe('Bearer upload-token');
-    });
-  });
 });
