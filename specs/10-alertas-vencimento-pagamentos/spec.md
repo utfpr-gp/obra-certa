@@ -1,6 +1,6 @@
 ---
 issue: 10
-status: rascunho
+status: aprovada
 ---
 
 # US08 — Painel de Alertas de Vencimento de Pagamentos
