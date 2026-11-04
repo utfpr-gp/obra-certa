@@ -9,7 +9,9 @@ import { ProjectService } from '../../core/services/project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
 import { By } from '@angular/platform-browser';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { BudgetService } from '../../core/services/budget.service';
+import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -19,6 +21,8 @@ describe('HomePage', () => {
     set: (project: Project | null) => void;
   };
   let projectService: jasmine.SpyObj<ProjectService>;
+  let budgetService: jasmine.SpyObj<BudgetService>;
+  let overviewRequests: { projectId: string; response: Subject<BudgetOverview> }[];
 
   const activeProject: Project = {
     id: '550e8400-e29b-41d4-a716-446655440000',
@@ -62,10 +66,18 @@ describe('HomePage', () => {
     ]);
     projectService.getProjects.and.returnValue(of([activeProject]));
     projectService.deleteProject.and.returnValue(of(undefined));
+    overviewRequests = [];
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getOverview']);
+    budgetService.getOverview.and.callFake((projectId: string) => {
+      const response = new Subject<BudgetOverview>();
+      overviewRequests.push({ projectId, response });
+      return response.asObservable();
+    });
     await TestBed.configureTestingModule({
       imports: [HomePage],
       providers: [
         { provide: ProjectService, useValue: projectService },
+        { provide: BudgetService, useValue: budgetService },
         {
           provide: AuthenticatedIdentityService,
           useValue: { getUserId: () => 'user-1' },
@@ -114,15 +126,42 @@ describe('HomePage', () => {
   });
 
   describe('budget availability', () => {
-    it('does not advertise missing budgets while the budget state is unknown', () => {
-      expect(component.budgetAvailability()).toBe('unknown');
+    function overview(projectId: string, budgetedCategories: number): BudgetOverview {
+      return {
+        projectId,
+        totalPlanned: budgetedCategories > 0 ? 1000 : 0,
+        totalSpent: 0,
+        available: 0,
+        globalPercentage: null,
+        exceededCategories: 0,
+        budgetedCategories,
+        categories: [],
+      };
+    }
+
+    function pendingRequestFor(projectId: string): Subject<BudgetOverview> {
+      const request = overviewRequests.find((candidate) => candidate.projectId === projectId);
+      expect(request).withContext(`consulta de orçamentos da obra ${projectId}`).toBeDefined();
+      return request!.response;
+    }
+
+    function answer(projectId: string, response: BudgetOverview): void {
+      pendingRequestFor(projectId).next(response);
+      fixture.detectChanges();
+    }
+
+    it('asks the budget API about the active project', () => {
+      expect(budgetService.getOverview).toHaveBeenCalledWith(activeProject.id);
+    });
+
+    it('does not advertise missing budgets while the budget API has not answered', () => {
       expect(query('define-project-budgets')).toBeNull();
+      expect(query('generate-budget')).toBeNull();
       expect(page().textContent).not.toContain('Esta obra ainda não possui orçamentos');
     });
 
-    it('shows the budget CTA only when the active project explicitly has no budgets', () => {
-      component.budgetAvailability.set('none');
-      fixture.detectChanges();
+    it('shows the budget CTA when the API reports no budgeted category', () => {
+      answer(activeProject.id, overview(activeProject.id, 0));
 
       const cta = query<HTMLAnchorElement>('define-project-budgets');
       expect(cta).not.toBeNull();
@@ -131,22 +170,8 @@ describe('HomePage', () => {
       expect(cta!.getAttribute('href')).toBe('/orcamentos');
     });
 
-    it('does not show the budget CTA when the active project has budgets', () => {
-      component.budgetAvailability.set('available');
-      fixture.detectChanges();
-
-      expect(query('define-project-budgets')).toBeNull();
-      expect(page().textContent).not.toContain('Esta obra ainda não possui orçamentos');
-    });
-
-    it('does not infer missing budgets from a zeroed dashboard total', () => {
-      expect(component.activeObra()?.orcamentoTotal).toBe(0);
-      expect(query('define-project-budgets')).toBeNull();
-    });
-
-    it('swaps the expense CTA for a budget CTA when the active project has no budgets', () => {
-      component.budgetAvailability.set('none');
-      fixture.detectChanges();
+    it('swaps the expense CTA for a budget CTA when the API reports no budgets', () => {
+      answer(activeProject.id, overview(activeProject.id, 0));
 
       const cta = query<HTMLAnchorElement>('generate-budget');
       expect(cta).not.toBeNull();
@@ -155,12 +180,59 @@ describe('HomePage', () => {
       expect(page().textContent).not.toContain('Lançar Nova Despesa');
     });
 
-    it('keeps the expense CTA when the active project has budgets', () => {
-      component.budgetAvailability.set('available');
-      fixture.detectChanges();
+    it('treats a project whose ceilings were all zeroed as having no budgets', () => {
+      const zeroed = overview(activeProject.id, 0);
+      zeroed.categories = [{
+        categoryId: 'cat-1',
+        categoryName: 'Alvenaria',
+        plannedAmount: 0,
+        spentAmount: 0,
+        balanceAmount: 0,
+        percentage: null,
+        state: 'NO_BUDGET' as BudgetCategory['state'],
+        hasBudget: true,
+      }];
+      answer(activeProject.id, zeroed);
 
+      expect(query('define-project-budgets')).not.toBeNull();
+    });
+
+    it('hides the budget CTA when the API reports budgeted categories', () => {
+      answer(activeProject.id, overview(activeProject.id, 3));
+
+      expect(query('define-project-budgets')).toBeNull();
       expect(query('generate-budget')).toBeNull();
       expect(page().textContent).toContain('Lançar Nova Despesa');
+    });
+
+    it('does not advertise missing budgets when the budget API fails', () => {
+      pendingRequestFor(activeProject.id).error(new Error('rede'));
+      fixture.detectChanges();
+
+      expect(query('define-project-budgets')).toBeNull();
+      expect(page().textContent).toContain('Lançar Nova Despesa');
+    });
+
+    it('asks again for the new active project and ignores a late answer from the previous one', () => {
+      activeProjectState.set(anotherProject);
+      fixture.detectChanges();
+      expect(budgetService.getOverview).toHaveBeenCalledWith(anotherProject.id);
+
+      answer(activeProject.id, overview(activeProject.id, 0));
+      expect(query('define-project-budgets')).withContext('resposta atrasada da obra anterior').toBeNull();
+
+      answer(anotherProject.id, overview(anotherProject.id, 0));
+      expect(query('define-project-budgets')).not.toBeNull();
+    });
+
+    it('forgets the previous project budget state when the active project changes', () => {
+      answer(activeProject.id, overview(activeProject.id, 0));
+      expect(query('define-project-budgets')).not.toBeNull();
+
+      activeProjectState.set(anotherProject);
+      fixture.detectChanges();
+
+      expect(query('define-project-budgets')).toBeNull();
     });
   });
 

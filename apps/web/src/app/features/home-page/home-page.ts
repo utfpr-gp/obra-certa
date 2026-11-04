@@ -5,6 +5,9 @@ import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/model
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../core/services/project.service';
+import { BudgetService } from '../../core/services/budget.service';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { catchError, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
@@ -46,6 +49,7 @@ import {
 export class HomePage {
   private activeProjectService = inject(ActiveProjectService);
   private projectService = inject(ProjectService);
+  private budgetService = inject(BudgetService);
   private userId = inject(AuthenticatedIdentityService).getUserId();
 
   readonly activeProject = this.activeProjectService.activeProject;
@@ -104,6 +108,34 @@ export class HomePage {
 
   constructor() {
     this.reloadProjects();
+    this.watchBudgetAvailability();
+  }
+
+  /**
+   * CA5 da US14: o banner de obra sem orcamentos depende da API da US07. A cada troca
+   * de obra o estado volta a 'unknown' ate a resposta chegar; o switchMap descarta a
+   * resposta atrasada da obra anterior. Teto zerado conta como sem orcamento, e em
+   * falha o estado fica 'unknown' para nao anunciar um vazio que nao foi confirmado.
+   */
+  private watchBudgetAvailability(): void {
+    toObservable(this.activeProject)
+      .pipe(
+        map((project) => project?.id ?? null),
+        distinctUntilChanged(),
+        tap(() => this.budgetAvailability.set('unknown')),
+        switchMap((projectId) =>
+          projectId
+            ? this.budgetService.getOverview(projectId).pipe(
+                map((overview): BudgetAvailability =>
+                  overview.budgetedCategories > 0 ? 'available' : 'none',
+                ),
+                catchError(() => of<BudgetAvailability>('unknown')),
+              )
+            : of<BudgetAvailability>('unknown'),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((availability) => this.budgetAvailability.set(availability));
   }
 
   reloadProjects(): void {
