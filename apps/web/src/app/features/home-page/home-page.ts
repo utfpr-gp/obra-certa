@@ -1,11 +1,14 @@
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { PaymentAlertItem, PaymentAlerts, PaymentTarget, PaymentUrgency } from '../../core/models/payment.model';
 import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { PaymentService } from '../../core/services/payment.service';
+import { BudgetService } from '../../core/services/budget.service';
+import { ExpenseService } from '../../core/services/expense.service';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
@@ -17,7 +20,8 @@ import { AlertBannerComponent } from '../../shared/components/alert-banner/alert
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { CategoryProgressCardComponent } from '../../shared/components/category-progress-card/category-progress-card.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { BadgeStatus, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
@@ -41,6 +45,7 @@ import {
     KpiCardComponent,
     CategoryProgressCardComponent,
     StatusBadgeComponent,
+    AlertBannerComponent,
     ProjectModalComponent,
     ConfirmModalComponent,
     LucideHome,
@@ -58,8 +63,15 @@ export class HomePage {
   private budgetService = inject(BudgetService);
   private userId = inject(AuthenticatedIdentityService).getUserId();
   private readonly payments = inject(PaymentService);
+  private readonly budgetService = inject(BudgetService);
+  private readonly expenseService = inject(ExpenseService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private paymentRequest?: Subscription;
+  private dashboardRequest?: Subscription;
+  readonly budgetOverview = signal<BudgetOverview | null>(null);
+  readonly recentExpenses = signal<ExpenseResponse[]>([]);
+  readonly dashboardError = signal(false);
   private paymentGeneration = 0;
   private destroyed = false;
   readonly paymentAlerts = signal<PaymentAlerts | null>(null);
@@ -81,13 +93,9 @@ export class HomePage {
   readonly deleteModalOpen = signal(false);
   readonly deleteFailure = signal<{ id: string; name: string } | null>(null);
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
-  /**
-   * The remaining dashboard metrics stay empty until their real endpoints are
-   * integrated; payment alerts use their own query state below.
-   */
   readonly activeObra = computed<DashboardView | null>(() => {
     const project = this.activeProject();
-    return project ? emptyDashboard(project.name) : null;
+    return project ? toDashboard(project.name, this.budgetOverview(), this.recentExpenses()) : null;
   });
   readonly hasNoBudgets = computed(() => {
     const obra = this.activeObra();
@@ -136,11 +144,41 @@ export class HomePage {
         this.paymentSelection.set(null);
         this.paymentSettlement.set(null);
         this.reloadPaymentAlerts();
+        this.reloadDashboard();
       });
     });
     this.destroyRef.onDestroy(() => {
       this.destroyed = true;
       this.paymentRequest?.unsubscribe();
+      this.dashboardRequest?.unsubscribe();
+    });
+  }
+
+  reloadDashboard(): void {
+    const projectId = this.activeProject()?.id;
+    const context = this.activeProjectService.contextVersion();
+    this.dashboardRequest?.unsubscribe();
+    this.budgetOverview.set(null);
+    this.recentExpenses.set([]);
+    this.budgetAvailability.set('unknown');
+    this.dashboardError.set(false);
+    if (!projectId) return;
+    const current = () => !this.destroyed && context === this.activeProjectService.contextVersion()
+      && projectId === this.activeProject()?.id;
+    this.dashboardRequest = forkJoin({
+      overview: this.budgetService.getOverview(projectId),
+      expenses: this.expenseService.list(projectId, 0, 5, 'ALL'),
+    }).subscribe({
+      next: ({ overview, expenses }) => {
+        if (!current()) return;
+        this.budgetOverview.set(overview);
+        this.recentExpenses.set(expenses.content);
+        this.budgetAvailability.set(overview.budgetedCategories === 0 ? 'none' : 'available');
+      },
+      error: () => {
+        if (!current()) return;
+        this.dashboardError.set(true);
+      },
     });
   }
 
@@ -197,8 +235,12 @@ export class HomePage {
     });
   }
 
-  paymentUrgencyLabel(urgency: PaymentUrgency): string {
-    return { OVERDUE: 'Vencida', DUE_SOON: 'Vence em até 3 dias', REGULAR: 'Vence em até 7 dias' }[urgency];
+  urgencyBadgeStatus(urgency: PaymentUrgency): BadgeStatus {
+    return { OVERDUE: 'vencido', DUE_SOON: 'amanha', REGULAR: 'futuro' }[urgency] as BadgeStatus;
+  }
+
+  urgencyBadgeLabel(urgency: PaymentUrgency): string {
+    return { OVERDUE: 'Vencida', DUE_SOON: 'Em até 3 dias', REGULAR: 'A Vencer' }[urgency];
   }
 
   formatCivilDate(value: string): string {
@@ -213,6 +255,10 @@ export class HomePage {
       target: { ...item, referenceDate: alerts.referenceDate } });
   }
 
+  goToAccounts(): void {
+    this.router.navigateByUrl('/contas');
+  }
+
   closePayment(): void { this.paymentSelection.set(null); }
 
   onPaymentSettled(expense: ExpenseResponse): void {
@@ -221,6 +267,7 @@ export class HomePage {
     this.closePayment();
     this.paymentSettlement.set(expense);
     this.reloadPaymentAlerts();
+    this.reloadDashboard();
   }
 
   reloadProjects(): void {
@@ -324,6 +371,44 @@ interface DashboardView {
   categorias: CategoriaOrcamento[];
   contasProximas: ContaPagar[];
   ultimosGastos: DespesaRecente[];
+}
+
+function toDashboard(name: string, overview: BudgetOverview | null, expenses: ExpenseResponse[]): DashboardView {
+  const base = emptyDashboard(name);
+  if (!overview) return base;
+  return {
+    ...base,
+    percentualGasto: overview.globalPercentage ?? 0,
+    totalGasto: overview.totalSpent,
+    orcamentoTotal: overview.totalPlanned,
+    saldoDisponivel: overview.available,
+    categorias: overview.categories.filter((category) => category.hasBudget).map(toCategoria),
+    ultimosGastos: expenses.map(toDespesa),
+  };
+}
+
+function toCategoria(category: BudgetCategory): CategoriaOrcamento {
+  const emRisco = category.state === 'WARNING' || category.state === 'EXCEEDED';
+  return {
+    id: category.categoryId,
+    nome: category.categoryName,
+    orcado: category.plannedAmount,
+    gasto: category.spentAmount,
+    percentual: category.percentage ?? 0,
+    emRisco,
+    corBorda: category.state === 'EXCEEDED' ? '#EF4444' : category.state === 'WARNING' ? '#F59E0B' : '#007A80',
+  };
+}
+
+function toDespesa(expense: ExpenseResponse): DespesaRecente {
+  return {
+    id: expense.id,
+    descricao: expense.description,
+    categoriaNome: expense.categoryName,
+    valor: expense.totalPrice,
+    dataTexto: formatCivilDateValue(expense.purchaseDate),
+    status: expense.paid ? 'pago' : 'pendente',
+  };
 }
 
 function emptyDashboard(name: string): DashboardView {

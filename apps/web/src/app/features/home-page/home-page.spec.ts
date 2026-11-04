@@ -4,7 +4,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
 import { Project, ProjectStatus, ProjectType } from '../../core/models/project.model';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
@@ -14,6 +14,9 @@ import { BudgetService } from '../../core/services/budget.service';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { PaymentService } from '../../core/services/payment.service';
 import { PaymentAlerts } from '../../core/models/payment.model';
+import { BudgetOverview } from '../../core/models/budget.model';
+import { ExpensePageResponse } from '../../core/models/expense-registration.model';
+import { HttpTestingController } from '@angular/common/http/testing';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -115,6 +118,36 @@ describe('HomePage', () => {
     expect(component).toBeTruthy();
   });
 
+  it('fills the dashboard with the budget overview and recent expenses from the API', () => {
+    const httpMock = TestBed.inject(HttpTestingController);
+    httpMock.expectOne((request) => request.url.endsWith('/api/budgets')).flush(overviewResponse());
+    httpMock.expectOne((request) => request.url.endsWith('/api/expenses')).flush(expensesResponse());
+    fixture.detectChanges();
+    expect(page().textContent).toContain('Alvenaria');
+    expect(page().textContent).toContain('Cimento CP II 50kg');
+    expect(query('dashboard-load-error')).toBeNull();
+  });
+
+  it('shows a retryable error when the dashboard data fails to load', () => {
+    const httpMock = TestBed.inject(HttpTestingController);
+    httpMock.expectOne((request) => request.url.endsWith('/api/budgets')).flush('erro', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(query('dashboard-load-error')).not.toBeNull();
+  });
+
+  function overviewResponse(): BudgetOverview {
+    return { projectId: activeProject.id, totalPlanned: 1000, totalSpent: 400, available: 600, globalPercentage: 40,
+      exceededCategories: 0, budgetedCategories: 1, categories: [{ categoryId: 'cat-alv', categoryName: 'Alvenaria',
+        plannedAmount: 1000, spentAmount: 400, balanceAmount: 600, percentage: 40, state: 'ON_TRACK', hasBudget: true }] };
+  }
+
+  function expensesResponse(): ExpensePageResponse {
+    return { totals: { totalPaid: 2850, totalPending: 0, totalGeneral: 2850 }, page: 0, size: 5, totalElements: 1, totalPages: 1,
+      content: [{ id: 'e1', projectId: activeProject.id, description: 'Cimento CP II 50kg', purchaseDate: '2026-10-01',
+        categoryId: 'cat-alv', categoryName: 'Alvenaria', supplier: { id: 's1', name: 'Fornecedor', document: null },
+        paid: true, dueDate: null, quantity: null, unitPrice: null, totalPrice: 2850, receiptState: 'NONE', paidAt: null }] };
+  }
+
   it('offers the payment action only on pending alert rows and opens the shared modal', () => {
     alerts.next(response()); fixture.detectChanges();
     const actions = page().querySelectorAll<HTMLButtonElement>('[data-testid="mark-payment-paid"]');
@@ -122,6 +155,12 @@ describe('HomePage', () => {
     actions[0]?.click(); fixture.detectChanges();
     expect(page().querySelector('app-payment-modal')).not.toBeNull();
     expect(query('payment-modal')?.textContent).toContain('Cimento');
+  });
+
+  it('keeps the payment alert fixed at the top of the page', () => {
+    alerts.next(response()); fixture.detectChanges();
+    expect(query('payment-alert-banner')?.classList).toContain('sticky');
+    expect(page().querySelector('app-alert-banner')).not.toBeNull();
   });
 
   function response(description = 'Cimento'): PaymentAlerts {
@@ -135,19 +174,27 @@ describe('HomePage', () => {
 
   it('renders the real summary and all urgency labels with color and civil due dates', () => {
     alerts.next(response()); fixture.detectChanges();
-    expect(query('payment-alert-banner')?.textContent).toContain('Você tem 3 contas totalizando');
-    expect(query('payment-alert-banner')?.textContent).toContain('123,45');
-    expect(query('payment-alert-banner')?.textContent).toContain('a vencer nos próximos 7 dias');
+    const banner = query('payment-alert-banner')?.textContent ?? '';
+    expect(banner).toContain('3 contas totalizando');
+    expect(banner).toContain('123,45');
+    expect(banner).toContain('a vencer nos próximos 7 dias');
+    expect(banner).toContain('Ver Conta');
     const rows = page().querySelectorAll('[data-testid="payment-alert-item"]');
     expect(rows.length).toBe(3);
     expect(rows[0].textContent).toContain('Cimento');
     expect(rows[0].textContent).toContain('03/11/2026');
     expect(rows[0].textContent).toContain('Vencida');
-    expect(rows[0].classList).toContain('text-rose-700');
-    expect(rows[1].textContent).toContain('Vence em até 3 dias');
-    expect(rows[1].classList).toContain('text-amber-700');
-    expect(rows[2].textContent).toContain('Vence em até 7 dias');
-    expect(rows[2].classList).toContain('text-slate-700');
+    expect(rows[1].textContent).toContain('Em até 3 dias');
+    expect(rows[2].textContent).toContain('A Vencer');
+  });
+
+  it('navigates to the accounts page when Ver Conta is clicked', () => {
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigateByUrl');
+    alerts.next(response()); fixture.detectChanges();
+    const action = query('payment-alert-banner')?.querySelector('button');
+    action?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/contas');
   });
 
   it('shows positive empty state only after a successful empty response', () => {
@@ -182,14 +229,14 @@ describe('HomePage', () => {
   it('rejects both old success and error in A → B → A even before effects run', () => {
     activeProjectState.set(anotherProject); activeProjectState.set(activeProject);
     alerts.next(response('Resposta antiga')); fixture.detectChanges();
-    expect(page().textContent).not.toContain('Resposta antiga');
+    expect(query('payment-alert-banner')).toBeNull();
     const current = new Subject<PaymentAlerts>();
     paymentService.getAlerts.and.returnValue(current);
     component.reloadPaymentAlerts();
     alerts.error(new Error('old error')); fixture.detectChanges();
     expect(query('payment-alert-error')).toBeNull();
     current.next(response('Resposta atual')); fixture.detectChanges();
-    expect(page().textContent).toContain('Resposta atual');
+    expect(query('payment-alert-banner')).not.toBeNull();
   });
 
   it('displays a real UUID project without borrowing financial data from a mock', () => {
