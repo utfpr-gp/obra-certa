@@ -45,7 +45,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/shared/components/payment-modal/`; `apps/web/src/app/core/{services/payment.service.ts,services/payment.service.spec.ts,models/payment.model.ts}`; `apps/web/src/app/features/home-page/home-page.{ts,html,spec.ts}`; ajuste de apresentação de paidAt e seu teste no componente que já o exibe, se necessário para CA4.
 
-- [ ] **Tarefa 4 — Quitar contas em Contas a Pagar**
+- [x] **Tarefa 4 — Quitar contas em Contas a Pagar**
   - Cobre: conclusão de CA3 e CA5 nas duas telas; CA7, CA8 e CA9 aplicados à listagem. Reutiliza CA4 e CA6, sem duplicar regras de pagamento.
   - Teste primeiro: specs da listagem para botão apenas em pendentes, integração do mesmo modal, confirmação HTTP, filtros/ordenação preservados, abas Todas/Pendentes/Vencidas/Pagas, totais atualizados, ajuste de página após sair a última linha, data sem deslocamento de fuso e falha ao recarregar após sucesso. Cobrir cancelamento, recuperação de resultado incerto, ausência/troca de obra, respostas fora de ordem e sessão expirada. Reexecutar testes HTTP/JUnit da quitação e da consulta paginada para garantir que o estado persistido produz os recortes esperados.
   - Entrega: ação funcional desktop/mobile em Contas a Pagar consumindo a mesma API/modal da Home; retorno à Home consulta os dados atuais.
