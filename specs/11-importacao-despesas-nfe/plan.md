@@ -43,12 +43,13 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/service/NfeXmlParser.java`; `apps/api/src/main/java/com/obracerta/model/dto/nfe/NfePreviewResponseDTO.java`; `apps/api/src/test/resources/nfe/nfe-valida.xml`, `nfe-corrompida.xml`, `nfe-outro-documento.xml`, `nfe-xxe.xml`; `apps/api/src/test/java/com/obracerta/service/NfeXmlParserTest.java`.
 
-- [ ] **Tarefa 2A — Ajustes do parser de NF-e após a revisão da Tarefa 2**
+- [x] **Tarefa 2A — Ajustes do parser de NF-e após a revisão da Tarefa 2**
   - Cobre: CA1 e CA2 (sem critério novo). Atende os apontamentos aceitos na rodada 2 da Tarefa 2: mover o parser para o pacote de integração, provar o motivo de cada ramo de recusa, provar o motivo do DTD externo, e cobrir a remoção de `disallow-doctype-decl` com teste de entidades aninhadas.
   - Teste primeiro: (1) testes de recusa para o `IOException` do parse, o `default` do switch de raiz, `NFe` sem `infNFe` e `filho()` ausente (`emit`, `ide`, `prod`, `xProd`), cada um verificando a palavra-chave da mensagem; (2) o teste de DTD externo passa a verificar `hasMessageContaining("DOCTYPE")`; (3) teste de entidades aninhadas (XML com DOCTYPE cujas entidades se expandem em cascata) que deve ser recusado com a mensagem de DOCTYPE. Se o limite de expansão do JDK interromper antes do `getDoctype()`, o teste não é afrouxado para aceitar outra mensagem: volta ao autor. Falha antes dos ajustes nos itens (2) e (3) quando a mensagem ainda não é provada.
   - Migration: nenhuma.
   - Arquivos previstos: mover `apps/api/src/main/java/com/obracerta/service/NfeXmlParser.java` para `apps/api/src/main/java/com/obracerta/integration/NfeXmlParser.java`; mover `apps/api/src/test/java/com/obracerta/service/NfeXmlParserTest.java` para `apps/api/src/test/java/com/obracerta/integration/NfeXmlParserTest.java`; nova fixture `apps/api/src/test/resources/nfe/nfe-entidades-aninhadas.xml`.
   - Dependências: Tarefa 2 (base escalada). Não altera o contrato de `NfePreviewResponseDTO` nem a lista de dados lidos.
+  - Desvios registrados na execução: (a) o ramo `IOException` não é alcançável com `ByteArrayInputStream` (sondagem com UTF-8 inválido, UTF-16 declarado e BOM inconsistente: todos viram `SAXParseException`); o `catch` foi mantido e não há teste para ele. (b) Os testes (2) e (3) não falharam no RED, porque a mensagem de DOCTYPE já existia; são de caracterização. (c) O teste de entidades aninhadas prova a recusa por DOCTYPE, não o limite de expansão do JDK, que não é acionado pela fixture e não é testado nesta tarefa.
 
 - [ ] **Tarefa 3 — Pré-visualizar a nota na obra do proprietário**
   - Cobre: CA1 e CA2 na API, e CA3 como alerta antecipado de chave já registrada no preview; CA9 na leitura (404 para obra alheia ou excluída, sem gravar).

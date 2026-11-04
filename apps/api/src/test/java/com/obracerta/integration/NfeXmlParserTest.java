@@ -1,4 +1,4 @@
-package com.obracerta.service;
+package com.obracerta.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -96,7 +96,15 @@ class NfeXmlParserTest {
                 "<!DOCTYPE nfeProc SYSTEM \"file:///caminho/inexistente/nfe.dtd\">");
 
         assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml))
-                .isInstanceOf(NfeInvalidXmlException.class);
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("DOCTYPE");
+    }
+
+    @Test
+    void recusaEntidadesAninhadasComDoctype() throws IOException {
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, lerFixture("nfe-entidades-aninhadas.xml")))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("DOCTYPE");
     }
 
     @Test
@@ -201,6 +209,73 @@ class NfeXmlParserTest {
         assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml.getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(NfeInvalidXmlException.class)
                 .hasMessageContaining("não é NF-e");
+    }
+
+    @Test
+    void recusaRaizNfeQueNaoEhNfeProcNemNfe() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <outroDoc xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe%s"/></outroDoc>
+                """.formatted(ACCESS_KEY);
+
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml.getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("não é NF-e");
+    }
+
+    @Test
+    void recusaNFeSemInfNFe() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><ide><dhEmi>%s</dhEmi></ide></NFe>
+                """.formatted(DH_EMI);
+
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml.getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("não é NF-e");
+    }
+
+    @Test
+    void recusaNfeSemEmitente() {
+        byte[] xml = semFragmento(nfeXml(idValido(ACCESS_KEY), DH_EMI, DET_VALIDO),
+                "<emit><CNPJ>12345678000190</CNPJ><xNome>Fornecedor</xNome></emit>");
+
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("corrompido");
+    }
+
+    @Test
+    void recusaNfeSemIde() {
+        byte[] xml = semFragmento(nfeXml(idValido(ACCESS_KEY), DH_EMI, DET_VALIDO),
+                "<ide><dhEmi>" + DH_EMI + "</dhEmi></ide>");
+
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("corrompido");
+    }
+
+    @Test
+    void recusaItemSemProd() {
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID,
+                nfeXml(idValido(ACCESS_KEY), DH_EMI, "<det nItem=\"1\"><cProd>001</cProd></det>")))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("corrompido");
+    }
+
+    @Test
+    void recusaProdSemXProd() {
+        byte[] xml = semFragmento(nfeXml(idValido(ACCESS_KEY), DH_EMI, DET_VALIDO), "<xProd>Cimento</xProd>");
+
+        assertThatThrownBy(() -> parser.parse(PROJECT_ID, xml))
+                .isInstanceOf(NfeInvalidXmlException.class)
+                .hasMessageContaining("corrompido");
+    }
+
+    private static byte[] semFragmento(byte[] xml, String fragmento) {
+        String original = new String(xml, StandardCharsets.UTF_8);
+        assertThat(original).contains(fragmento);
+        return original.replace(fragmento, "").getBytes(StandardCharsets.UTF_8);
     }
 
     private static String idValido(String chave) {

@@ -1,4 +1,4 @@
-package com.obracerta.service;
+package com.obracerta.integration;
 
 import com.obracerta.exception.NfeInvalidXmlException;
 import com.obracerta.model.dto.nfe.NfePreviewResponseDTO;
