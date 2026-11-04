@@ -1,6 +1,6 @@
 ---
 issue: 11
-status: rascunho   # rascunho | aprovada
+status: aprovada   # rascunho | aprovada
 ---
 
 # US09 — Importação de Despesas via NF-e (Chave ou XML)
