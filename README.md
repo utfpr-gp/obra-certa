@@ -38,7 +38,7 @@ Toda a especificação formal do sistema segue a metodologia **Spec-Driven Devel
 
 - **Arquitetura:** Monorepo com Arquitetura em Camadas (Controller, Service, Repository)
 - **Backend:** Java, Spring Boot, Spring Security (Autenticação Stateless com JWT), Spring Data JPA
-- **Frontend:** Angular (Standalone Components, Modern Control Flow, SSR), Tailwind CSS, DaisyUI, Lucide Icons
+- **Frontend:** Angular (Standalone Components, Modern Control Flow), Tailwind CSS, DaisyUI, Lucide Icons
 - **Banco de Dados:** PostgreSQL (Ambiente local via Docker / Nuvem via Neon Serverless Postgres)
 - **DevOps & Infra:** Docker, Docker Compose, Nginx, GitHub Actions (CI/CD)
 
