@@ -30,7 +30,7 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Bloquear reimportação de chave com trava por obra**
+- [x] **Tarefa 1 — Bloquear reimportação de chave com trava por obra**
   - Cobre: CA3 (chave já registrada na obra bloqueia a gravação, sem linha nova) e CA11 (a chave continua bloqueada enquanto restar uma linha ativa).
   - Teste primeiro: integração PostgreSQL do `NfeKeyGuard`. Com uma linha ativa de chave X na obra, a guarda recusa X; a mesma chave em outra obra é aceita; despesas sem chave não contam; depois de excluir todas as linhas da nota, X é aceita; excluir só uma linha pelo `ExpenseService.delete` mantém X bloqueada. Falha antes de `NfeKeyGuard` existir.
   - Migration: nenhuma.
