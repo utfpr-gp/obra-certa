@@ -9,15 +9,16 @@
 - Pagamento: `CASH` grava `pending_payments` com status `PAID` e `paid_at` igual à data de emissão. `INSTALLMENT` grava `PENDING` com `due_date`, validando `dueDate >= issueDate` (RN05) → 400 se violar. Ambos só na primeira linha (`nItem = 1`).
 - Mapeamento de cada item para `expenses`: `project_id`, `category_id` escolhida, `supplier_id` da nota, `type = MATERIAL` (obrigatório e fixo para NF-e), `description` = `xProd`, `quantity` = `qCom`, `unit` = `uCom`, `unit_price` = `vUnCom`, `total_price` = `vProd`, `purchase_date` = data de emissão, `nfe_key` = chave do XML, `budget_id` resolvido como em `ExpenseService.create`.
 - Parser de XML: DOM com namespace habilitado e entidades externas (DOCTYPE/XXE) desabilitadas. Chave lida do atributo `Id` de `infNFe` sem o prefixo `NFe`. Razão social de `emit/xNome`, CNPJ de `emit/CNPJ`. Itens de `det` com `nItem`. Data de `ide/dhEmi`. Raiz que não seja `nfeProc` ou `NFe` → 400.
+- Trava de chave (`NfeKeyGuard`): antes de gravar, a transação trava a linha do projeto (`SELECT ... FOR UPDATE` em `projects`) e confere se existe linha ativa (`deleted_at IS NULL`) com a mesma `nfe_key` na obra. Se existir, lança exceção de domínio que a API converte em 409. Não há índice único em `expenses`: a regra vive na aplicação, sob bloqueio da obra.
 - Fornecedor: busca por CNPJ entre os fornecedores do próprio usuário (`suppliers.user_id`). Se existir, atualiza `name` com a razão social da nota; se não, cria. Mesma transação das linhas.
 - Comprovante: o XML é gravado no storage (`ReceiptStorage`) antes da transação do banco. A primeira linha recebe `receipt_state = UPLOADED`, `receipt_key`, tipo e tamanho (V9). Se a transação do banco falhar, o objeto enviado é apagado. Se o upload falhar, nada é gravado.
-- Atomicidade e concorrência: uma transação grava todas as linhas, o fornecedor e o pagamento. A trava de chave é o índice único parcial da migration V11, então duas importações simultâneas da mesma nota fazem uma falhar com 409 e nada parcial fica gravado.
-- Controladores magros: `NfeImportController`; regras em `NfeImportService`; leitura do XML em `NfeXmlParser`. Autorização reaproveita `UserContextHelper` e os repositórios que já filtram proprietário, obra e exclusões.
+- Atomicidade e concorrência: uma transação grava todas as linhas, o fornecedor e o pagamento, depois de passar pela trava de chave. Duas importações simultâneas da mesma nota se serializam no bloqueio da obra: a segunda vê a primeira já gravada e recebe 409, sem nada parcial.
+- Controladores magros: `NfeImportController`; regras em `NfeImportService`; leitura do XML em `NfeXmlParser`; trava em `NfeKeyGuard`. Autorização reaproveita `UserContextHelper` e os repositórios que já filtram proprietário, obra e exclusões.
 
 ### Migração de schema
 
-- `V11__unique_active_nfe_key_per_project.sql`: índice único parcial `idx_expenses_project_nfe_active` em `expenses (project_id, nfe_key)` com `WHERE deleted_at IS NULL AND nfe_key IS NOT NULL`. Conforme `docs/architecture.md`, seção de índices. Não editar V1–V10.
-- Nenhuma outra mudança de schema: `nfe_key`, `receipt_*`, `pending_payments` e `suppliers.user_id` já existem.
+- Nenhuma. A trava de chave é feita pela aplicação, sob bloqueio da obra (ver Decisões de backend). `nfe_key`, `receipt_*`, `pending_payments` e `suppliers.user_id` já existem.
+- Observação: `docs/architecture.md` (seção de persistência, item "Índice Único Parcial para Chave de NF-e na Obra") descreve um índice que esta decisão não cria. A atualização do documento entra no Passo 4 (documentação) da história.
 
 ### Frontend (`apps/web`)
 
@@ -29,11 +30,11 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Garantir uma só importação por chave na obra**
-  - Cobre: CA3 (camada de dados) e CA11 (a chave continua bloqueada enquanto restar uma linha ativa).
-  - Teste primeiro: integração PostgreSQL. Duas linhas ativas com a mesma chave na mesma obra violam o índice; a mesma chave em outra obra é aceita; linhas sem chave são aceitas; depois de excluir todas as linhas da nota, a chave volta a ser aceita; excluir só uma linha mantém a chave bloqueada. Falha antes do índice existir.
-  - Migration: `V11__unique_active_nfe_key_per_project.sql`
-  - Arquivos previstos: `apps/api/src/main/resources/db/migration/V11__unique_active_nfe_key_per_project.sql`; `apps/api/src/test/java/com/obracerta/repository/ExpenseNfeKeyIndexTest.java`; `apps/api/src/test/java/com/obracerta/service/ExpenseServiceDeleteNfeTest.java`.
+- [ ] **Tarefa 1 — Bloquear reimportação de chave com trava por obra**
+  - Cobre: CA3 (chave já registrada na obra bloqueia a gravação, sem linha nova) e CA11 (a chave continua bloqueada enquanto restar uma linha ativa).
+  - Teste primeiro: integração PostgreSQL do `NfeKeyGuard`. Com uma linha ativa de chave X na obra, a guarda recusa X; a mesma chave em outra obra é aceita; despesas sem chave não contam; depois de excluir todas as linhas da nota, X é aceita; excluir só uma linha pelo `ExpenseService.delete` mantém X bloqueada. Falha antes de `NfeKeyGuard` existir.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/api/src/main/java/com/obracerta/service/NfeKeyGuard.java`; `apps/api/src/main/java/com/obracerta/exception/NfeAlreadyRegisteredException.java`; `apps/api/src/main/java/com/obracerta/repository/ProjectRepository.java` (consulta com bloqueio pessimista da obra); `apps/api/src/test/java/com/obracerta/service/NfeKeyGuardTest.java`; `apps/api/src/test/java/com/obracerta/service/ExpenseServiceDeleteNfeTest.java` (já existe em RED, deve ser reescrito para o novo contrato); remover `apps/api/src/test/java/com/obracerta/repository/ExpenseNfeKeyIndexTest.java` (RED do índice descartado).
 
 - [ ] **Tarefa 2 — Ler XML de NF-e e recusar o que não é NF-e**
   - Cobre: CA1 (extração de chave, fornecedor, data e itens) e CA2 (XML corrompido ou de outro documento).
@@ -42,7 +43,7 @@
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/service/NfeXmlParser.java`; `apps/api/src/main/java/com/obracerta/model/dto/nfe/NfePreviewResponseDTO.java`; `apps/api/src/test/resources/nfe/nfe-valida.xml`, `nfe-corrompida.xml`, `nfe-outro-documento.xml`, `nfe-xxe.xml`; `apps/api/src/test/java/com/obracerta/service/NfeXmlParserTest.java`.
 
 - [ ] **Tarefa 3 — Pré-visualizar a nota na obra do proprietário**
-  - Cobre: CA1 e CA2 na API, e CA3 como alerta antecipado de chave já registrada no preview; CA10 na leitura (404 para obra alheia ou excluída, sem gravar).
+  - Cobre: CA1 e CA2 na API, e CA3 como alerta antecipado de chave já registrada no preview; CA9 na leitura (404 para obra alheia ou excluída, sem gravar).
   - Teste primeiro: teste de controlador para 200 com o payload de CA1, 400 para XML de CA2, 409 quando a chave já existe na obra, 404 para obra alheia e excluída, 401 sem token. Falha antes do controlador existir.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/controller/NfeImportController.java`; `apps/api/src/main/java/com/obracerta/service/NfeImportService.java`; `apps/api/src/test/java/com/obracerta/controller/NfeImportControllerPreviewTest.java`.
@@ -67,8 +68,8 @@
 
 - [ ] **Tarefa 7 — Impedir gravação duplicada em envios simultâneos**
   - Cobre: CA10 na camada de servidor (a segunda importação da mesma nota não grava nada) e CA8 em concorrência.
-  - Teste primeiro: integração com PostgreSQL disparando duas confirmações concorrentes da mesma nota. Esperado: uma responde 201 e outra 409, com exatamente N linhas no banco. Falha antes da trava existir, se a verificação de duplicidade for só de leitura.
-  - Migration: nenhuma (usa o índice da Tarefa 1).
+  - Teste primeiro: integração com PostgreSQL disparando duas confirmações concorrentes da mesma nota. Esperado: uma responde 201 e outra 409, com exatamente N linhas no banco. Falha antes da trava de obra existir, quando as duas gravações podem passar pela checagem de leitura ao mesmo tempo.
+  - Migration: nenhuma (usa a trava da Tarefa 1).
   - Arquivos previstos: `apps/api/src/test/java/com/obracerta/controller/NfeImportConcurrencyTest.java`; ajuste em `apps/api/src/main/java/com/obracerta/service/NfeImportService.java` somente se o teste expuser corrida.
 
 - [ ] **Tarefa 8 — Enviar XML e ver a conferência na tela**
