@@ -356,6 +356,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 
 ### 5.1 Frontend (Angular 21.2.x)
 
+0. **SPA, sem SSR nem prerender:** Todas as telas úteis ficam atrás do login, e o token JWT vive no `localStorage`, que não existe no servidor. Renderizar no servidor não traz ganho de SEO nem de primeira pintura e fazia o `authGuard` redirecionar para o login toda recarga ou link direto de rota autenticada. O build gera apenas `dist/frontend/browser/index.html` com os bundles, servido pelo Nginx com fallback para o `index.html`.
 1. **Componentes Standalone:** Padrão moderno desprovido de `NgModule`.
 2. **Gerenciamento de Estado Reativo com Signals:** Utilização de `signal()`, `computed()` e `effect()` para gerenciar o estado reativo das telas e componentes.
 3. **Controle de Fluxo Moderno:** Adoção estrita de `@if`, `@for`, `@switch` no lugar de diretivas legadas (`*ngIf`, `*ngFor`).
@@ -557,6 +558,12 @@ flowchart LR
 | **Backend** | Spring Boot CLI (`localhost:8080`) | JUnit 5 + SpringBootTest | Container Docker gerenciado sob HTTPS |
 
 - **Configuração de comprovantes:** `RECEIPT_STORAGE_*` no `.env` da raiz, preenchido manualmente. O Compose usa `env_file`; o Spring importa opcionalmente esse arquivo ao executar da raiz ou de `apps/api`. As chaves S3 ficam apenas no backend; como elas ignoram RLS, a API valida a posse antes de acessar objetos. PostgreSQL e autenticação JWT existentes são preservados. O roteiro de configuração e validação está em [supabase-storage.md](./supabase-storage.md). A inicialização financeira não depende de credenciais ou conexão com o storage.
+
+- **Variáveis do perfil `prod`** (`application-prod.properties`). As obrigatórias não têm valor padrão: sem elas a aplicação se recusa a subir, em vez de subir com segredo previsível.
+  - Obrigatórias: `SPRING_PROFILES_ACTIVE=prod`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET` e `CORS_ALLOWED_ORIGINS` (origens do frontend separadas por vírgula).
+  - Opcionais: `FLYWAY_URL` (string direta do Neon, sem pooler; padrão é a URL do banco), `DB_POOL_SIZE` (padrão 5), `PORT` (padrão 8080; o Render define sozinho), `RECEIPT_STORAGE_*` e `JAVA_TOOL_OPTIONS`.
+  - Em produção, os logs vão só para o console, o seed de demonstração nunca roda e `show-sql` fica desligado.
+  - A imagem do backend usa heap proporcional ao limite do container, coletor serial e JIT de nível 1. Medido com 512 MB e 0,1 de CPU (limites típicos de plano gratuito), a partida caiu de cerca de 110 s para 64 s.
 
 - **Regra de Ouro das Migrações:**
   - `spring.jpa.hibernate.ddl-auto=validate` em todos os perfis;
