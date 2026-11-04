@@ -1,4 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { PaymentAlerts, PaymentUrgency } from '../../core/models/payment.model';
+import { PaymentService } from '../../core/services/payment.service';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
@@ -30,7 +33,6 @@ import {
   imports: [
     CommonModule,
     RouterLink,
-    AlertBannerComponent,
     RadialGaugeComponent,
     KpiCardComponent,
     CategoryProgressCardComponent,
@@ -51,6 +53,14 @@ export class HomePage {
   private projectService = inject(ProjectService);
   private budgetService = inject(BudgetService);
   private userId = inject(AuthenticatedIdentityService).getUserId();
+  private readonly payments = inject(PaymentService);
+  private readonly destroyRef = inject(DestroyRef);
+  private paymentRequest?: Subscription;
+  private paymentGeneration = 0;
+  private destroyed = false;
+  readonly paymentAlerts = signal<PaymentAlerts | null>(null);
+  readonly paymentLoading = signal(false);
+  readonly paymentError = signal(false);
 
   readonly activeProject = this.activeProjectService.activeProject;
   readonly projects = signal<Project[]>([]);
@@ -61,8 +71,8 @@ export class HomePage {
   readonly deleteFailure = signal<{ id: string; name: string } | null>(null);
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
   /**
-   * Financial endpoints are not part of this task yet. Keep the dashboard
-   * explicitly empty rather than associating mock financial records by id.
+   * The remaining dashboard metrics stay empty until their real endpoints are
+   * integrated; payment alerts use their own query state below.
    */
   readonly activeObra = computed<DashboardView | null>(() => {
     const project = this.activeProject();
@@ -109,6 +119,14 @@ export class HomePage {
   constructor() {
     this.reloadProjects();
     this.watchBudgetAvailability();
+    effect(() => {
+      this.activeProjectService.contextVersion();
+      untracked(() => this.reloadPaymentAlerts());
+    });
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.paymentRequest?.unsubscribe();
+    });
   }
 
   /**
@@ -136,6 +154,40 @@ export class HomePage {
         takeUntilDestroyed(),
       )
       .subscribe((availability) => this.budgetAvailability.set(availability));
+  }
+
+  reloadPaymentAlerts(): void {
+    const generation = ++this.paymentGeneration;
+    const context = this.activeProjectService.contextVersion();
+    const projectId = this.activeProject()?.id;
+    this.paymentRequest?.unsubscribe();
+    this.paymentAlerts.set(null);
+    this.paymentError.set(false);
+    this.paymentLoading.set(!!projectId);
+    if (!projectId) return;
+    const current = () => !this.destroyed && generation === this.paymentGeneration
+      && context === this.activeProjectService.contextVersion()
+      && projectId === this.activeProject()?.id;
+    this.paymentRequest = this.payments.getAlerts(projectId).subscribe({
+      next: result => {
+        if (!current()) return;
+        this.paymentAlerts.set(result);
+        this.paymentLoading.set(false);
+      },
+      error: () => {
+        if (!current()) return;
+        this.paymentError.set(true);
+        this.paymentLoading.set(false);
+      },
+    });
+  }
+
+  paymentUrgencyLabel(urgency: PaymentUrgency): string {
+    return { OVERDUE: 'Vencida', DUE_SOON: 'Vence em até 3 dias', REGULAR: 'Vence em até 7 dias' }[urgency];
+  }
+
+  formatCivilDate(value: string): string {
+    return value.split('-').reverse().join('/');
   }
 
   reloadProjects(): void {

@@ -39,18 +39,33 @@
     </section>
   </main>
 } @else if (activeObra(); as obra) {
-<!-- Optional Danger / Due Today Alert Banner -->
-@if (obra.alertaHoje) {
-  <app-alert-banner
-    type="danger"
-    [title]="obra.alertaHoje!.titulo"
-    [message]="obra.alertaHoje!.detalhe"
-    actionLabel="Ver Conta"
-  />
-}
-
 <!-- Scrollable Main Dashboard Content -->
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
+<section aria-label="Alertas de pagamentos" class="rounded-2xl border border-slate-200 bg-white p-5" aria-live="polite">
+  @if (paymentLoading()) {
+    <p data-testid="payment-alert-loading">Carregando pagamentos...</p>
+  } @else if (paymentError()) {
+    <div data-testid="payment-alert-error" role="alert" class="text-rose-700">
+      <p>Não foi possível carregar os pagamentos. Tente novamente.</p>
+      <button type="button" data-testid="retry-payment-alerts" class="btn mt-2" (click)="reloadPaymentAlerts()">Tentar novamente</button>
+    </div>
+  } @else if (paymentAlerts(); as alerts) {
+    @if (alerts.count > 0) {
+      <p data-testid="payment-alert-banner" class="rounded-lg bg-amber-50 p-3 font-semibold">Você tem {{ alerts.count }} contas totalizando {{ formatBrl(alerts.totalAmount) }} a vencer nos próximos 7 dias</p>
+      <ul class="divide-y divide-slate-100">
+        @for (item of alerts.items; track item.expenseId) {
+          <li data-testid="payment-alert-item" class="py-3 flex flex-wrap justify-between gap-2" [ngClass]="{'text-rose-700': item.urgency === 'OVERDUE', 'text-amber-700': item.urgency === 'DUE_SOON', 'text-slate-700': item.urgency === 'REGULAR'}">
+            <span>{{ item.description }} — {{ formatCivilDate(item.dueDate) }}<span class="block text-sm">{{ paymentUrgencyLabel(item.urgency) }}</span></span>
+            <strong>{{ formatBrl(item.totalPrice) }}</strong>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p data-testid="payment-alert-empty" class="text-teal-800">Nenhum pagamento pendente no período. Tudo em dia!</p>
+    }
+  }
+  <a routerLink="/contas" class="btn-oc-redirect mt-3">Ver todas as contas</a>
+</section>
       <!-- Page Header with Title and Action CTA -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -61,9 +76,11 @@
           <p class="text-sm text-slate-500 mt-1">
             Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
           </p>
+          @if (!paymentAlerts()?.count) {
           <p class="text-sm text-slate-600 mt-2">
             Ainda não há dados financeiros disponíveis para esta obra.
           </p>
+          }
           @if (deleteError()) {
             <div
               data-testid="delete-project-error"
@@ -149,8 +166,8 @@
         <!-- 3. Contas a Vencer Card Component -->
         <app-kpi-card
           title="Contas a Vencer"
-          [value]="obra.contasAVencerQtd + ' contas'"
-          subtitle="/ 30 dias"
+          [value]="paymentAlerts() ? paymentAlerts()!.count + ' contas' : '—'"
+          subtitle="/ próximos 7 dias e vencidas"
           icon="calendar-clock"
           iconBgClass="bg-amber-100/70 text-amber-700"
         />
@@ -191,57 +208,6 @@
 
       <!-- Bottom Lists: Contas Próximas & Últimos Gastos -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Panel 1: Contas Próximas -->
-        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-slate-900">
-                Contas Próximas ({{ obra.contasProximas.length }})
-              </h3>
-              <a
-                routerLink="/contas"
-                class="btn-oc-redirect"
-                title="Ver todas as contas"
-              >
-                <span>Ver todas</span>
-                <svg lucideArrowRight [size]="14" />
-              </a>
-            </div>
-
-            <div class="divide-y divide-slate-100">
-              @for (conta of obra.contasProximas; track conta.id) {
-                <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
-                  <div class="flex items-center gap-2.5 min-w-0">
-                    <svg
-                      lucideClock
-                      [size]="16"
-                      class="shrink-0"
-                      [ngClass]="{
-                        'text-rose-500': conta.status === 'hoje' || conta.status === 'atrasado',
-                        'text-amber-500': conta.status === 'amanha',
-                        'text-slate-400': conta.status === 'futuro'
-                      }"
-                    />
-                    <span class="text-slate-700 truncate font-medium">
-                      {{ conta.descricao }} — {{ conta.vencimentoTexto }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <app-status-badge [status]="conta.status" />
-                    <span class="font-bold text-slate-900 tabular-nums">
-                      {{ formatBrl(conta.valor) }}
-                    </span>
-                  </div>
-                </div>
-              } @empty {
-                <div class="py-8 text-center text-sm text-slate-400">
-                  Nenhuma conta a vencer cadastrada.
-                </div>
-              }
-            </div>
-          </div>
-        </div>
-
         <!-- Panel 2: Últimos Gastos -->
         <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
           <div>

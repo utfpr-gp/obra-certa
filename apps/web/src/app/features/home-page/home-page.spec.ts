@@ -12,6 +12,8 @@ import { By } from '@angular/platform-browser';
 import { of, Subject, throwError } from 'rxjs';
 import { BudgetService } from '../../core/services/budget.service';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
+import { PaymentService } from '../../core/services/payment.service';
+import { PaymentAlerts } from '../../core/models/payment.model';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -23,6 +25,8 @@ describe('HomePage', () => {
   let projectService: jasmine.SpyObj<ProjectService>;
   let budgetService: jasmine.SpyObj<BudgetService>;
   let overviewRequests: { projectId: string; response: Subject<BudgetOverview> }[];
+  let paymentService: jasmine.SpyObj<PaymentService>;
+  let alerts: Subject<PaymentAlerts>;
 
   const activeProject: Project = {
     id: '550e8400-e29b-41d4-a716-446655440000',
@@ -60,6 +64,9 @@ describe('HomePage', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    alerts = new Subject<PaymentAlerts>();
+    paymentService = jasmine.createSpyObj<PaymentService>('PaymentService', ['getAlerts']);
+    paymentService.getAlerts.and.returnValue(alerts);
     projectService = jasmine.createSpyObj<ProjectService>('ProjectService', [
       'getProjects',
       'deleteProject',
@@ -78,6 +85,7 @@ describe('HomePage', () => {
       providers: [
         { provide: ProjectService, useValue: projectService },
         { provide: BudgetService, useValue: budgetService },
+        { provide: PaymentService, useValue: paymentService },
         {
           provide: AuthenticatedIdentityService,
           useValue: { getUserId: () => 'user-1' },
@@ -104,6 +112,74 @@ describe('HomePage', () => {
 
   it('should create the home page', () => {
     expect(component).toBeTruthy();
+  });
+
+  function response(description = 'Cimento'): PaymentAlerts {
+    return { projectId: activeProject.id, referenceDate: '2026-11-04', count: 3,
+      totalAmount: 123.45, items: [
+        { expenseId: '1', description, purchaseDate: '2026-10-01', dueDate: '2026-11-03', totalPrice: 23.45, urgency: 'OVERDUE' },
+        { expenseId: '2', description: 'Hoje', purchaseDate: '2026-10-01', dueDate: '2026-11-04', totalPrice: 50, urgency: 'DUE_SOON' },
+        { expenseId: '3', description: 'Semana', purchaseDate: '2026-10-01', dueDate: '2026-11-11', totalPrice: 50, urgency: 'REGULAR' },
+      ] };
+  }
+
+  it('renders the real summary and all urgency labels with color and civil due dates', () => {
+    alerts.next(response()); fixture.detectChanges();
+    expect(query('payment-alert-banner')?.textContent).toContain('Você tem 3 contas totalizando');
+    expect(query('payment-alert-banner')?.textContent).toContain('123,45');
+    expect(query('payment-alert-banner')?.textContent).toContain('a vencer nos próximos 7 dias');
+    const rows = page().querySelectorAll('[data-testid="payment-alert-item"]');
+    expect(rows.length).toBe(3);
+    expect(rows[0].textContent).toContain('Cimento');
+    expect(rows[0].textContent).toContain('03/11/2026');
+    expect(rows[0].textContent).toContain('Vencida');
+    expect(rows[0].classList).toContain('text-rose-700');
+    expect(rows[1].textContent).toContain('Vence em até 3 dias');
+    expect(rows[1].classList).toContain('text-amber-700');
+    expect(rows[2].textContent).toContain('Vence em até 7 dias');
+    expect(rows[2].classList).toContain('text-slate-700');
+  });
+
+  it('shows positive empty state only after a successful empty response', () => {
+    expect(query('payment-alert-empty')).toBeNull();
+    alerts.next({ ...response(), count: 0, totalAmount: 0, items: [] }); fixture.detectChanges();
+    expect(query('payment-alert-empty')?.textContent).toContain('Nenhum pagamento pendente');
+    expect(query('payment-alert-banner')).toBeNull();
+  });
+
+  it('distinguishes failure from empty and retries only on manual action', () => {
+    alerts.error(new Error('network')); fixture.detectChanges();
+    expect(query('payment-alert-error')).not.toBeNull();
+    expect(query('payment-alert-empty')).toBeNull();
+    expect(query('payment-alert-loading')).toBeNull();
+    expect(paymentService.getAlerts).toHaveBeenCalledTimes(1);
+    const retry = new Subject<PaymentAlerts>(); paymentService.getAlerts.and.returnValue(retry);
+    click('retry-payment-alerts');
+    expect(paymentService.getAlerts).toHaveBeenCalledTimes(2);
+    retry.next(response()); fixture.detectChanges();
+    expect(query('payment-alert-error')).toBeNull();
+    expect(query('payment-alert-banner')).not.toBeNull();
+  });
+
+  it('does not query without a selected project and clears previous alerts', () => {
+    alerts.next(response()); fixture.detectChanges();
+    paymentService.getAlerts.calls.reset();
+    activeProjectState.set(null); fixture.detectChanges();
+    expect(paymentService.getAlerts).not.toHaveBeenCalled();
+    expect(query('payment-alert-banner')).toBeNull();
+  });
+
+  it('rejects both old success and error in A → B → A even before effects run', () => {
+    activeProjectState.set(anotherProject); activeProjectState.set(activeProject);
+    alerts.next(response('Resposta antiga')); fixture.detectChanges();
+    expect(page().textContent).not.toContain('Resposta antiga');
+    const current = new Subject<PaymentAlerts>();
+    paymentService.getAlerts.and.returnValue(current);
+    component.reloadPaymentAlerts();
+    alerts.error(new Error('old error')); fixture.detectChanges();
+    expect(query('payment-alert-error')).toBeNull();
+    current.next(response('Resposta atual')); fixture.detectChanges();
+    expect(page().textContent).toContain('Resposta atual');
   });
 
   it('displays a real UUID project without borrowing financial data from a mock', () => {

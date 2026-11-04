@@ -24,7 +24,7 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Exibir alertas reais na Home**
+- [x] **Tarefa 1 — Exibir alertas reais na Home**
   - Cobre: CA1, CA2 e CA6 na leitura; CA8 na falha de consulta; CA9 na consulta e troca de contexto.
   - Teste primeiro: JUnit de serviço com Clock fixo e integração HTTP/repositório com PostgreSQL para vencidas, hoje, +3, +4, +7, +8, pagas, sem vencimento, exclusões e Anti-IDOR; provar soma, desempate e limites. Specs Angular da Home e serviço HTTP devem inicialmente falhar por ausência do painel real e provar banner, urgência com texto/cor, vazio, erro/repetição manual, ausência de obra, timeout e resposta antiga em A → B → A. Incluir 401 com o interceptor existente.
   - Entrega: GET completo até PostgreSQL e consumo real na Home, sem implementar quitação nesta etapa.
