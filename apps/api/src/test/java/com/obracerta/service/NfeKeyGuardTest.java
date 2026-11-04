@@ -103,6 +103,25 @@ class NfeKeyGuardTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    void readOnlyCheckRefusesAKeyActiveInTheProjectWithoutTakingLock() {
+        Fixture fixture = fixture();
+        String key = newKey();
+        expenses.saveAndFlush(line(fixture, fixture.project(), key));
+
+        assertThatThrownBy(() -> guard.ensureNotRegisteredWithoutLock(fixture.project().getId(), key))
+                .isInstanceOf(NfeAlreadyRegisteredException.class)
+                .hasMessage("A nota fiscal já foi registrada");
+    }
+
+    @Test
+    void readOnlyCheckAcceptsAKeyWithoutActiveLineInTheProject() {
+        Fixture fixture = fixture();
+
+        assertThatCode(() -> guard.ensureNotRegisteredWithoutLock(fixture.project().getId(), newKey()))
+                .doesNotThrowAnyException();
+    }
+
     private record Fixture(User owner, Project project, Supplier supplier, ExpenseCategory category) {}
 
     private Fixture fixture() {

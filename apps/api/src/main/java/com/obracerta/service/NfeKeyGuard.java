@@ -19,6 +19,11 @@ public class NfeKeyGuard {
     @Transactional
     public void ensureNotRegistered(String projectId, String nfeKey) {
         projects.lockActiveById(projectId).orElseThrow(ResourceNotFoundException::new);
+        ensureNotRegisteredWithoutLock(projectId, nfeKey);
+    }
+
+    // Leitura sem trava: o preview avisa antes de gravar. Não substitui a trava da confirmação.
+    public void ensureNotRegisteredWithoutLock(String projectId, String nfeKey) {
         if (projects.countActiveExpensesByProjectIdAndNfeKey(projectId, nfeKey) > 0)
             throw new NfeAlreadyRegisteredException();
     }
