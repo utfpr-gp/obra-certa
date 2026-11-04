@@ -20,6 +20,7 @@ import { CategoryProgressCardComponent } from '../../shared/components/category-
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
+import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 import { Project } from '../../core/models/project.model';
 import {
   LucideHome,
@@ -201,7 +202,7 @@ export class HomePage {
   }
 
   formatCivilDate(value: string): string {
-    return value.slice(0, 10).split('-').reverse().join('/');
+    return formatCivilDateValue(value);
   }
 
   openPayment(item: PaymentAlertItem): void {

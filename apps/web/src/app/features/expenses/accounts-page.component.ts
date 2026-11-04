@@ -10,11 +10,14 @@ import { RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
+import { PaymentTarget } from '../../core/models/payment.model';
+import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
+import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal],
   template: `
     <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
       <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -133,6 +136,11 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
         </div>
       <section id="expenses-panel" role="tabpanel" tabindex="0" [attr.aria-labelledby]="'expense-tab-' + tab()"
         [attr.aria-busy]="loading()">
+        @if (settlement(); as settled) {
+          <p data-testid="payment-settled-notice" role="status" class="m-4 rounded-lg bg-teal-50 p-3 text-sm text-teal-900">
+            Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.
+          </p>
+        }
         <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
           <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
@@ -141,8 +149,8 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
         }
         @if (error()) {
           <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-            <p>{{ error() }}</p>
-            <button type="button" data-testid="retry-expenses" class="min-h-11 underline" (click)="loadPage(page())">Tentar novamente</button>
+            <p>{{ settlementRefreshPending() ? 'A quitação ocorreu, mas a atualização da consulta falhou. Consulte novamente.' : error() }}</p>
+            <button type="button" data-testid="retry-expenses" class="min-h-11 underline" (click)="retryLoad()">{{ settlementRefreshPending() ? 'Consultar novamente' : 'Tentar novamente' }}</button>
           </div>
         }
         @if (!hasActiveProject()) {
@@ -186,7 +194,7 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
                   <div class="mt-2 flex flex-wrap items-center gap-2">
                     <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                     @if (!expense.paid) {
-                      <button type="button" disabled data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs">Marcar como Pago</button>
+                      <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
                     }
                   </div>
                 }
@@ -218,7 +226,7 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
                         <div class="flex flex-wrap items-center gap-2">
                           <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                           @if (!expense.paid) {
-                            <button type="button" disabled data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs">Marcar como Pago</button>
+                            <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
                           }
                         </div>
                       } @else { <span class="inline-flex min-h-11 items-center"><ng-container [ngTemplateOutlet]="cellPlaceholder" /></span> }
@@ -243,6 +251,10 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
         </nav>
       </section>
       </section>
+      @if (selectedPayment(); as selection) {
+        <app-payment-modal [target]="selection.target" [projectId]="selection.projectId"
+          (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
+      }
     </main>
   `,
   styles: `
@@ -311,6 +323,15 @@ export class AccountsPageComponent {
     { value: 'PAID', label: 'Pagas' },
   ];
   readonly error = signal<string | null>(null);
+  readonly referenceDate = signal<string | null>(null);
+  readonly settlement = signal<ExpenseResponse | null>(null);
+  readonly settlementRefreshPending = signal(false);
+  private readonly paymentSelection = signal<{ projectId: string; context: number; target: PaymentTarget } | null>(null);
+  readonly selectedPayment = computed(() => {
+    const selection = this.paymentSelection();
+    return selection?.context === this.activeProject.contextVersion()
+      && selection.projectId === this.activeProject.activeProject()?.id ? selection : null;
+  });
   private readonly size = 15;
   private queryVersion = 0;
   private readonly expenseResults = viewChild<ElementRef<HTMLElement>>('expenseResults');
@@ -339,14 +360,62 @@ export class AccountsPageComponent {
         this.totalElements.set(null);
         this.projectHasExpenses.set(null);
         this.error.set(null);
+        this.referenceDate.set(null);
+        this.settlement.set(null);
+        this.settlementRefreshPending.set(false);
+        this.paymentSelection.set(null);
         this.loading.set(false);
         const project = this.activeProject.activeProject();
-        if (project) this.loadPage(0, project.id);
+        if (project) this.loadPage(0, { projectId: project.id });
       });
     });
   }
 
-  loadPage(page: number, projectId = this.activeProject.activeProject()?.id): void {
+  openPayment(expense: ExpenseResponse): void {
+    const projectId = this.activeProject.activeProject()?.id;
+    if (!projectId || expense.paid) return;
+    this.settlement.set(null);
+    this.settlementRefreshPending.set(false);
+    this.paymentSelection.set({
+      projectId,
+      context: this.activeProject.contextVersion(),
+      target: {
+        expenseId: expense.id,
+        description: expense.description,
+        purchaseDate: expense.purchaseDate,
+        totalPrice: expense.totalPrice,
+        referenceDate: this.referenceDate() ?? expense.purchaseDate,
+      },
+    });
+  }
+
+  closePayment(): void { this.paymentSelection.set(null); }
+
+  onPaymentSettled(expense: ExpenseResponse): void {
+    const selection = this.selectedPayment();
+    if (!selection || expense.projectId !== selection.projectId
+      || expense.id !== selection.target.expenseId || !expense.paid) return;
+    this.closePayment();
+    this.settlement.set(expense);
+    this.settlementRefreshPending.set(true);
+    this.reloadAfterSettlement();
+  }
+
+  formatCivilDate(value: string): string {
+    return formatCivilDateValue(value);
+  }
+
+  retryLoad(): void {
+    if (this.settlementRefreshPending()) { this.reloadAfterSettlement(); return; }
+    this.loadPage(this.page());
+  }
+
+  private reloadAfterSettlement(): void {
+    this.loadPage(this.page(), { adjustEmptyPage: true });
+  }
+
+  loadPage(page: number, options: { projectId?: string; adjustEmptyPage?: boolean } = {}): void {
+    const projectId = options.projectId ?? this.activeProject.activeProject()?.id;
     if (!projectId || page < 0) return;
     if (this.filterForm.invalid) { this.showInvalidFilters(); return; }
     const queryVersion = ++this.queryVersion;
@@ -382,7 +451,15 @@ export class AccountsPageComponent {
         this.totalElements.set(response.totalElements ?? null);
         if (unfiltered) this.projectHasExpenses.set((response.totalElements ?? 0) > 0);
         this.totals.set(response.totals);
+        this.referenceDate.set(response.referenceDate ?? null);
         this.loading.set(false);
+        this.settlementRefreshPending.set(false);
+        // A confirmed settlement can remove the only row of the current page.
+        // Move once to the last valid page instead of cascading queries.
+        if (options.adjustEmptyPage && response.content.length === 0 && response.page > 0
+          && response.totalPages > 0 && response.page >= response.totalPages) {
+          this.loadPage(response.totalPages - 1, { projectId, adjustEmptyPage: true });
+        }
       },
       error: () => {
         if (!isCurrent()) return;

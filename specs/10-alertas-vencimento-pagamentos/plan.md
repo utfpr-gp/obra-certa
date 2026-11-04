@@ -52,4 +52,11 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/features/expenses/accounts-page.component.ts` e specs de listagem correspondentes; `apps/web/src/app/shared/components/payment-modal/` somente se a integração exigir ajuste; `apps/api/src/test/java/com/obracerta/controller/` para validação integrada de quitação seguida de listagem.
 
+- [x] **Tarefa 5 — Consolidar os ajustes de manutenção da listagem de Contas a Pagar**
+  - Cobre: refinamentos de manutenção apontados na revisão de código da Tarefa 4; preserva CA5 e CA8. Não altera regras financeiras, contrato HTTP, modal compartilhado nem fluxo da Home.
+  - Teste primeiro: specs da listagem dirigidas pelos controles visíveis para filtros, ordenação, abas e paginação. Permitir eventos DOM sintéticos (`input`, `change` e `toggle`) despachados nos elementos reais do template para acionar os bindings Angular; esses eventos não equivalem a interação física do usuário. Manter proibidas chamadas diretas a handlers ou métodos internos do componente, inclusive `selectTab`, `selectSort` e `loadPage`, eventos passados diretamente a esses métodos e casts usados para contornar os contratos de eventos. Preparar a página pelos controles de paginação e selecionar abas pelos botões visíveis. Incluir spec garantindo que, após uma quitação e recarga bem-sucedidas, abrir a quitação de outra conta não mantém um aviso anterior como se pertencesse à operação atual. Reexecutar os cenários de filtros/ordenação, falha de recarga pós-quitação e erro comum de consulta.
+  - Implementação: substituir parâmetros posicionais ambíguos de `loadPage` por opções nomeadas ou método privado específico, preservando o comportamento de consulta e ajuste de página; tornar explícito o ciclo de vida do aviso de quitação ao iniciar outra operação; manter os testes desacoplados dos métodos internos e interagir pelos controles visíveis. Usar a infraestrutura Jasmine/Karma existente, sem adicionar harness ou dependências. A revisão deste critério não apaga os pareceres nem reinicia os contadores de rodadas já registrados.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/web/src/app/features/expenses/accounts-page.component.ts` e `apps/web/src/app/features/expenses/accounts-page.component.spec.ts`.
+
 ## Critérios sem tarefa

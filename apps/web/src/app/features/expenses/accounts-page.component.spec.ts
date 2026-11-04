@@ -1,13 +1,16 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AccountsPageComponent } from './accounts-page.component';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { environment } from '../../../environments/environment';
 import { registerLocaleData } from '@angular/common';
 import localePt from '@angular/common/locales/pt';
-import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { ExpensePageResponse, ExpenseResponse } from '../../core/models/expense-registration.model';
+import { Project, ProjectStatus, ProjectType } from '../../core/models/project.model';
+import { authInterceptor } from '../../core/interceptors/auth-interceptor';
+import { Auth } from '../../core/services/auth';
 
 const expense: ExpenseResponse = {
   id: 'expense-1', projectId: 'project', description: 'Cimento',
@@ -409,7 +412,7 @@ describe('AccountsPageComponent', () => {
             if (markPaid) {
               expect(text(markPaid)).toBe('Marcar como Pago');
               expect(markPaid.type).toBe('button');
-              expect(markPaid.disabled).toBeTrue();
+              expect(markPaid.disabled).toBeFalse();
               expect(markPaid.classList.contains('btn-oc-outline')).toBeTrue();
               visible(markPaid);
               assertCompactAction(markPaid);
@@ -417,6 +420,10 @@ describe('AccountsPageComponent', () => {
               const previousUrl = router.url;
               markPaid.click();
               fixture.detectChanges();
+              expect(root.querySelector('[data-testid="payment-modal"]')).not.toBeNull();
+              (root.querySelector('[data-testid="cancel-payment"]') as HTMLButtonElement).click();
+              fixture.detectChanges();
+              expect(root.querySelector('[data-testid="payment-modal"]')).toBeNull();
               http.expectNone(() => true);
               expect(fixture.componentInstance.expenses()).toEqual(content);
               expect(router.url).toBe(previousUrl);
@@ -718,4 +725,560 @@ describe('AccountsPageComponent', () => {
     });
   }
 
+});
+
+describe('AccountsPageComponent payment flow', () => {
+  beforeAll(() => registerLocaleData(localePt));
+  let fixture: ComponentFixture<AccountsPageComponent>;
+  let http: HttpTestingController;
+  let active: ActiveProjectService;
+  const listUrl = `${environment.apiUrl}/api/expenses`;
+  const paymentUrl = `${environment.apiUrl}/api/projects/project/expenses/expense-2/payment`;
+  const expenseUrl = `${environment.apiUrl}/api/expenses/expense-2`;
+  const project: Project = { id: 'project', name: 'Casa', type: ProjectType.RENOVATION,
+    status: ProjectStatus.IN_PROGRESS, location: null, createdAt: '', updatedAt: '' };
+  const pendingExpense: ExpenseResponse = {
+    id: 'expense-2', projectId: 'project', description: 'Instalação elétrica',
+    categoryId: 'service', categoryName: 'Serviço',
+    supplier: { id: 'electrician', name: 'Eletricista', document: null },
+    purchaseDate: '2026-10-21', dueDate: '2026-11-10', totalPrice: 2345.67, paid: false,
+    quantity: null, unitPrice: null, receiptState: 'NONE',
+  };
+  const paidExpense: ExpenseResponse = { ...pendingExpense, paid: true, paidAt: '2026-11-06T00:00:00Z' };
+  const zeroTotals = { totalPaid: 0, totalPending: 0, totalGeneral: 0 };
+
+  function setup(withInterceptor = false): void {
+    localStorage.clear();
+    TestBed.configureTestingModule({
+      imports: [AccountsPageComponent],
+      providers: [
+        provideHttpClient(withInterceptors(withInterceptor ? [authInterceptor] : [])),
+        provideHttpClientTesting(), provideRouter([]),
+      ],
+    });
+    active = TestBed.inject(ActiveProjectService);
+    active.setActiveProject(project, 'owner');
+    fixture = TestBed.createComponent(AccountsPageComponent);
+    fixture.detectChanges();
+    http = TestBed.inject(HttpTestingController);
+  }
+
+  function body(content: ExpenseResponse[], overrides: Partial<ExpensePageResponse> = {}): ExpensePageResponse {
+    return { content, page: 0, size: 15, totalElements: content.length,
+      totalPages: content.length ? 1 : 0, totals: zeroTotals, referenceDate: '2026-11-04', ...overrides };
+  }
+
+  function el<T extends HTMLElement = HTMLElement>(id: string): T | null {
+    return fixture.nativeElement.querySelector(`[data-testid="${id}"]`);
+  }
+
+  function click(id: string): void {
+    expect(el(id)).withContext(id).not.toBeNull();
+    el(id)?.click(); fixture.detectChanges();
+  }
+
+  function setDate(value: string): void {
+    const input = el<HTMLInputElement>('payment-date');
+    expect(input).not.toBeNull();
+    if (!input) return;
+    input.value = value; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+  }
+
+  function markButton(scope: 'table' | 'cards'): HTMLButtonElement {
+    const root = scope === 'table'
+      ? fixture.nativeElement.querySelector('table')
+      : fixture.nativeElement.querySelector('[data-testid="expense-cards"]');
+    const button = root?.querySelector('[data-testid="mark-expense-paid"]') as HTMLButtonElement | null;
+    expect(button).withContext(scope).not.toBeNull();
+    return button as HTMLButtonElement;
+  }
+
+  function openAndConfirm(): void {
+    markButton('table').click(); fixture.detectChanges();
+    click('confirm-payment');
+  }
+
+  async function openFilters(): Promise<void> {
+    const details = el<HTMLDetailsElement>('filters-panel')!;
+    const toggled = new Promise<void>(resolve =>
+      details.addEventListener('toggle', () => resolve(), { once: true }));
+    (details.querySelector('summary') as HTMLElement).click();
+    await toggled;
+    fixture.detectChanges();
+  }
+
+  async function chooseCategoryAndSupplier(): Promise<void> {
+    await openFilters();
+    http.expectOne(r => r.url.endsWith('/api/expense-categories'))
+      .flush([{ id: 'service', name: 'Serviço' }]);
+    http.expectOne(r => r.url.endsWith('/api/suppliers'))
+      .flush([{ id: 'electrician', name: 'Eletricista', document: null }]);
+    fixture.detectChanges();
+    const categories = el<HTMLSelectElement>('filter-categoryIds')!;
+    categories.options[0].selected = true;
+    categories.dispatchEvent(new Event('change', { bubbles: true }));
+    const supplier = el<HTMLSelectElement>('filter-supplierId')!;
+    supplier.value = 'electrician';
+    supplier.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  it('offers the action only for pending expenses and opens the shared modal from desktop and mobile rows', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0' && r.params.get('tab') === 'ALL')
+      .flush(body([{ ...paidExpense, id: 'expense-1', paidAt: '2026-01-01T00:00:00Z' }, pendingExpense]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('table [data-testid="mark-expense-paid"]').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="expense-cards"] [data-testid="mark-expense-paid"]').length).toBe(1);
+    expect(markButton('table').disabled).toBeFalse();
+    expect(markButton('cards').disabled).toBeFalse();
+
+    markButton('table').click(); fixture.detectChanges();
+    expect(el('payment-modal')).not.toBeNull();
+    expect(el('payment-modal')?.textContent).toContain('Instalação elétrica');
+    expect(el('payment-modal')?.textContent).toContain('2.345,67');
+    expect(el<HTMLInputElement>('payment-date')?.value).toBe('2026-11-04');
+    expect(el<HTMLInputElement>('payment-date')?.min).toBe('2026-10-21');
+    click('cancel-payment');
+    expect(el('payment-modal')).toBeNull();
+
+    markButton('cards').click(); fixture.detectChanges();
+    expect(el('payment-modal')).not.toBeNull();
+    expect(el<HTMLInputElement>('payment-date')?.value).toBe('2026-11-04');
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('loads filter catalogs lazily when the visible filter panel is opened', async () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+    http.expectNone(r => r.url.endsWith('/api/expense-categories'));
+    http.expectNone(r => r.url.endsWith('/api/suppliers'));
+
+    await openFilters();
+    http.expectOne(r => r.url.endsWith('/api/expense-categories'))
+      .flush([{ id: 'service', name: 'Serviço' }]);
+    http.expectOne(r => r.url.endsWith('/api/suppliers'))
+      .flush([{ id: 'electrician', name: 'Eletricista', document: null }]);
+    fixture.detectChanges();
+
+    expect(el<HTMLSelectElement>('filter-categoryIds')?.options.length).toBe(1);
+    expect(el<HTMLSelectElement>('filter-supplierId')?.options.length).toBe(2);
+    http.verify();
+  });
+
+  it('applies visible date, category and supplier filters to the list request', async () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+    await chooseCategoryAndSupplier();
+    const purchaseDateFrom = el<HTMLInputElement>('filter-purchaseDateFrom')!;
+    purchaseDateFrom.value = '2026-10-01';
+    purchaseDateFrom.dispatchEvent(new Event('input', { bubbles: true }));
+    (fixture.nativeElement.querySelector('[data-testid="expense-filters"] button[type="submit"]') as HTMLButtonElement).click();
+    const request = http.expectOne(r => r.url === listUrl && r.params.get('purchaseDateFrom') === '2026-10-01');
+    expect(request.request.params.getAll('categoryIds')).toEqual(['service']);
+    expect(request.request.params.get('supplierId')).toBe('electrician');
+    request.flush(body([pendingExpense]));
+    fixture.detectChanges();
+    http.verify();
+  });
+
+  it('changes sort from the visible control while retaining the applied filters', async () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+    await chooseCategoryAndSupplier();
+    const purchaseDateFrom = el<HTMLInputElement>('filter-purchaseDateFrom')!;
+    purchaseDateFrom.value = '2026-10-01';
+    purchaseDateFrom.dispatchEvent(new Event('input', { bubbles: true }));
+    (fixture.nativeElement.querySelector('[data-testid="expense-filters"] button[type="submit"]') as HTMLButtonElement).click();
+    const filtered = http.expectOne(r => r.url === listUrl && r.params.get('purchaseDateFrom') === '2026-10-01');
+    expect(filtered.request.params.getAll('categoryIds')).toEqual(['service']);
+    expect(filtered.request.params.get('supplierId')).toBe('electrician');
+    filtered.flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    const sort = el<HTMLSelectElement>('expense-sort')!;
+    sort.value = 'AMOUNT_DESC';
+    sort.dispatchEvent(new Event('change', { bubbles: true }));
+    const sorted = http.expectOne(r => r.url === listUrl && r.params.get('sort') === 'AMOUNT_DESC');
+    expect(sorted.request.params.get('purchaseDateFrom')).toBe('2026-10-01');
+    expect(sorted.request.params.getAll('categoryIds')).toEqual(['service']);
+    expect(sorted.request.params.get('supplierId')).toBe('electrician');
+    sorted.flush(body([pendingExpense]));
+    fixture.detectChanges();
+    http.verify();
+
+  });
+
+  it('confirms through the dedicated API and reloads preserving tab, filters and sort', async () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0' && r.params.get('tab') === 'ALL')
+      .flush(body([pendingExpense]));
+    fixture.detectChanges();
+    (el<HTMLButtonElement>('expense-tab-PENDING')!).click(); fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl && r.params.get('tab') === 'PENDING')
+      .flush(body([pendingExpense]));
+    fixture.detectChanges();
+    await chooseCategoryAndSupplier();
+    const purchaseDateFrom = el<HTMLInputElement>('filter-purchaseDateFrom')!;
+    purchaseDateFrom.value = '2026-10-01';
+    purchaseDateFrom.dispatchEvent(new Event('input', { bubbles: true }));
+    (fixture.nativeElement.querySelector('[data-testid="expense-filters"] button[type="submit"]') as HTMLButtonElement).click();
+    const filtered = http.expectOne(r => r.url === listUrl && r.params.get('purchaseDateFrom') === '2026-10-01');
+    expect(filtered.request.params.getAll('categoryIds')).toEqual(['service']);
+    expect(filtered.request.params.get('supplierId')).toBe('electrician');
+    filtered.flush(body([pendingExpense]));
+    fixture.detectChanges();
+    const sort = el<HTMLSelectElement>('expense-sort')!;
+    sort.value = 'AMOUNT_DESC';
+    sort.dispatchEvent(new Event('change', { bubbles: true }));
+    http.expectOne(r => r.url === listUrl && r.params.get('sort') === 'AMOUNT_DESC')
+      .flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    const payment = http.expectOne(paymentUrl);
+    expect(payment.request.method).toBe('PUT');
+    expect(payment.request.body).toEqual({ paymentDate: '2026-11-04' });
+    payment.flush(paidExpense);
+    fixture.detectChanges();
+
+    expect(el('payment-modal')).toBeNull();
+    expect(el('payment-settled-notice')?.textContent).toContain('Pagamento confirmado');
+    const reload = http.expectOne(r => r.url === listUrl && r.params.get('page') === '0'
+      && r.params.get('tab') === 'PENDING' && r.params.get('sort') === 'AMOUNT_DESC'
+      && r.params.get('purchaseDateFrom') === '2026-10-01');
+    expect(reload.request.params.getAll('categoryIds')).toEqual(['service']);
+    expect(reload.request.params.get('supplierId')).toBe('electrician');
+    reload.flush(body([], { totals: { totalPaid: 2345.67, totalPending: 0, totalGeneral: 2345.67 } }));
+    fixture.detectChanges();
+
+    expect(el('expense-tab-PENDING')?.getAttribute('aria-selected')).toBe('true');
+    expect(el<HTMLSelectElement>('expense-sort')?.value).toBe('AMOUNT_DESC');
+    expect(el('total-paid')?.textContent).toContain('2.345,67');
+    expect(el('total-pending')?.textContent).toContain('0,00');
+    expect(el('total-general')?.textContent).toContain('2.345,67');
+    expect(el('expenses-loading')).toBeNull();
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('clears the previous settlement notice when opening another payment after a successful refresh', () => {
+    setup();
+    const anotherPending: ExpenseResponse = {
+      ...pendingExpense, id: 'expense-3', description: 'Outra conta',
+    };
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense, anotherPending]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl).flush(body([paidExpense, anotherPending]));
+    fixture.detectChanges();
+    expect(el('payment-settled-notice')?.textContent).toContain('Instalação elétrica');
+
+    const anotherRow = fixture.nativeElement.querySelector('table tbody tr:last-child') as HTMLTableRowElement | null;
+    expect(anotherRow?.textContent).toContain('Outra conta');
+    const anotherPaymentButton = anotherRow?.querySelector('[data-testid="mark-expense-paid"]') as HTMLButtonElement | null;
+    expect(anotherPaymentButton).not.toBeNull();
+    anotherPaymentButton?.click(); fixture.detectChanges();
+
+    expect(el('payment-modal')).not.toBeNull();
+    expect(el('payment-settled-notice')).toBeNull();
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('adjusts to an existing page when the last row leaves the current page', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0')
+      .flush(body([pendingExpense], { totalPages: 2, totalElements: 16 }));
+    fixture.detectChanges();
+    const nextPage = el('pagination')!.querySelector<HTMLButtonElement>('button:last-child')!;
+    expect(nextPage.disabled).toBeFalse();
+    nextPage.click(); fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
+      .flush(body([pendingExpense], { page: 1, totalPages: 2, totalElements: 16 }));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
+      .flush(body([], { page: 1, totalPages: 1, totalElements: 0 }));
+    const adjusted = http.expectOne(r => r.url === listUrl && r.params.get('page') === '0'
+      && r.params.get('tab') === 'ALL' && r.params.get('sort') === 'PURCHASE_DATE_DESC');
+    adjusted.flush(body([paidExpense], { totalElements: 1 }));
+    fixture.detectChanges();
+
+    expect(el('pagination')?.textContent).toContain('Página 1 de 1');
+    expect(el('pagination')?.textContent).toContain('1 registro no resultado');
+    const rows = fixture.nativeElement.querySelectorAll('table tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain(paidExpense.description);
+    expect(rows[0].querySelector('.account-status')?.textContent).toBe('Pago');
+    http.expectNone(listUrl);
+    http.verify();
+  });
+
+  it('shows the settled civil date and reports a failed refresh offering a new query', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0').flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    const notice = el('payment-settled-notice');
+    expect(notice?.textContent).toContain('06/11/2026');
+    expect(notice?.textContent).not.toContain('05/11/2026');
+    http.expectOne(r => r.url === listUrl)
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+
+    expect(el('payment-settled-notice')?.textContent).toContain('Pagamento confirmado');
+    expect(el('expenses-loading')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('A quitação ocorreu, mas a atualização da consulta falhou');
+    const retry = el<HTMLButtonElement>('retry-expenses');
+    expect(retry?.textContent).toContain('Consultar novamente');
+    retry?.click(); fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl).flush(body([paidExpense]));
+    fixture.detectChanges();
+
+    expect(el('retry-expenses')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('A quitação ocorreu, mas a atualização da consulta falhou');
+    expect(el('payment-settled-notice')).not.toBeNull();
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('adjusts to an existing page when the retry after a failed settlement reload returns an empty page', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0')
+      .flush(body([pendingExpense], { totalPages: 2, totalElements: 16 }));
+    fixture.detectChanges();
+    const nextPage = el('pagination')!.querySelector<HTMLButtonElement>('button:last-child')!;
+    expect(nextPage.disabled).toBeFalse();
+    nextPage.click(); fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
+      .flush(body([pendingExpense], { page: 1, totalPages: 2, totalElements: 16 }));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+
+    expect(el<HTMLButtonElement>('retry-expenses')?.textContent).toContain('Consultar novamente');
+    click('retry-expenses');
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
+      .flush(body([], { page: 1, totalPages: 1, totalElements: 0 }));
+    const adjusted = http.expectOne(r => r.url === listUrl && r.params.get('page') === '0');
+    adjusted.flush(body([paidExpense], { totalElements: 1 }));
+    fixture.detectChanges();
+
+    expect(el('pagination')?.textContent).toContain('Página 1 de 1');
+    expect(el('pagination')?.textContent).toContain('1 registro no resultado');
+    const rows = fixture.nativeElement.querySelectorAll('table tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain(paidExpense.description);
+    expect(rows[0].querySelector('.account-status')?.textContent).toBe('Pago');
+    expect(el('retry-expenses')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('A quitação ocorreu, mas a atualização da consulta falhou');
+    http.expectNone(listUrl);
+    http.verify();
+  });
+
+  it('shows the generic query error after a successful settlement reload', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    http.expectOne(r => r.url === listUrl).flush(body([paidExpense]));
+    fixture.detectChanges();
+
+    click('expense-tab-PAID');
+    http.expectOne(r => r.url === listUrl && r.params.get('tab') === 'PAID')
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar as despesas.');
+    expect(fixture.nativeElement.textContent)
+      .not.toContain('A quitação ocorreu, mas a atualização da consulta falhou');
+    expect(el<HTMLButtonElement>('retry-expenses')?.textContent).toContain('Tentar novamente');
+    http.verify();
+  });
+
+  it('discards an unsaved date on cancel or Escape and reopens with the suggested date', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    markButton('table').click(); fixture.detectChanges();
+    setDate('2026-12-01');
+    click('cancel-payment');
+    expect(el('payment-modal')).toBeNull();
+    http.expectNone(paymentUrl);
+
+    markButton('table').click(); fixture.detectChanges();
+    expect(el<HTMLInputElement>('payment-date')?.value).toBe('2026-11-04');
+    setDate('2026-12-02');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(el('payment-modal')).toBeNull();
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('keeps recovery available when the reconciliation query fails, then settles the paid state', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    expect(el('payment-recovery')).not.toBeNull();
+    expect(el('payment-settled-notice')).toBeNull();
+
+    click('reconcile-payment');
+    http.expectOne(expenseUrl).flush({}, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(el('reconcile-payment')).not.toBeNull();
+    expect(el('payment-settled-notice')).toBeNull();
+
+    click('reconcile-payment');
+    http.expectOne(expenseUrl).flush(paidExpense);
+    fixture.detectChanges();
+    expect(el('payment-modal')).toBeNull();
+    expect(el('payment-settled-notice')?.textContent).toContain('06/11/2026');
+    http.expectOne(r => r.url === listUrl).flush(body([paidExpense]));
+    fixture.detectChanges();
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
+
+  it('releases a manual retry only after reconciliation confirms the expense is still pending', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    click('reconcile-payment');
+    http.expectOne(expenseUrl).flush({ ...pendingExpense, paid: false, paidAt: null });
+    fixture.detectChanges();
+
+    expect(el<HTMLButtonElement>('confirm-payment')?.disabled).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('pendente');
+    http.expectNone(paymentUrl);
+
+    click('confirm-payment');
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    expect(el('payment-modal')).toBeNull();
+    http.expectOne(r => r.url === listUrl).flush(body([paidExpense]));
+    http.verify();
+  });
+
+  it('does not query or offer settlement without an active project', () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({
+      imports: [AccountsPageComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    active = TestBed.inject(ActiveProjectService);
+    active.clear();
+    fixture = TestBed.createComponent(AccountsPageComponent);
+    fixture.detectChanges();
+    http = TestBed.inject(HttpTestingController);
+
+    http.expectNone(listUrl);
+    expect(fixture.nativeElement.querySelector('[data-testid="mark-expense-paid"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Selecione uma obra');
+    http.verify();
+  });
+
+  it('invalidates the modal and ignores an in-flight settlement after an A → B → A switch', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl && r.params.get('projectId') === 'project').flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    markButton('table').click(); fixture.detectChanges();
+    click('confirm-payment');
+    const payment = http.expectOne(paymentUrl);
+
+    const other: Project = { ...project, id: 'project-b', name: 'Outra obra' };
+    active.setActiveProject(other, 'owner');
+    fixture.detectChanges();
+    expect(el('payment-modal')).toBeNull();
+    http.expectOne(r => r.url === listUrl && r.params.get('projectId') === 'project-b')
+      .flush(body([], { totals: zeroTotals }));
+    fixture.detectChanges();
+
+    expect(payment.cancelled).toBeTrue();
+    fixture.detectChanges();
+    expect(el('payment-settled-notice')).toBeNull();
+    http.expectNone(r => r.url === listUrl);
+
+    active.setActiveProject(project, 'owner');
+    fixture.detectChanges();
+    expect(el('payment-modal')).toBeNull();
+    http.expectOne(r => r.url === listUrl && r.params.get('projectId') === 'project').flush(body([pendingExpense]));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.expenses()).toEqual([pendingExpense]);
+    http.verify();
+  });
+
+  it('keeps the current tab when a superseded post-settlement reload arrives last', () => {
+    setup();
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush(paidExpense);
+    fixture.detectChanges();
+    const stale = http.expectOne(r => r.url === listUrl && r.params.get('tab') === 'ALL');
+    fixture.componentInstance.selectTab('PAID');
+    const current = http.expectOne(r => r.url === listUrl && r.params.get('tab') === 'PAID');
+    current.flush(body([paidExpense], { totals: { totalPaid: 2345.67, totalPending: 0, totalGeneral: 2345.67 } }));
+    fixture.detectChanges();
+    stale.flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tab()).toBe('PAID');
+    expect(fixture.componentInstance.expenses()).toEqual([paidExpense]);
+    expect(fixture.nativeElement.querySelector('[data-testid="expense-tab-PAID"]')?.getAttribute('aria-selected')).toBe('true');
+    http.verify();
+  });
+
+  it('does not announce settlement when the session expires during the payment request', () => {
+    setup(true);
+    const auth = TestBed.inject(Auth);
+    spyOn(auth, 'logout');
+    http.expectOne(r => r.url === listUrl).flush(body([pendingExpense]));
+    fixture.detectChanges();
+
+    openAndConfirm();
+    http.expectOne(paymentUrl).flush({}, { status: 401, statusText: 'Unauthorized' });
+    fixture.detectChanges();
+
+    expect(auth.logout).toHaveBeenCalled();
+    expect(el('payment-settled-notice')).toBeNull();
+    expect(el('payment-modal')).not.toBeNull();
+    http.expectNone(r => r.url === listUrl);
+    http.expectNone(paymentUrl);
+    http.verify();
+  });
 });
