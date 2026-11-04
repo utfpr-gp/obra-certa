@@ -5,8 +5,8 @@
 ### Backend (`apps/api`)
 
 - `POST /api/projects/{projectId}/nfe/preview` recebe multipart com a parte `file` (XML). Retorna 200 com `NfePreviewResponseDTO`: `projectId`, `accessKey`, `issueDate`, `supplier` (`name`, `document` com 14 dígitos), `items` (`itemNumber`, `description`, `quantity`, `unit`, `unitPrice`, `totalPrice`) e `total`. Erros no formato `ApiErrorResponse`: XML corrompido ou documento que não é NF-e → 400; obra inexistente, excluída ou alheia → 404; chave já ativa na obra → 409 com a mensagem "A nota fiscal já foi registrada". Preview não grava nada.
-- `POST /api/projects/{projectId}/nfe/imports` recebe multipart com três partes: `file` (o mesmo XML), `items` (JSON `[{itemNumber, categoryId}]`) e `payment` (JSON `{mode: CASH | INSTALLMENT, dueDate}`; `dueDate` só em `INSTALLMENT`). O servidor reprocessa o XML: não confia nos itens que o cliente manda, só na escolha de categoria por `itemNumber`. Retorna 201 com a lista de `ExpenseResponseDTO`. Itens sem categoria, `categoryId` inexistente ou fora da lista do XML → 400. Chave duplicada → 409. Mesmos erros de obra do preview.
-- Pagamento: `CASH` grava `pending_payments` com status `PAID` e `paid_at` igual à data de emissão. `INSTALLMENT` grava `PENDING` com `due_date`, validando `dueDate >= issueDate` (RN05) → 400 se violar. Ambos só na primeira linha (`nItem = 1`).
+- `POST /api/projects/{projectId}/nfe/imports` recebe multipart com três partes: `file` (o mesmo XML), `items` (JSON `[{itemNumber, categoryId}]`) e `payment` (JSON `{paid: boolean}`, padrão `true`). O servidor reprocessa o XML: não confia nos itens que o cliente manda, só na escolha de categoria por `itemNumber`. Retorna 201 com a lista de `ExpenseResponseDTO`. Itens sem categoria, `categoryId` inexistente ou fora da lista do XML → 400. Chave duplicada → 409. Mesmos erros de obra do preview.
+- Pagamento: `paid = true` grava `pending_payments` com status `PAID` e `paid_at` igual à data de emissão. `paid = false` grava `PENDING` com `due_date` igual à data de emissão (satisfaz RN05). Ambos só na primeira linha (`nItem = 1`).
 - Mapeamento de cada item para `expenses`: `project_id`, `category_id` escolhida, `supplier_id` da nota, `type = MATERIAL` (obrigatório e fixo para NF-e), `description` = `xProd`, `quantity` = `qCom`, `unit` = `uCom`, `unit_price` = `vUnCom`, `total_price` = `vProd`, `purchase_date` = data de emissão, `nfe_key` = chave do XML, `budget_id` resolvido como em `ExpenseService.create`.
 - Parser de XML: DOM com namespace habilitado e entidades externas (DOCTYPE/XXE) desabilitadas. Chave lida do atributo `Id` de `infNFe` sem o prefixo `NFe`. Razão social de `emit/xNome`, CNPJ de `emit/CNPJ`. Itens de `det` com `nItem`. Data de `ide/dhEmi`. Raiz que não seja `nfeProc` ou `NFe` → 400.
 - Trava de chave (`NfeKeyGuard`): antes de gravar, a transação trava a linha do projeto (`SELECT ... FOR UPDATE` em `projects`) e confere se existe linha ativa (`deleted_at IS NULL`) com a mesma `nfe_key` na obra. Se existir, lança exceção de domínio que a API converte em 409. Não há índice único em `expenses`: a regra vive na aplicação, sob bloqueio da obra.
@@ -56,7 +56,7 @@
 
 - [ ] **Tarefa 5 — Gravar pagamento único e XML na primeira linha**
   - Cobre: CA5 na parte de pagamento (à vista ou a prazo, só na primeira linha) e de comprovante (XML na primeira linha), e CA8 (falha em qualquer etapa não deixa nada gravado).
-  - Teste primeiro: integração com storage falso. Pagamento `CASH` → `PAID` com `paid_at` na emissão; `INSTALLMENT` → `PENDING` com vencimento; vencimento anterior à emissão → 400 sem gravar (RN05). XML gravado como `UPLOADED` só na primeira linha. Falha do banco depois do upload → nada gravado e o objeto apagado. Falha do upload → nada gravado. Falha antes da lógica existir.
+  - Teste primeiro: integração com storage falso. `paid = true` → `PAID` com `paid_at` na emissão; `paid = false` → `PENDING` com `due_date` na emissão. XML gravado como `UPLOADED` só na primeira linha. Falha do banco depois do upload → nada gravado e o objeto apagado. Falha do upload → nada gravado. Falha antes da lógica existir.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/service/NfeImportService.java`; `apps/api/src/test/java/com/obracerta/service/NfeImportServiceAtomicityTest.java`; `apps/api/src/test/java/com/obracerta/controller/NfeImportControllerPaymentTest.java`.
 
@@ -80,7 +80,7 @@
 
 - [ ] **Tarefa 9 — Escolher categoria por item, pagamento e confirmar na tela**
   - Cobre: CA4 e CA5 na interface, e CA10 na tela (clique repetido não envia de novo; o envio fica bloqueado até terminar). Fechar o diálogo antes de confirmar não grava nada.
-  - Teste primeiro: specs do diálogo para bloquear confirmação com item sem categoria (indicando quais), escolha de pagamento à vista ou a prazo com vencimento validado, envio único com clique repetido, bloqueio de fechamento durante o envio, fechar antes de confirmar sem chamada HTTP, e falha 409 mostrada sem sucesso aparente. Falha antes da conferência existir.
+  - Teste primeiro: specs do diálogo para bloquear confirmação com item sem categoria (indicando quais), checkbox "paga" marcado por padrão, e desmarcado gravando pendente com vencimento igual à emissão, envio único com clique repetido, bloqueio de fechamento durante o envio, fechar antes de confirmar sem chamada HTTP, e falha 409 mostrada sem sucesso aparente. Falha antes da conferência existir.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/features/expenses/nfe-import/nfe-import-dialog.component.{ts,html,spec.ts}`; `apps/web/src/app/core/services/nfe-import.service.ts`.
 
