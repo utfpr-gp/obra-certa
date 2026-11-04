@@ -31,7 +31,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller/PaymentController.java,service/PaymentService.java,repository/ExpenseRepository.java,model/dto/payment/}`; testes JUnit correspondentes em `apps/api/src/test/java/com/obracerta/`; `apps/web/src/app/core/{models/payment.model.ts,services/payment.service.ts,services/payment.service.spec.ts}`; `apps/web/src/app/features/home-page/home-page.{ts,html,css,spec.ts}`.
 
-- [ ] **Tarefa 2 — Preparar a quitação transacional na API**
+- [x] **Tarefa 2 — Preparar a quitação transacional na API**
   - Cobre: CA4 e CA6 na escrita; validação de API do CA3. Passo técnico que destrava as tarefas 3 e 4; isoladamente não prova o modal nas duas telas.
   - Teste primeiro: JUnit de serviço/controlador para data obrigatória, formato inválido, anterior à compra, igual à compra e futura, conversão UTC, preservação dos demais campos e transação sem gravação parcial. Integração com PostgreSQL para status da despesa/pagamento, histórico, repetições sequenciais e concorrentes com datas diferentes, Anti-IDOR, vínculo cruzado de obra, exclusões e 401. Provar que a primeira data confirmada permanece; não substituir o teste concorrente por mocks.
   - Entrega: PUT de quitação dedicado, autorização anterior à idempotência, bloqueio e retorno do estado persistido, sem alterar a edição da US04.

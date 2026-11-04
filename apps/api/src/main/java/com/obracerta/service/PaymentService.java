@@ -2,6 +2,11 @@ package com.obracerta.service;
 
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.exception.ResourceNotFoundException;
+import com.obracerta.exception.ExpenseValidationException;
+import com.obracerta.enums.PaymentStatus;
+import com.obracerta.mapper.ExpenseMapper;
+import com.obracerta.model.dto.expense.ExpenseResponseDTO;
+import com.obracerta.model.dto.payment.PaymentSettlementRequestDTO;
 import com.obracerta.mapper.PaymentMapper;
 import com.obracerta.model.dto.payment.PaymentAlertItemDTO;
 import com.obracerta.model.dto.payment.PaymentAlertItemDTO.Urgency;
@@ -47,5 +52,28 @@ public class PaymentService {
         BigDecimal total = items.stream().map(PaymentAlertItemDTO::totalPrice)
                 .reduce(new BigDecimal("0.00"), BigDecimal::add);
         return new PaymentAlertsDTO(projectId, referenceDate, items.size(), total, items);
+    }
+
+    @Transactional
+    public ExpenseResponseDTO settle(String projectId, String expenseId, PaymentSettlementRequestDTO request) {
+        String userId = identity.getAuthenticatedUser().getId();
+        projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, userId)
+                .orElseThrow(ResourceNotFoundException::new);
+        expenses.lockActivePaymentExpense(expenseId, projectId, userId)
+                .orElseThrow(ResourceNotFoundException::new);
+        // The scalar lock above must precede loading either side of the one-to-one association.
+        var expense = expenses.findActiveByIdAndOwner(expenseId, userId)
+                .orElseThrow(ResourceNotFoundException::new);
+        var payment = expense.getPendingPayment();
+        if (payment != null && payment.getDeletedAt() != null) throw new ResourceNotFoundException();
+        if (expense.isPaid()) return ExpenseMapper.toDTO(expense);
+        if (payment == null) throw new ResourceNotFoundException();
+        if (request.paymentDate() == null || request.paymentDate().isBefore(expense.getPurchaseDate())) {
+            throw new ExpenseValidationException("A data do pagamento deve ser igual ou posterior à data da despesa");
+        }
+        expense.setPaid(true);
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setPaidAt(request.paymentDate().atStartOfDay(ZoneOffset.UTC).toInstant());
+        return ExpenseMapper.toDTO(expense);
     }
 }
