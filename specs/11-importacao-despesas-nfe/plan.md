@@ -62,11 +62,20 @@
   - Nota de RED: se a rota não existe, o MockMvc responde 404 e o 401 pode passar pela cadeia de segurança. Os casos de 404 e 401 precisam afirmar o corpo `ApiErrorResponse` ou a mensagem, não só o status.
   - Desvio registrado na execução: o 401 não tem corpo `ApiErrorResponse`, porque `SecurityConfigurations` usa `HttpStatusEntryPoint` (fluxo de login existente, sem critério na spec). O teste afirma o status 401 e corpo vazio. Mudar o formato do 401 é alteração de segurança e fica fora desta história.
 
-- [ ] **Tarefa 4 — Gravar uma linha por item com categoria escolhida**
+- [x] **Tarefa 4 — Gravar uma linha por item com categoria escolhida**
+  - Estado: base implementada e escalada na rodada 2 (pareceres e decisões em `reviews/tarefa-04-*-r2.md`). O fechamento acontece pela Tarefa 4A.
   - Cobre: CA4 (itens sem categoria impedem a gravação) e a parte de CA5 que cria uma linha por item com categoria, `nfe_key`, data de emissão e fornecedor.
   - Teste primeiro: teste de integração para a confirmação com todas as categorias: N linhas com `type = MATERIAL`, `nfe_key`, `purchase_date`, `budget_id` e fornecedor corretos. Teste para item sem categoria, `categoryId` de outra lista e item fora do XML → 400 sem nenhuma linha. Falha antes do endpoint existir.
   - Migration: nenhuma.
+  - Decisões registradas na liberação da Tarefa 4 (recomendações aceitas): (1) fornecedor mínimo: busca por CNPJ do usuário ou cria, sem atualizar a razão social (atualização fica na Tarefa 6); (2) passo técnico, revisado na rodada 2 da Tarefa 4: a linha é gravada com `receiptState = NONE`; quando não paga, cria `PendingPayment` com vencimento igual à data de emissão, como `ExpenseService.create` (a regra de despesa pendente exige o par); o pagamento único da nota e o comprovante continuam na Tarefa 5 (CA5 de pagamento e comprovante não é provado aqui); (3) categoria validada só pela existência no banco (categorias são globais, V7); (4) `categoryId` nulo aceito no DTO e listado pelo service; (5) 201 sem `Location` único.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/controller/NfeImportController.java`; `apps/api/src/main/java/com/obracerta/service/NfeImportService.java`; `apps/api/src/main/java/com/obracerta/model/dto/nfe/NfeImportRequestDTO.java`; `apps/api/src/test/java/com/obracerta/controller/NfeImportControllerConfirmTest.java`.
+
+- [ ] **Tarefa 4A — Ajustes da confirmação da importação (escalada da Tarefa 4)**
+  - Cobre: CA3, CA4 e CA5 (parte de linhas), sem critério novo. Atende os apontamentos aceitos na rodada 2 da Tarefa 4: (1) a rota da confirmação passa a ser `POST /api/projects/{projectId}/nfe/imports`, como registrado neste plano; (2) a busca de orçamento de `ExpenseService.update` passa por `ExpenseReferenceResolver.resolveBudget`.
+  - Teste primeiro: (1) `NfeImportControllerConfirmTest` chama a rota `/nfe/imports`; com a rota antiga, os casos de confirmação falham com 404 (RED); (2) um teste de edição que altere a categoria de uma despesa e confirme o orçamento resolvido pela mesma regra da criação; se nenhuma suíte existente cobrir esse caminho, o teste nasce antes da troca.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/api/src/main/java/com/obracerta/controller/NfeImportController.java`; `apps/api/src/main/java/com/obracerta/service/ExpenseService.java`; `apps/api/src/test/java/com/obracerta/controller/NfeImportControllerConfirmTest.java`; e, se necessário, a suíte de edição de despesa.
+  - Sugestões da revisão, registradas para tratamento posterior, não incluídas nesta tarefa: teste de 404 para obra inexistente e excluída no `confirm`; `categoryId` malformado devendo virar 400; normalização e validação de 14 dígitos do CNPJ na importação; defeito de isolamento em `ExpenseRegistrationIntegrationTest` (candidato a manutenção).
 
 - [ ] **Tarefa 5 — Gravar pagamento único e XML na primeira linha**
   - Cobre: CA5 na parte de pagamento (à vista ou a prazo, só na primeira linha) e de comprovante (XML na primeira linha), e CA8 (falha em qualquer etapa não deixa nada gravado).
