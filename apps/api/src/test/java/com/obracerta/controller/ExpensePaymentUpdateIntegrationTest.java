@@ -48,6 +48,7 @@ class ExpensePaymentUpdateIntegrationTest {
     @Autowired ExpenseCategoryRepository categories;
     @Autowired ExpenseRepository expenses;
     @Autowired SupplierRepository suppliers;
+    @Autowired BudgetRepository budgets;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entityManager;
     @MockBean UserContextHelper identity;
@@ -128,6 +129,29 @@ class ExpensePaymentUpdateIntegrationTest {
         assertThat(reloaded.getPendingPayment().getDueDate()).isEqualTo(LocalDate.parse("2030-01-15"));
         Integer count = jdbc.queryForObject("SELECT count(*) FROM pending_payments WHERE expense_id = ?", Integer.class, expense.getId());
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void trocaDeCategoriaResolveOrcamentoDaNovaCategoriaPelaMesmaRegraDaCriacao() throws Exception {
+        ExpenseCategory outra = categories.findAll().get(1);
+        Budget budgetOutra = budgets.saveAndFlush(Budget.builder().user(owner).project(project).category(outra)
+                .estimatedAmount(new BigDecimal("500.00")).build());
+        Expense expense = expenses.saveAndFlush(Expense.builder()
+                .user(owner).project(project).category(category).supplier(supplier)
+                .description("Material").purchaseDate(LocalDate.parse("2030-01-02"))
+                .totalPrice(new BigDecimal("100.00")).paid(true).build());
+
+        mvc.perform(put("/api/expenses/" + expense.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(body(true, null).put("categoryId", outra.getId()).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryId").value(outra.getId()));
+
+        expenses.flush();
+        Expense reloaded = expenses.findById(expense.getId()).orElseThrow();
+        assertThat(reloaded.getCategory().getId()).isEqualTo(outra.getId());
+        assertThat(reloaded.getBudget()).isNotNull();
+        assertThat(reloaded.getBudget().getId()).isEqualTo(budgetOutra.getId());
     }
 
     @Test

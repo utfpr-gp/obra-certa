@@ -52,7 +52,7 @@ class NfeImportControllerConfirmTest {
     private static final String NOT_FOUND_MESSAGE = "Projeto não encontrado";
     private static final String ALREADY_REGISTERED_MESSAGE = "A nota fiscal já foi registrada";
     private static final String CNPJ = "12345678000190";
-    private static final String CONFIRM = "/nfe/confirm";
+    private static final String CONFIRM = "/nfe/imports";
 
     @Autowired private MockMvc mvc;
     @Autowired private JdbcTemplate jdbc;
@@ -236,7 +236,7 @@ class NfeImportControllerConfirmTest {
             throws Exception {
         var itemsPart = new MockMultipartFile("items", "items.json", "application/json",
                 json.getBytes(StandardCharsets.UTF_8));
-        return multipart("/api/projects/" + projectId + "/nfe/confirm")
+        return multipart("/api/projects/" + projectId + CONFIRM)
                 .file(nota(fixture))
                 .file(itemsPart)
                 .header("Authorization", "Bearer " + tokens.generateToken(user));

@@ -24,7 +24,7 @@ public class NfeImportController {
         return service.preview(projectId, file.getBytes());
     }
 
-    @PostMapping(value = "/confirm", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public List<ExpenseResponseDTO> confirm(@PathVariable String projectId,
                                             @RequestPart("file") MultipartFile file,

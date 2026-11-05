@@ -179,8 +179,7 @@ public class ExpenseService {
         expense.setDescription(request.description().trim());
         expense.setPurchaseDate(request.purchaseDate());
         expense.setCategory(category);
-        expense.setBudget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(
-                expense.getProject().getId(), category.getId()).orElse(null));
+        expense.setBudget(references.resolveBudget(expense.getProject().getId(), category.getId()));
         expense.setQuantity(calculated ? request.quantity() : null);
         expense.setUnitPrice(calculated ? request.unitPrice() : null);
         expense.setTotalPrice(total.setScale(2, RoundingMode.HALF_UP));
