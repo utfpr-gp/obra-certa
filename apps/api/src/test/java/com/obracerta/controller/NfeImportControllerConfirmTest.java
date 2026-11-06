@@ -95,7 +95,8 @@ class NfeImportControllerConfirmTest {
 
         assertThat(expenseCount()).isEqualTo(before + 2);
         var rows = jdbc.queryForList("select e.nfe_key, e.purchase_date, e.type, e.project_id, e.category_id, "
-                + "e.budget_id, e.supplier_id, e.description, e.receipt_state, e.paid, s.document "
+                + "e.budget_id, e.supplier_id, e.description, e.receipt_state, e.receipt_key, "
+                + "e.receipt_content_type, e.receipt_size, e.paid, s.document "
                 + "from expenses e join suppliers s on s.id = e.supplier_id "
                 + "where e.project_id = ? order by e.description desc", project.getId());
         assertThat(rows).hasSize(2);
@@ -108,7 +109,10 @@ class NfeImportControllerConfirmTest {
         assertThat(cimento.get("budget_id")).isNotNull();
         assertThat(cimento.get("document")).isEqualTo(CNPJ);
         assertThat(cimento.get("description")).isEqualTo("Cimento CP-II 50kg");
-        assertThat(cimento.get("receipt_state")).isEqualTo("NONE");
+        assertThat(cimento.get("receipt_state")).isEqualTo("UPLOADED");
+        assertThat(cimento.get("receipt_content_type")).isEqualTo("application/xml");
+        assertThat(cimento.get("receipt_key")).isNotNull();
+        assertThat(((Number) cimento.get("receipt_size")).longValue()).isPositive();
         assertThat(areia.get("nfe_key")).isEqualTo(ACCESS_KEY);
         assertThat(String.valueOf(areia.get("purchase_date"))).isEqualTo("2026-10-15");
         assertThat(areia.get("type")).isEqualTo("MATERIAL");
@@ -116,39 +120,36 @@ class NfeImportControllerConfirmTest {
         assertThat(areia.get("budget_id")).isNull();
         assertThat(areia.get("document")).isEqualTo(CNPJ);
         assertThat(cimento.get("supplier_id")).isEqualTo(areia.get("supplier_id"));
-        verifyStorageNotTouched();
+        assertThat(areia.get("receipt_state")).isEqualTo("NONE");
+        assertThat(areia.get("receipt_key")).isNull();
+        assertThat(areia.get("receipt_content_type")).isNull();
+        assertThat(areia.get("receipt_size")).isNull();
+
+        var uploadedKey = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(storage).put(uploadedKey.capture(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.eq("application/xml"));
+        assertThat(uploadedKey.getValue()).isEqualTo(cimento.get("receipt_key"));
     }
 
     @Test
-    void confirm201LinhaNaoPagaCriaPendingPaymentComVencimentoNaEmissao() throws Exception {
+    void confirm201PagamentoUnicoNaPrimeiraLinhaPorPadrao() throws Exception {
         mvc.perform(confirm(project.getId(), "nfe-valida.xml", owner,
                 items(item(1, first.getId()), item(2, second.getId()))))
                 .andExpect(status().isCreated());
 
-        var rows = jdbc.queryForList("select e.paid, p.status, p.due_date from expenses e "
-                + "join pending_payments p on p.expense_id = e.id where e.project_id = ?", project.getId());
-        assertThat(rows).hasSize(2);
-        for (var row : rows) {
-            assertThat(row.get("paid")).isEqualTo(false);
-            assertThat(row.get("status")).isEqualTo("PENDING");
-            assertThat(String.valueOf(row.get("due_date"))).isEqualTo("2026-10-15");
-        }
-    }
-
-    @Test
-    void confirm201CadaLinhaCriadaTemParCoerenteDeDespesaEPagamento() throws Exception {
-        mvc.perform(confirm(project.getId(), "nfe-valida.xml", owner,
-                items(item(1, first.getId()), item(2, second.getId()))))
-                .andExpect(status().isCreated());
-
-        var expenseTotal = jdbc.queryForObject("select count(*) from expenses where project_id = ?",
-                Long.class, project.getId());
-        var paired = jdbc.queryForObject("select count(*) from expenses e "
-                + "join pending_payments p on p.expense_id = e.id "
-                + "where e.project_id = ? and e.paid = false and p.status = 'PENDING' and p.due_date is not null",
-                Long.class, project.getId());
-        assertThat(expenseTotal).isEqualTo(2L);
-        assertThat(paired).isEqualTo(expenseTotal);
+        var payments = jdbc.queryForList("select e.description, p.status, p.due_date, "
+                + "to_char(p.paid_at at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') as paid_at_utc "
+                + "from pending_payments p join expenses e on e.id = p.expense_id where e.project_id = ?",
+                project.getId());
+        assertThat(payments).hasSize(1);
+        var payment = payments.get(0);
+        assertThat(payment.get("description")).isEqualTo("Cimento CP-II 50kg");
+        assertThat(payment.get("status")).isEqualTo("PAID");
+        assertThat(payment.get("due_date")).isNull();
+        assertThat(payment.get("paid_at_utc")).isEqualTo("2026-10-15T00:00:00Z");
+        assertThat(jdbc.queryForObject("select count(*) from expenses where project_id = ? and paid = true",
+                Long.class, project.getId())).isEqualTo(2L);
     }
 
     @Test
@@ -225,7 +226,11 @@ class NfeImportControllerConfirmTest {
                 .andExpect(jsonPath("$.message").value(ALREADY_REGISTERED_MESSAGE));
 
         assertThat(expenseCount()).isEqualTo(before);
-        verifyStorageNotTouched();
+        var uploadedKey = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(storage).put(uploadedKey.capture(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(storage).delete(uploadedKey.getValue());
     }
 
     private void verifyStorageNotTouched() {

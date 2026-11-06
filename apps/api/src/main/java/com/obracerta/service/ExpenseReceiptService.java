@@ -24,7 +24,12 @@ import java.util.UUID;
 @Service
 public class ExpenseReceiptService {
     private static final long MAX_BYTES=10L*1024*1024;
+    // Upload do comprovante da US03: só estes tipos são aceitos na validação.
     private static final Map<String,String> EXTENSIONS=Map.of("image/jpeg","jpg","image/png","png","application/pdf","pdf");
+    // Nome do arquivo no download: inclui o XML gravado pela importação de NF-e, sem ampliar o upload.
+    private static final Map<String,String> DOWNLOAD_EXTENSIONS=Map.of(
+            "image/jpeg","jpg","image/png","png","application/pdf","pdf",
+            "application/xml","xml","text/xml","xml");
     private final ExpenseRepository expenses;
     private final UserContextHelper identity;
     private final ReceiptStorage storage;
@@ -87,7 +92,7 @@ public class ExpenseReceiptService {
         Expense expense=owned(id);
         if (!"UPLOADED".equals(expense.getReceiptState())) throw new ResourceNotFoundException("Comprovante não encontrado");
         return new ReceiptDownload(storage.get(expense.getReceiptKey()),expense.getReceiptContentType(),
-                "comprovante-"+expense.getId()+"."+EXTENSIONS.get(expense.getReceiptContentType()),expense.getReceiptSize());
+                "comprovante-"+expense.getId()+"."+DOWNLOAD_EXTENSIONS.get(expense.getReceiptContentType()),expense.getReceiptSize());
     }
     @Transactional
     public ExpenseResponseDTO remove(String id) {

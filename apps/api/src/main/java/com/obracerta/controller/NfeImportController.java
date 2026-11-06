@@ -28,7 +28,10 @@ public class NfeImportController {
     @ResponseStatus(HttpStatus.CREATED)
     public List<ExpenseResponseDTO> confirm(@PathVariable String projectId,
                                             @RequestPart("file") MultipartFile file,
-                                            @RequestPart("items") NfeImportRequestDTO request) throws IOException {
-        return service.confirm(projectId, file.getBytes(), request);
+                                            @RequestPart("items") NfeImportRequestDTO request,
+                                            @RequestPart(value = "payment", required = false)
+                                            NfeImportRequestDTO.Payment payment) throws IOException {
+        var effective = new NfeImportRequestDTO(request.items(), payment != null ? payment : request.payment());
+        return service.confirm(projectId, file, effective);
     }
 }
