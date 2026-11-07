@@ -21,11 +21,17 @@ class ExpenseReferenceResolver {
         return budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(projectId, categoryId).orElse(null);
     }
 
-    // Sem CNPJ, cria sempre um fornecedor novo. Com CNPJ, reutiliza o do usuário ou cria.
+    // Sem CNPJ, cria sempre um fornecedor novo. Com CNPJ, reutiliza o do usuário (atualizando a
+    // razão social com a do documento fiscal, considerada mais precisa) ou cria.
     Supplier findOrCreateSupplier(User owner, String document, String name) {
         if (document == null)
             return suppliers.save(Supplier.builder().user(owner).name(name).document(null).build());
-        return suppliers.findFirstByUserIdAndDocument(owner.getId(), document).orElseGet(() ->
-                suppliers.save(Supplier.builder().user(owner).name(name).document(document).build()));
+        var existing = suppliers.findFirstByUserIdAndDocument(owner.getId(), document);
+        if (existing.isPresent()) {
+            Supplier supplier = existing.get();
+            supplier.setName(name);
+            return suppliers.save(supplier);
+        }
+        return suppliers.save(Supplier.builder().user(owner).name(name).document(document).build());
     }
 }
