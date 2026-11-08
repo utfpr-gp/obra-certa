@@ -1,0 +1,160 @@
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" (click)="onBackdrop($event)">
+  <div #dialog tabindex="-1" data-testid="nfe-import-dialog" role="dialog" aria-modal="true"
+    aria-labelledby="nfe-import-title"
+    class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 shadow-lg focus:outline-none sm:rounded-2xl md:p-6"
+    (click)="$event.stopPropagation()">
+    <header class="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
+      <div class="min-w-0">
+        <h2 id="nfe-import-title" class="text-xl font-semibold text-slate-800">Importar NF-e</h2>
+        <p class="mt-1 text-sm text-slate-500">Envie o XML da nota fiscal para conferir os dados antes de lançar a despesa.</p>
+      </div>
+      <button type="button" data-testid="close-nfe-import" aria-label="Fechar importação de NF-e" (click)="close()"
+        class="btn-oc-outline h-11 min-h-11 w-11 shrink-0 p-0">
+        <svg lucideX [size]="20" aria-hidden="true" />
+      </button>
+    </header>
+
+    <div class="mt-4">
+      <label for="nfe-file" class="mb-1 block text-sm font-medium text-slate-800">Arquivo XML da NF-e</label>
+      <input id="nfe-file" type="file" accept=".xml" data-testid="nfe-file-input" (change)="onFileSelected($event)"
+        class="block min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[#E6F2F3] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#007A80]" />
+      @if (fileError()) {
+        <p data-testid="nfe-file-error" role="alert" class="mt-1 text-xs font-medium text-rose-700">{{ fileError() }}</p>
+      }
+      <p class="mt-1 text-xs text-slate-500">Somente arquivos .xml de NF-e de produtos.</p>
+    </div>
+
+    <div class="mt-4 flex flex-col gap-3 sm:flex-row">
+      <button type="button" data-testid="nfe-submit" class="btn-oc-primary min-h-11 w-full sm:w-auto"
+        [disabled]="phase() === 'sending'" (click)="send()">
+        {{ phase() === 'sending' ? 'Lendo o arquivo...' : 'Enviar XML' }}
+      </button>
+    </div>
+
+    @if (phase() === 'sending') {
+      <p data-testid="nfe-loading" role="status" class="mt-4 text-sm text-slate-500">Lendo o arquivo XML...</p>
+    }
+
+    @if (phase() === 'invalid') {
+      <div data-testid="nfe-invalid-alert" role="alert"
+        class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+        <p class="font-semibold">Não foi possível ler a nota fiscal</p>
+        <p class="mt-1">{{ errorMessage() }}</p>
+        <button type="button" data-testid="nfe-manual" class="btn-oc-outline mt-3 min-h-11 w-full sm:w-auto" (click)="goManual()">
+          Cadastrar manualmente
+        </button>
+      </div>
+    }
+
+    @if (phase() === 'conflict') {
+      <div data-testid="nfe-conflict-alert" role="alert"
+        class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p class="font-semibold">Nota fiscal já registrada</p>
+        <p class="mt-1">{{ errorMessage() }}</p>
+        <button type="button" data-testid="nfe-conflict-close" class="btn-oc-outline mt-3 min-h-11 w-full sm:w-auto" (click)="close()">
+          Fechar
+        </button>
+      </div>
+    }
+
+    @if (phase() === 'failure') {
+      <div data-testid="nfe-failure-alert" role="alert"
+        class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+        <p class="font-semibold">Não foi possível enviar o arquivo</p>
+        <p class="mt-1">{{ errorMessage() }}</p>
+        <button type="button" data-testid="nfe-retry" class="btn-oc-primary mt-3 min-h-11 w-full sm:w-auto" (click)="retry()">
+          Tentar novamente
+        </button>
+      </div>
+    }
+
+    @if (phase() === 'preview' && preview(); as note) {
+      <section data-testid="nfe-preview" aria-labelledby="nfe-preview-title" class="mt-6 space-y-4">
+        <h3 id="nfe-preview-title" class="text-xl font-semibold text-slate-800">Conferência da nota</h3>
+
+        <dl class="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-2 md:p-6">
+          <div>
+            <dt class="text-xs font-medium text-slate-500">Fornecedor</dt>
+            <dd data-testid="nfe-supplier-name" class="mt-1 break-words text-sm font-semibold text-slate-800">{{ note.supplier.name }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-500">CNPJ</dt>
+            <dd data-testid="nfe-supplier-document" class="mt-1 text-sm text-slate-800">{{ note.supplier.document }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-500">Data de emissão</dt>
+            <dd data-testid="nfe-issue-date" class="mt-1 text-sm text-slate-800">{{ formatDate(note.issueDate) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium text-slate-500">Chave de acesso</dt>
+            <dd data-testid="nfe-access-key" class="mt-1 break-words text-sm tabular-nums text-slate-800">{{ formatAccessKey(note.accessKey) }}</dd>
+          </div>
+          <div class="md:col-span-2">
+            <dt class="text-xs font-medium text-slate-500">Total da nota</dt>
+            <dd data-testid="nfe-total" class="mt-1 text-base font-bold text-primary-oc">{{ money(note.total) }}</dd>
+          </div>
+        </dl>
+
+        <div data-testid="nfe-items" class="space-y-4">
+          <h4 class="text-base font-semibold text-slate-700">Itens da nota</h4>
+
+          <ul class="space-y-4 lg:hidden">
+            @for (item of note.items; track item.itemNumber) {
+              <li [attr.data-testid]="'nfe-item-' + item.itemNumber" class="rounded-2xl border border-slate-200 bg-white p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <p class="break-words text-sm font-semibold text-slate-800">{{ item.description }}</p>
+                  <span class="badge border-0 bg-[#E6F2F3] font-medium text-[#007A80]">{{ item.itemNumber }}</span>
+                </div>
+                <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <dt class="text-xs text-slate-500">Quantidade</dt>
+                    <dd class="text-slate-800">{{ quantity(item.quantity) }} {{ item.unit }}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs text-slate-500">Unidade</dt>
+                    <dd class="text-slate-800">{{ item.unit }}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs text-slate-500">Valor unitário</dt>
+                    <dd class="text-slate-800">{{ money(item.unitPrice) }}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs text-slate-500">Valor total</dt>
+                    <dd class="font-semibold tabular-nums text-slate-800">{{ money(item.totalPrice) }}</dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+
+          <div class="hidden overflow-x-auto rounded-2xl border border-slate-200 lg:block">
+            <table class="w-full text-left text-sm">
+              <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">#</th>
+                  <th class="px-4 py-3">Descrição</th>
+                  <th class="px-4 py-3">Quantidade</th>
+                  <th class="px-4 py-3">Unidade</th>
+                  <th class="px-4 py-3 text-right">Valor unitário</th>
+                  <th class="px-4 py-3 text-right">Valor total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of note.items; track item.itemNumber) {
+                  <tr class="border-b border-slate-200/70 text-slate-600 last:border-b-0">
+                    <td class="px-4 py-3 tabular-nums">{{ item.itemNumber }}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800">{{ item.description }}</td>
+                    <td class="px-4 py-3">{{ quantity(item.quantity) }}</td>
+                    <td class="px-4 py-3">{{ item.unit }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums">{{ money(item.unitPrice) }}</td>
+                    <td class="px-4 py-3 text-right font-semibold tabular-nums text-slate-800">{{ money(item.totalPrice) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    }
+  </div>
+</div>

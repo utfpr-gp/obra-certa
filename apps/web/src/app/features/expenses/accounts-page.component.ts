@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal } from '@lucide/angular';
+import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp } from '@lucide/angular';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { forkJoin, timeout } from 'rxjs';
@@ -12,12 +12,13 @@ import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
 import { PaymentTarget } from '../../core/models/payment.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
+import { NfeImportDialogComponent } from './nfe-import/nfe-import-dialog.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, NfeImportDialogComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp],
   template: `
     <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
       <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -25,10 +26,16 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
           <h1 class="text-2xl font-bold text-slate-800">Contas a Pagar</h1>
           <p class="mt-1 text-sm text-slate-500">Acompanhe os compromissos da obra e mantenha o histórico de quitações.</p>
         </div>
-        <a routerLink="/contas/nova" data-testid="create-account"
-          class="btn-oc-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
-          <svg lucidePlus [size]="18" aria-hidden="true" />Cadastrar conta
-        </a>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <a routerLink="/contas/nova" data-testid="create-account"
+            class="btn-oc-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
+            <svg lucidePlus [size]="18" aria-hidden="true" />Cadastrar conta
+          </a>
+          <button type="button" data-testid="import-nfe" (click)="openNfeImport()" [disabled]="!hasActiveProject()"
+            class="btn-oc-secondary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
+            <svg lucideFileUp [size]="18" aria-hidden="true" />Importar NF-e
+          </button>
+        </div>
       </header>
       @if (hasActiveProject()) {
         <section aria-label="Totalizadores das despesas" [attr.aria-busy]="loading()" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -255,6 +262,9 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         <app-payment-modal [target]="selection.target" [projectId]="selection.projectId"
           (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
       }
+      @if (selectedNfeImport(); as selection) {
+        <app-nfe-import-dialog [projectId]="selection.projectId" (closed)="closeNfeImport()" />
+      }
     </main>
   `,
   styles: `
@@ -332,6 +342,12 @@ export class AccountsPageComponent {
     return selection?.context === this.activeProject.contextVersion()
       && selection.projectId === this.activeProject.activeProject()?.id ? selection : null;
   });
+  private readonly nfeImportSelection = signal<{ projectId: string; context: number } | null>(null);
+  readonly selectedNfeImport = computed(() => {
+    const selection = this.nfeImportSelection();
+    return selection?.context === this.activeProject.contextVersion()
+      && selection.projectId === this.activeProject.activeProject()?.id ? selection : null;
+  });
   private readonly size = 15;
   private queryVersion = 0;
   private readonly expenseResults = viewChild<ElementRef<HTMLElement>>('expenseResults');
@@ -364,6 +380,7 @@ export class AccountsPageComponent {
         this.settlement.set(null);
         this.settlementRefreshPending.set(false);
         this.paymentSelection.set(null);
+        this.nfeImportSelection.set(null);
         this.loading.set(false);
         const project = this.activeProject.activeProject();
         if (project) this.loadPage(0, { projectId: project.id });
@@ -390,6 +407,14 @@ export class AccountsPageComponent {
   }
 
   closePayment(): void { this.paymentSelection.set(null); }
+
+  openNfeImport(): void {
+    const projectId = this.activeProject.activeProject()?.id;
+    if (!projectId) return;
+    this.nfeImportSelection.set({ projectId, context: this.activeProject.contextVersion() });
+  }
+
+  closeNfeImport(): void { this.nfeImportSelection.set(null); }
 
   onPaymentSettled(expense: ExpenseResponse): void {
     const selection = this.selectedPayment();
