@@ -133,6 +133,15 @@
   - Arquivos previstos: `apps/web/src/app/features/expenses/accounts-page.component.ts` e `nfe-import-entry.spec.ts`; `apps/web/src/app/features/expenses/nfe-import/nfe-import-dialog.component.{ts,html,spec.ts}`; `apps/web/src/app/shared/components/payment-modal/payment-modal.component.{ts,spec.ts}`.
   - Decisões registradas na liberação (dúvidas do tutor): (1) o backdrop é inerte em todas as fases — X, Cancelar e Escape são as únicas vias de fechamento; (2) no `payment-modal` muda só a condição do Shift+Tab, com teste em `it` separado, sem tocar no contrato da US08; (3) 404 na confirmação é terminal: mostra a `message` do servidor e não oferece "Tentar novamente"; (4) o aviso de importação é limpo na troca de aba, ordenação, filtros e página (mas sobrevive à recarga disparada pela própria importação), e tanto ele quanto o aviso de quitação passam de `teal` para `emerald`; (5) 404 sem `message` usa frase neutra sobre a obra, sem sugerir rede e sem expor se a obra existe; (6) a guarda de `preview()` em `onFileSelected` é testada por chamada white-box ao método público.
 
+## Pendências da auditoria final, rodada 2
+
+- [ ] **Tarefa 11 — Alinhar limites e contratos da importação**
+  - Cobre CA2 e CA5 e os apontamentos B1 e B3. Documentar na spec os limites já aplicados de 10 MiB por arquivo e 11 MiB por requisição. Registrar na arquitetura os endpoints multipart, a migração V11 e os tipos MIME do comprovante XML. Alinhar a terminologia e remover duplicações no PRD.
+  - Verificação: confrontar os documentos com os controllers, a configuração da API, o proxy e a migração. Sem alteração de comportamento nesta tarefa.
+- [ ] **Tarefa 12 — Recuperar a limpeza de XML após falhas na confirmação**
+  - Cobre CA8 e o apontamento B2. Registrar uma intenção de limpeza durável antes do upload. Vincular a conclusão dessa intenção à mesma transação que confirma a importação. Quando a confirmação falhar, tentar remover o objeto imediatamente e manter a intenção pendente se a remoção falhar. A reconciliação deve retomar pendências após reinício e distinguir uploads em andamento de importações confirmadas, sem apagar comprovantes válidos.
+  - Testes primeiro: simular PUT persistido com resposta perdida, rollback seguido de falha no DELETE e retomada da limpeza. Verificar também que uma confirmação bem-sucedida e uma importação em andamento não perdem o XML. Validar persistência e concorrência com PostgreSQL.
+
 ## Critérios sem tarefa
 
 -
