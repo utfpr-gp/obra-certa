@@ -56,12 +56,11 @@ describe('ReportVisualExportService', () => {
     await service.generate(snapshot, () => true);
     const totals = sheets.flatMap(sheet => Array.from(sheet.querySelectorAll<HTMLElement>('tfoot')));
     expect(totals.length).toBe(1);
-    const panel = totals[0].closest<HTMLElement>('.detail-panel')!;
-    expect(panel.querySelector('.detail-heading')).toBeNull();
-    expect(panel.querySelector('thead')).toBeNull();
-    expect(panel.querySelector<HTMLElement>('table')!.style.tableLayout).toBe('fixed');
-    const totalCells = Array.from(totals[0].querySelectorAll<HTMLElement>('th, td'));
-    expect(totalCells.every(cell => cell.style.width.endsWith('px'))).toBeTrue();
+    const table = totals[0].closest<HTMLTableElement>('table')!;
+    expect(table.querySelector('tbody tr')).not.toBeNull();
+    expect(table.querySelector('thead')).not.toBeNull();
+    const headings = sheets.map(sheet => sheet.querySelectorAll('.detail-heading').length);
+    expect(headings.reduce((sum, count) => sum + count, 0)).toBe(1);
   });
 
   it('does not append any appendix or page header page', async () => {

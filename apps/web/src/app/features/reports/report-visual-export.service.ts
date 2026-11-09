@@ -142,22 +142,22 @@ export class ReportVisualExportService {
           if (!fits()) throw new Error('Uma linha do relatório excede o tamanho legível da página.');
         }
       }
-      const totalsPanel = startTable();
-      totalsPanel.querySelector('.detail-heading')!.remove();
-      const totalsTable = totalsPanel.querySelector<HTMLTableElement>('table')!;
-      const originalTable = original.querySelector<HTMLTableElement>('table')!;
-      const columnWidths = Array.from(originalTable.querySelectorAll<HTMLElement>('thead th'))
-        .map(cell => `${cell.getBoundingClientRect().width}px`);
-      totalsTable.querySelector('thead')!.remove();
-      totalsTable.style.tableLayout = 'fixed';
-      totalsTable.style.width = `${originalTable.getBoundingClientRect().width}px`;
-      const totalsRow = original.querySelector('tfoot')!.cloneNode(true) as HTMLTableSectionElement;
-      Array.from(totalsRow.querySelectorAll<HTMLElement>('th, td')).forEach((cell, index) => {
-        cell.style.width = columnWidths[index];
-      });
-      totalsTable.appendChild(totalsRow);
-      totalsPanel.appendChild(original.querySelector('.detail-note')!.cloneNode(true));
-      add(totalsPanel);
+      const closing = () => [original.querySelector('tfoot')!.cloneNode(true) as HTMLElement, original.querySelector('.detail-note')!.cloneNode(true) as HTMLElement];
+      const close = (panel: HTMLElement) => {
+        const [totalsRow, note] = closing();
+        panel.querySelector('table')!.appendChild(totalsRow);
+        panel.appendChild(note);
+        return () => { totalsRow.remove(); note.remove(); };
+      };
+      const undoClose = tablePanel ? close(tablePanel) : undefined;
+      if (!tablePanel || !fits()) {
+        undoClose?.();
+        sheet = makeSheet();
+        const continuation = startTable();
+        sheet.appendChild(continuation);
+        close(continuation);
+        if (!fits()) throw new Error('O total do relatório excede o tamanho legível da página.');
+      }
     }
     return sheets.filter(page => page.childElementCount > 0);
   }
