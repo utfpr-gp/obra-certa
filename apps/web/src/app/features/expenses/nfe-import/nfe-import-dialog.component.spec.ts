@@ -600,4 +600,300 @@ describe('NfeImportDialogComponent', () => {
 
     expect(document.activeElement).toBe(opener);
   });
+
+  it('wraps Shift+Tab to the last control when the dialog container itself has focus', () => {
+    const dialog = el('nfe-import-dialog')!;
+    dialog.focus();
+    expect(document.activeElement).toBe(dialog);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+
+    expect(document.activeElement).toBe(el('nfe-submit'));
+  });
+
+  it('keeps the backdrop inert in idle and in preview while Escape still closes the preview', () => {
+    el('nfe-backdrop')?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+
+    openPreview();
+    el('nfe-backdrop')?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(1);
+  });
+
+  it('keeps Escape and the backdrop inert in the result state while Concluir still finishes', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+    http.expectOne(importsUrl).flush(created);
+    fixture.detectChanges();
+
+    expect(el('nfe-result')).not.toBeNull();
+    el('nfe-backdrop')?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+
+    click('nfe-finish');
+    expect(closedCount).toBe(1);
+  });
+
+  it('shows the server message on a terminal confirmation 404 without retry or connection hint', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    http.expectOne(importsUrl).flush(
+      { status: 404, message: 'Obra não encontrada', fieldErrors: [] },
+      { status: 404, statusText: 'Not Found' },
+    );
+    fixture.detectChanges();
+
+    expect(el('nfe-not-found-alert')?.textContent).toContain('Obra não encontrada');
+    expect(fixture.nativeElement.textContent).not.toContain('Verifique a conexão');
+    expect(fixture.nativeElement.textContent).not.toContain('Tentar novamente');
+    expect(el('nfe-confirm-retry')).toBeNull();
+    expect(el('nfe-manual')).toBeNull();
+
+    click('close-nfe-import');
+    expect(closedCount).toBe(1);
+  });
+
+  it('shows a neutral obra message when a confirmation 404 has no server message', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    http.expectOne(importsUrl).flush({}, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(el('nfe-not-found-alert')?.textContent).toContain('Não foi possível importar para esta obra.');
+    expect(fixture.nativeElement.textContent).not.toContain('Verifique a conexão');
+    expect(el('nfe-confirm-retry')).toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(1);
+  });
+
+  it('only points the category selects at the missing-categories summary when it exists', () => {
+    openPreview();
+    expect(el('nfe-missing-categories')).not.toBeNull();
+    expect(el('nfe-category-1')?.getAttribute('aria-describedby')).toBe('nfe-missing-categories');
+    expect(el('nfe-category-desktop-1')?.getAttribute('aria-describedby')).toBe('nfe-missing-categories');
+
+    selectAllCategories();
+    expect(el('nfe-missing-categories')).toBeNull();
+    expect(el('nfe-category-1')?.getAttribute('aria-describedby')).toBeNull();
+    expect(el('nfe-category-desktop-2')?.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('does not point the category selects at the summary while the categories failed to load', () => {
+    send();
+    http.expectOne(url).flush(preview);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(el('nfe-missing-categories')).toBeNull();
+    expect(el('nfe-category-1')?.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('marks the file input invalid and only describes it when the file error exists', () => {
+    const input = el<HTMLInputElement>('nfe-file-input');
+    expect(input?.getAttribute('aria-invalid')).toBeNull();
+    expect(input?.getAttribute('aria-describedby')).toBeNull();
+
+    choose(new File([], 'empty.xml', { type: 'application/xml' }));
+    click('nfe-submit');
+
+    const invalid = el<HTMLInputElement>('nfe-file-input');
+    expect(invalid?.getAttribute('aria-invalid')).toBe('true');
+    expect(invalid?.getAttribute('aria-describedby')).toBe('nfe-file-error');
+  });
+
+  it('ignores a new file selection while the conference is open', () => {
+    openPreview();
+    const confirmed = fixture.componentInstance.selectedFile();
+
+    // White-box: the UI hides the file input while a preview exists, so the public method is
+    // called directly to prove the invariant does not depend on the template.
+    fixture.componentInstance.onFileSelected({
+      target: { files: [new File(['<nfe/>'], 'outra.xml', { type: 'application/xml' })] },
+    } as unknown as Event);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedFile()).toBe(confirmed);
+    expect(fixture.componentInstance.phase()).toBe('preview');
+    expect(el('nfe-supplier-name')?.textContent).toContain('Fornecedor XPTO');
+  });
+
+  it('keeps a confirmation 401 silent in the dialog and sends no resend, observed before any context change', () => {
+    // Probe: logout is stubbed so the dialog stays alive and the 401 is observable where it lands.
+    // Without the `return` after the 401 check, confirmError gets the connection-uncertain text and this fails.
+    const auth = TestBed.inject(Auth);
+    const logout = spyOn(auth, 'logout').and.stub();
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    const request = http.expectOne(importsUrl);
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+    fixture.detectChanges();
+
+    expect(logout).toHaveBeenCalled();
+    expect(closedCount).toBe(0);
+    expect(fixture.componentInstance.phase()).toBe('preview');
+    expect(fixture.componentInstance.phase()).not.toBe('failure');
+    expect(fixture.componentInstance.confirmError()).toBeNull();
+    expect(fixture.componentInstance.confirmUncertain()).toBeFalse();
+    expect(el('nfe-confirm-error')).toBeNull();
+    expect(el('nfe-confirm-retry')).toBeNull();
+    http.expectNone(importsUrl);
+  });
+
+  it('lets the interceptor end the session on a confirmation 401 and closes through the context change', () => {
+    TestBed.inject(Auth).saveToken('session-token');
+    const auth = TestBed.inject(Auth);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    const request = http.expectOne(importsUrl);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer session-token');
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+    fixture.detectChanges();
+
+    expect(auth.getToken()).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+    expect(closedCount).toBe(1);
+    expect(el('nfe-confirm-error')).toBeNull();
+    http.expectNone(importsUrl);
+  });
+
+  it('shows the server message on a preview 404 as terminal, without connection hint or retry', () => {
+    send();
+    http.expectOne(url).flush(
+      { status: 404, message: 'Obra não encontrada', fieldErrors: [] },
+      { status: 404, statusText: 'Not Found' },
+    );
+    fixture.detectChanges();
+
+    expect(el('nfe-not-found-alert')?.textContent).toContain('Obra não encontrada');
+    expect(fixture.nativeElement.textContent).not.toContain('Verifique a conexão');
+    expect(fixture.nativeElement.textContent).not.toContain('Tentar novamente');
+    expect(el('nfe-failure-alert')).toBeNull();
+    expect(el('nfe-retry')).toBeNull();
+    expect(el('nfe-submit')).toBeNull();
+
+    click('close-nfe-import');
+    expect(closedCount).toBe(1);
+  });
+
+  it('shows the neutral obra phrase on a preview 404 without server message', () => {
+    send();
+    http.expectOne(url).flush({}, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(el('nfe-not-found-alert')?.textContent).toContain('Não foi possível importar para esta obra.');
+    expect(fixture.nativeElement.textContent).not.toContain('Verifique a conexão');
+    expect(fixture.nativeElement.textContent).not.toContain('Tentar novamente');
+    expect(el('nfe-retry')).toBeNull();
+  });
+
+  it('disables the category selects and the paid checkbox in the terminal confirmation 404', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+    http.expectOne(importsUrl).flush({}, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(el<HTMLSelectElement>('nfe-category-1')?.disabled).toBeTrue();
+    expect(el<HTMLSelectElement>('nfe-category-desktop-2')?.disabled).toBeTrue();
+    expect(el<HTMLInputElement>('nfe-paid')?.disabled).toBeTrue();
+  });
+
+  it('points the confirm button at the missing-categories summary only when that summary is rendered', () => {
+    send();
+    http.expectOne(url).flush(preview);
+    fixture.detectChanges();
+    expect(el('nfe-missing-categories')).toBeNull();
+    expect(el('nfe-confirm')?.getAttribute('aria-describedby')).toBeNull();
+
+    http.expectOne(categoriesUrl).flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(el('nfe-missing-categories')).toBeNull();
+    expect(el('nfe-confirm')?.getAttribute('aria-describedby')).toBeNull();
+
+    click('nfe-categories-retry');
+    http.expectOne(categoriesUrl).flush(categories);
+    fixture.detectChanges();
+    expect(el('nfe-missing-categories')).not.toBeNull();
+    expect(document.getElementById('nfe-missing-categories')).not.toBeNull();
+    expect(el('nfe-confirm')?.getAttribute('aria-describedby')).toBe('nfe-missing-categories');
+  });
+
+  it('reports an uncertain result after a 503 and retries once with the same form data', async () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    http.expectOne(importsUrl).flush({}, { status: 503, statusText: 'Service Unavailable' });
+    fixture.detectChanges();
+
+    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-retry')).not.toBeNull();
+    expect(el('nfe-result')).toBeNull();
+
+    click('nfe-confirm-retry');
+    const retries = http.match((request) => request.url === importsUrl);
+    expect(retries.length).toBe(1);
+    const body = retries[0].request.body as FormData;
+    expect((body.get('file') as File).name).toBe('nota.xml');
+    const items = body.get('items') as Blob;
+    expect(JSON.parse(await items.text())).toEqual({
+      items: [
+        { itemNumber: 1, categoryId: 'cat-1' },
+        { itemNumber: 2, categoryId: 'cat-2' },
+      ],
+    });
+    expect(el('nfe-result')).toBeNull();
+
+    retries[0].flush(created);
+    fixture.detectChanges();
+    expect(el('nfe-result')).not.toBeNull();
+  });
+
+  it('applies the desktop category select to the shared choice and the confirmation payload', async () => {
+    openPreview();
+    const desktop = el<HTMLSelectElement>('nfe-category-desktop-1');
+    expect(desktop).not.toBeNull();
+    if (!desktop) return;
+    desktop.value = 'cat-2';
+    desktop.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(el<HTMLSelectElement>('nfe-category-1')?.value).toBe('cat-2');
+    selectCategory(2, 'cat-1');
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeFalse();
+
+    confirm();
+    const request = http.expectOne(importsUrl);
+    const items = (request.request.body as FormData).get('items') as Blob;
+    expect(JSON.parse(await items.text())).toEqual({
+      items: [
+        { itemNumber: 1, categoryId: 'cat-2' },
+        { itemNumber: 2, categoryId: 'cat-1' },
+      ],
+    });
+    request.flush(created);
+  });
 });

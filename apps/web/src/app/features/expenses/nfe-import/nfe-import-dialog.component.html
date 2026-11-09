@@ -1,8 +1,8 @@
-<div data-testid="nfe-backdrop" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" (click)="onBackdrop($event)">
+<div data-testid="nfe-backdrop" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4">
   <div #dialog tabindex="-1" data-testid="nfe-import-dialog" role="dialog" aria-modal="true"
     aria-labelledby="nfe-import-title" [attr.aria-busy]="busy()"
     class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 shadow-lg focus:outline-none sm:rounded-2xl md:p-6"
-    (click)="$event.stopPropagation()">
+    >
     <header class="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
       <div class="min-w-0">
         <h2 id="nfe-import-title" class="text-xl font-semibold text-slate-800">Importar NF-e</h2>
@@ -16,10 +16,18 @@
       }
     </header>
 
-    @if (!preview()) {
+    @if (phase() === 'notFound' && !preview()) {
+      <div data-testid="nfe-not-found-alert" role="alert"
+        class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+        <p>{{ errorMessage() }}</p>
+      </div>
+    }
+
+    @if (!preview() && phase() !== 'notFound') {
       <div class="mt-4">
         <label for="nfe-file" class="mb-1 block text-sm font-medium text-slate-800">Arquivo XML da NF-e</label>
         <input id="nfe-file" type="file" accept=".xml" data-testid="nfe-file-input" [disabled]="busy()" (change)="onFileSelected($event)"
+          [attr.aria-invalid]="fileError() ? 'true' : null" [attr.aria-describedby]="fileError() ? 'nfe-file-error' : null"
           class="block min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[#E6F2F3] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#007A80] disabled:cursor-not-allowed disabled:opacity-60" />
         @if (fileError()) {
           <p data-testid="nfe-file-error" role="alert" class="mt-1 text-xs font-medium text-rose-700">{{ fileError() }}</p>
@@ -72,7 +80,7 @@
       </div>
     }
 
-    @if ((phase() === 'preview' || phase() === 'confirming') && preview(); as note) {
+    @if ((phase() === 'preview' || phase() === 'confirming' || phase() === 'notFound') && preview(); as note) {
       <section data-testid="nfe-preview" aria-labelledby="nfe-preview-title" class="mt-6 space-y-4">
         <h3 id="nfe-preview-title" class="text-xl font-semibold text-slate-800">Conferência da nota</h3>
 
@@ -111,7 +119,7 @@
             </button>
           </div>
         }
-        @if (missingItems().length && !categoriesLoading() && !categoriesError()) {
+        @if (missingSummary()) {
           <p id="nfe-missing-categories" data-testid="nfe-missing-categories" role="status"
             class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Itens sem categoria: {{ missingItems().join(', ') }}
@@ -151,9 +159,9 @@
                     Categoria do item {{ item.itemNumber }} <span class="text-rose-600" aria-hidden="true">*</span>
                   </label>
                   <select [id]="'nfe-category-mobile-' + item.itemNumber" [attr.data-testid]="'nfe-category-' + item.itemNumber"
-                    [value]="selectedCategories()[item.itemNumber] ?? ''" [disabled]="busy() || categoriesLoading() || !!categoriesError()"
+                    [value]="selectedCategories()[item.itemNumber] ?? ''" [disabled]="busy() || categoriesLoading() || !!categoriesError() || phase() === 'notFound'"
                     [attr.aria-invalid]="!selectedCategories()[item.itemNumber]"
-                    [attr.aria-describedby]="!selectedCategories()[item.itemNumber] ? 'nfe-missing-categories' : null"
+                    [attr.aria-describedby]="!selectedCategories()[item.itemNumber] && missingSummary() ? 'nfe-missing-categories' : null"
                     (change)="selectCategory(item.itemNumber, $event)"
                     class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60">
                     <option value="">Selecione a categoria</option>
@@ -191,9 +199,9 @@
                     <td class="px-4 py-3">
                       <label [for]="'nfe-category-desktop-' + item.itemNumber" class="sr-only">Categoria do item {{ item.itemNumber }}</label>
                       <select [id]="'nfe-category-desktop-' + item.itemNumber" [attr.data-testid]="'nfe-category-desktop-' + item.itemNumber"
-                        [value]="selectedCategories()[item.itemNumber] ?? ''" [disabled]="busy() || categoriesLoading() || !!categoriesError()"
+                        [value]="selectedCategories()[item.itemNumber] ?? ''" [disabled]="busy() || categoriesLoading() || !!categoriesError() || phase() === 'notFound'"
                         [attr.aria-invalid]="!selectedCategories()[item.itemNumber]"
-                        [attr.aria-describedby]="!selectedCategories()[item.itemNumber] ? 'nfe-missing-categories' : null"
+                        [attr.aria-describedby]="!selectedCategories()[item.itemNumber] && missingSummary() ? 'nfe-missing-categories' : null"
                         (change)="selectCategory(item.itemNumber, $event)"
                         class="min-h-11 w-full min-w-40 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60">
                         <option value="">Selecione</option>
@@ -212,7 +220,7 @@
         <section aria-labelledby="nfe-payment-title" class="rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
           <h4 id="nfe-payment-title" class="text-base font-semibold text-slate-700">Pagamento da nota</h4>
           <label for="nfe-paid" class="mt-3 flex min-h-11 cursor-pointer items-start gap-3">
-            <input id="nfe-paid" type="checkbox" data-testid="nfe-paid" [checked]="paid()" [disabled]="busy()"
+            <input id="nfe-paid" type="checkbox" data-testid="nfe-paid" [checked]="paid()" [disabled]="busy() || phase() === 'notFound'"
               (change)="onPaidChange($event)"
               class="mt-0.5 h-5 min-h-11 w-5 shrink-0 rounded accent-[#007A80] disabled:cursor-not-allowed disabled:opacity-60" />
             <span class="min-w-0">
@@ -232,6 +240,13 @@
           </p>
         }
 
+        @if (phase() === 'notFound') {
+          <div data-testid="nfe-not-found-alert" role="alert"
+            class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+            <p>{{ errorMessage() }}</p>
+          </div>
+        }
+
         @if (phase() === 'preview' && confirmError()) {
           <div data-testid="nfe-confirm-error" role="alert"
             class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
@@ -247,10 +262,12 @@
         <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
           <button type="button" data-testid="nfe-cancel" class="btn-oc-outline min-h-11 w-full sm:w-auto"
             [disabled]="busy()" (click)="close()">Cancelar</button>
-          <button type="button" data-testid="nfe-confirm" class="btn-oc-primary min-h-11 w-full sm:w-auto"
-            [disabled]="busy() || categoriesLoading() || !!categoriesError() || missingItems().length > 0"
-            [attr.aria-describedby]="missingItems().length ? 'nfe-missing-categories' : null"
-            (click)="confirm()">{{ phase() === 'confirming' ? 'Importando...' : 'Confirmar importação' }}</button>
+          @if (phase() !== 'notFound') {
+            <button type="button" data-testid="nfe-confirm" class="btn-oc-primary min-h-11 w-full sm:w-auto"
+              [disabled]="busy() || categoriesLoading() || !!categoriesError() || missingItems().length > 0"
+              [attr.aria-describedby]="missingSummary() ? 'nfe-missing-categories' : null"
+              (click)="confirm()">{{ phase() === 'confirming' ? 'Importando...' : 'Confirmar importação' }}</button>
+          }
         </div>
       </section>
     }

@@ -142,6 +142,22 @@ describe('Payment modal through the Home HTTP flow', () => {
     click('cancel-payment'); expect(document.activeElement).toBe(opener);
   });
 
+  it('wraps Shift+Tab to the last control when the dialog container itself has focus', () => {
+    open();
+    const dialog = el('payment-modal')!;
+    dialog.focus();
+    expect(document.activeElement).toBe(dialog);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+
+    const buttons = dialog.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
+    expect(document.activeElement).toBe(buttons[buttons.length - 1]);
+    // The Home also loads budgets and expenses on creation; this case does not depend on them, so it drains them.
+    for (const request of http.match(request => request.url.includes('/api/budgets') || request.url.includes('/api/expenses'))) {
+      if (!request.cancelled) request.flush({}, { status: 500, statusText: 'Server Error' });
+    }
+  });
+
   it('blocks duplicate confirmation and all closing paths until an HTTP outcome', () => {
     open(); click('confirm-payment'); const request = http.expectOne(paymentUrl);
     click('confirm-payment'); click('cancel-payment'); click('close-payment'); click('payment-backdrop');

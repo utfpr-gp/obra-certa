@@ -26,7 +26,7 @@ import { CategoryService } from '../../../core/services/category.service';
 import { NfeImportService } from '../../../core/services/nfe-import.service';
 import { formatCivilDate } from '../../../shared/utils/civil-date';
 
-type NfeImportPhase = 'idle' | 'sending' | 'preview' | 'invalid' | 'conflict' | 'failure' | 'confirming' | 'result';
+type NfeImportPhase = 'idle' | 'sending' | 'preview' | 'invalid' | 'conflict' | 'failure' | 'confirming' | 'notFound' | 'result';
 
 @Component({
   selector: 'app-nfe-import-dialog',
@@ -75,6 +75,7 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
     const choices = this.selectedCategories();
     return note.items.filter((item) => !choices[item.itemNumber]).map((item) => item.itemNumber);
   });
+  readonly missingSummary = computed(() => this.missingItems().length > 0 && !this.categoriesLoading() && !this.categoriesError());
 
   constructor() {
     effect(() => {
@@ -96,7 +97,8 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   onFileSelected(event: Event): void {
-    if (this.busy()) return;
+    // The template hides the input while a conference is open; this guard keeps "confirmed file = conferred file" without relying on it.
+    if (this.busy() || this.preview()) return;
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.selectedFile.set(file);
     this.fileError.set(null);
@@ -186,6 +188,14 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
       },
       error: (error: unknown) => {
         if (!this.current()) return;
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          // Terminal: the obra is gone or not ours. No retry, no manual registration.
+          this.confirmError.set(null);
+          this.confirmUncertain.set(false);
+          this.errorMessage.set(this.notFoundMessage(error));
+          this.phase.set('notFound');
+          return;
+        }
         this.phase.set('preview');
         if (error instanceof HttpErrorResponse && error.status === 401) return;
         this.confirmError.set(this.confirmFailureMessage(error));
@@ -215,10 +225,6 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
     this.finish();
   }
 
-  onBackdrop(event: MouseEvent): void {
-    if (event.target === event.currentTarget) this.close();
-  }
-
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     if (this.destroyed || this.closedOnce) return;
@@ -240,7 +246,8 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
       dialog.focus();
       return;
     }
-    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+    // The container itself (tabindex=-1) counts as "before the first": Shift+Tab goes to the last control.
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog || !dialog.contains(document.activeElement))) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
@@ -293,6 +300,8 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   private failurePhase(error: unknown): NfeImportPhase {
     if (error instanceof HttpErrorResponse && error.status === 400) return 'invalid';
     if (error instanceof HttpErrorResponse && error.status === 409) return 'conflict';
+    // Terminal, same as the confirmation: the obra is gone or not ours. No retry.
+    if (error instanceof HttpErrorResponse && error.status === 404) return 'notFound';
     return 'failure';
   }
 
@@ -309,9 +318,15 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
           ? message
           : 'A nota fiscal já foi registrada.';
       }
+      if (error.status === 404) return this.notFoundMessage(error);
       return 'Não foi possível enviar o arquivo. Verifique a conexão e tente novamente.';
     }
     return 'O envio demorou mais que o esperado. Verifique a conexão e tente novamente.';
+  }
+
+  private notFoundMessage(error: unknown): string {
+    const message = error instanceof HttpErrorResponse ? (error.error as { message?: unknown } | null)?.message : null;
+    return typeof message === 'string' && message ? message : 'Não foi possível importar para esta obra.';
   }
 
   private confirmFailureMessage(error: unknown): string {

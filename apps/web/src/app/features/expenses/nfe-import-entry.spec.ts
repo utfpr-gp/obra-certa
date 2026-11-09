@@ -20,7 +20,7 @@ describe('NF-e import entry (CA1 entry point and CA9 on screen)', () => {
 
   const project = (id: string): Project => ({ id, name: id, type: 'RENOVATION',
     status: 'IN_PROGRESS', location: null, createdAt: '', updatedAt: '' });
-  const expenses = { content: [], page: 0, size: 15, totalPages: 1, totalElements: 0,
+  const expenses = { content: [] as ExpenseResponse[], page: 0, size: 15, totalPages: 1, totalElements: 0,
     totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 } };
   const created: ExpenseResponse[] = [
     {
@@ -47,6 +47,15 @@ describe('NF-e import entry (CA1 entry point and CA9 on screen)', () => {
     expect(dialog).withContext('nfe-import-dialog').not.toBeNull();
     dialog.componentInstance.imported.emit(list);
     fixture.detectChanges();
+  }
+
+  function importAndReload(payload: typeof expenses = { ...expenses, content: created, totalElements: 2 }): void {
+    openDialog();
+    emitImported(created);
+    expect(el('nfe-import-notice')).not.toBeNull();
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush(payload);
+    fixture.detectChanges();
+    expect(el('nfe-import-notice')).not.toBeNull();
   }
 
   beforeEach(() => {
@@ -126,5 +135,97 @@ describe('NF-e import entry (CA1 entry point and CA9 on screen)', () => {
 
     expect(el('nfe-import-dialog')).toBeNull();
     http.expectNone(r => r.url.endsWith('/api/expenses'));
+  });
+
+  it('shows the generic failure, not the import one, when an unrelated reload fails after an import', () => {
+    openDialog();
+    emitImported(created);
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Importou, mas a consulta falhou');
+
+    fixture.componentInstance.selectTab('PAID');
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Não foi possível carregar as despesas.');
+    expect(text).not.toContain('Importou');
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('clears the import notice when switching tabs', () => {
+    importAndReload();
+
+    fixture.componentInstance.selectTab('PAID');
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush(expenses);
+    fixture.detectChanges();
+
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('clears the import notice when changing the sort order', () => {
+    importAndReload();
+
+    const sort = el<HTMLSelectElement>('expense-sort');
+    expect(sort).not.toBeNull();
+    if (!sort) return;
+    sort.value = 'AMOUNT_DESC';
+    sort.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const request = http.expectOne(r => r.url.endsWith('/api/expenses'));
+    expect(request.request.params.get('sort')).toBe('AMOUNT_DESC');
+    request.flush(expenses);
+    fixture.detectChanges();
+
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('clears the import notice when applying filters', () => {
+    importAndReload();
+
+    fixture.componentInstance.applyFilters();
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush(expenses);
+    fixture.detectChanges();
+
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('clears the import notice when clearing filters', () => {
+    importAndReload();
+
+    fixture.componentInstance.clearFilters();
+    fixture.detectChanges();
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush(expenses);
+    fixture.detectChanges();
+
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('clears the import notice when changing the page', () => {
+    importAndReload({ ...expenses, content: created, page: 0, totalPages: 2, totalElements: 20 });
+
+    const next = el('pagination')?.querySelectorAll('button')[1] as HTMLButtonElement | undefined;
+    expect(next).withContext('next page').not.toBeUndefined();
+    next?.click();
+    fixture.detectChanges();
+    const request = http.expectOne(r => r.url.endsWith('/api/expenses'));
+    expect(request.request.params.get('page')).toBe('1');
+    request.flush({ ...expenses, page: 1, totalPages: 2, totalElements: 20 });
+    fixture.detectChanges();
+
+    expect(el('nfe-import-notice')).toBeNull();
+  });
+
+  it('renders the import notice with the success token instead of teal', () => {
+    importAndReload();
+
+    const notice = el('nfe-import-notice');
+    expect(notice?.classList.contains('bg-emerald-50')).toBeTrue();
+    expect(notice?.classList.contains('text-emerald-900')).toBeTrue();
+    expect(notice?.classList.contains('bg-teal-50')).toBeFalse();
   });
 });
