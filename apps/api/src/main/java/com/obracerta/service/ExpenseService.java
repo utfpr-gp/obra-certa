@@ -9,6 +9,7 @@ import com.obracerta.model.dto.expense.ExpenseDeleteResponseDTO;
 import com.obracerta.integration.ReceiptStorage;
 import com.obracerta.exception.ReceiptException;
 import com.obracerta.model.entity.Expense;
+import com.obracerta.configuration.ClockConfiguration;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.repository.*;
 import com.obracerta.model.entity.*;
@@ -54,7 +55,7 @@ public class ExpenseService {
     public ExpenseService(UserContextHelper identity, ProjectRepository projects,
             ExpenseCategoryRepository categories, SupplierRepository suppliers,
             BudgetRepository budgets, ExpenseRepository expenses) {
-        this(identity, projects, categories, suppliers, budgets, expenses, Clock.systemUTC());
+        this(identity, projects, categories, suppliers, budgets, expenses, Clock.system(ClockConfiguration.BUSINESS_ZONE));
     }
 
     public ExpenseService(UserContextHelper identity, ProjectRepository projects,

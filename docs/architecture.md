@@ -55,7 +55,7 @@ obra-certa/
 │       ├── src/
 │       │   ├── main/
 │       │   │   ├── java/com/obracerta/
-│       │   │   │   ├── configuration/     # SecurityConfig, CorsConfig, OpenApiConfig, ClockConfig
+│       │   │   │   ├── configuration/     # SecurityConfig, CorsConfig, OpenApiConfig, ClockConfiguration
 │       │   │   │   ├── controller/        # Controladores REST magros com Bean Validation (@Valid)
 │       │   │   │   ├── service/           # Regras de negócio, cálculos, travas orçamentárias e Anti-IDOR
 │       │   │   │   ├── repository/        # Spring Data JPA com queries de posse por usuário
@@ -456,7 +456,7 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
 | `sort` | `PURCHASE_DATE_DESC` (padrão), `PURCHASE_DATE_ASC`, `AMOUNT_DESC` ou `AMOUNT_ASC`; desempate sempre por `id` crescente. |
 
 - Nome desconhecido, valor vazio, repetição de parâmetro simples, data/UUID/enum inválido, categoria inexistente, paginação inválida ou intervalo invertido retorna 400 no formato `ApiErrorResponse`.
-- O service converte os parâmetros em `ExpenseListQueryDTO`, autoriza a obra e as referências e calcula uma única `referenceDate` com `Clock`. O repository compartilha os mesmos predicados entre página e agregação: proprietário, obra ativa, despesas ativas, aba e filtros combinados. A ordenação acontece antes da paginação; `totals` não depende da página. `totalGeneral = totalPaid + totalPending`, com `BigDecimal` na API.
+- O service converte os parâmetros em `ExpenseListQueryDTO`, autoriza a obra e as referências e calcula uma única `referenceDate` com `Clock` no fuso de negócio `America/Sao_Paulo` (`ClockConfiguration.BUSINESS_ZONE`), para que a virada do dia siga o horário de Brasília. O repository compartilha os mesmos predicados entre página e agregação: proprietário, obra ativa, despesas ativas, aba e filtros combinados. A ordenação acontece antes da paginação; `totals` não depende da página. `totalGeneral = totalPaid + totalPending`, com `BigDecimal` na API.
 - A consulta é somente leitura e não acessa comprovantes no storage. Despesas pagas sem `PendingPayment` permanecem na listagem. O MER e os diagramas gerais de persistência permanecem válidos; o fluxo abaixo documenta a nova leitura.
 
 ```mermaid
@@ -571,7 +571,7 @@ flowchart LR
   - Migrações commitadas são imutáveis; correções são feitas sempre para frente (`V<N+1>`);
   - As categorias de despesas pré-definidas são inseridas como dados mestres via migration do Flyway.
 
-- **Demonstração da US07:** `DemoDataSeederRunner` existe somente no perfil `dev` e com `SEED_ENABLED=true`; fica desligado por padrão. Ele delega ao seeder idempotente de usuário/obra/orçamentos/despesas, permitindo demonstrar o painel antes da entrega do cadastro de despesas. Dados e credenciais de demonstração não são configuração de produção.
+- **Demonstração da US07:** `DemoDataSeederRunner` existe somente no perfil `dev` e com `SEED_ENABLED=true`; fica desligado por padrão. Ele delega ao seeder idempotente de usuário/obra/orçamentos/despesas, permitindo demonstrar o painel sem depender de despesas cadastradas pelo usuário. Dados e credenciais de demonstração não são configuração de produção.
 
 ---
 

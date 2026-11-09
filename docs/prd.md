@@ -167,7 +167,7 @@
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
 - **Status:** 🟢 Live  
-- **Rastreabilidade:** [Issue #6](https://github.com/utfpr-gp/obra-certa/issues/6), [spec aprovada e plano concluído](../specs/6-edicao-exclusao-despesas/). Sete tarefas implementadas, com revisões e ajustes visuais registrados. Acesso pela consulta individual `/despesas/:id`, com retorno para `/contas`; listagem permanece na US05. Auditoria final aprovada em 01/11/2026; integração por PR pendente. Live indica implementação local, sem declarar implantação em produção.
+- **Rastreabilidade:** [Issue #6](https://github.com/utfpr-gp/obra-certa/issues/6), [spec aprovada e plano concluído](../specs/6-edicao-exclusao-despesas/). Sete tarefas implementadas, com revisões e ajustes visuais registrados. Acesso pela consulta individual `/despesas/:id`, com retorno para `/contas`; listagem permanece na US05. Auditoria final aprovada em 01/11/2026; integrada em `develop` pelo PR #36 (`c34af74`). Live indica implementação local, sem declarar implantação em produção.
 - **Dependências:** US03 (Cadastro de Despesas)  
 - **História:** Como proprietário com uma obra selecionada, quero editar ou excluir despesas registradas da minha obra, para corrigir divergências, gerenciar status de pagamento ou remover despesas canceladas preservando a integridade dos orçamentos.
 - **Regras de Negócio Associadas:** RN01, RN04, RN05, RN06, RN07
@@ -220,7 +220,7 @@
 - **Tamanho:** M  
 - **Status:** 🟢 Live  
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Cadastro de Despesas); US04 (Edição/Exclusão)  
-- **Rastreabilidade:** Issue #7; [spec aprovada, plano e revisões](../specs/7-visualizacao-filtros-despesas/). Dez tarefas concluídas, incluindo as consolidações das pendências das Tarefas 1 e 6. Listagem real em `/contas`, quatro abas, filtros combinados, ordenação, totalizadores, apresentação mobile e proteção de contexto. Última validação: 396 testes frontend e 316 testes da API aprovados (PostgreSQL 16, perfil `test`). Auditoria final r2 com bloqueios documentais corrigidos; reconferência e integração por PR pendentes; Live indica implementação local, sem declarar implantação em produção.
+- **Rastreabilidade:** Issue #7; [spec aprovada, plano e revisões](../specs/7-visualizacao-filtros-despesas/). Dez tarefas concluídas, incluindo as consolidações das pendências das Tarefas 1 e 6. Listagem real em `/contas`, quatro abas, filtros combinados, ordenação, totalizadores, apresentação mobile e proteção de contexto. Última validação: 398 testes frontend e 318 testes da API aprovados (PostgreSQL 16, perfil `test`). Fuso de referência das abas: `America/Sao_Paulo`. Auditorias r1 a r5 registradas, a última com bloqueios de PR pendentes; integração por PR pendente; Live indica implementação local, sem declarar implantação em produção.
 - **História:** Como proprietário com uma obra selecionada, quero visualizar a listagem paginada de despesas com filtros por período de compra, período de vencimento, múltiplas categorias e fornecedor, acompanhando totalizadores de valores pagos, pendentes e totais, para gerenciar com clareza o fluxo financeiro da obra.
 - **Regras de Negócio Associadas:** RN01, RN04
 

@@ -148,7 +148,7 @@ import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupp
         @if (!hasActiveProject()) {
           <p role="status" class="p-8 text-center text-sm text-slate-600">Selecione uma obra no menu para consultar as despesas.</p>
         }
-        @if (hasActiveProject() && !loading() && !error() && !expenses().length) {
+        @if (hasActiveProject() && !loading() && !error() && !expenses().length && !filterForm.invalid) {
           <div [attr.data-testid]="isEmptyProject() ? 'empty-project' : 'empty-results'" class="p-8 text-center">
             <h3 class="text-lg font-semibold text-slate-900">
               {{ isEmptyProject() ? 'Nenhuma despesa cadastrada' : 'Nenhum resultado encontrado' }}
@@ -295,6 +295,7 @@ export class AccountsPageComponent {
   readonly page = signal(0);
   readonly totalPages = signal(1);
   readonly totalElements = signal<number | null>(null);
+  private readonly projectHasExpenses = signal<boolean | null>(null);
   readonly tab = signal<ExpenseTab>('ALL');
   readonly sort = signal<ExpenseSort>('PURCHASE_DATE_DESC');
   readonly sortOptions: { value: ExpenseSort; label: string }[] = [
@@ -336,6 +337,7 @@ export class AccountsPageComponent {
         this.expenses.set([]);
         this.totals.set(null);
         this.totalElements.set(null);
+        this.projectHasExpenses.set(null);
         this.error.set(null);
         this.loading.set(false);
         const project = this.activeProject.activeProject();
@@ -351,6 +353,7 @@ export class AccountsPageComponent {
     const contextVersion = this.activeProject.contextVersion();
     const isCurrent = () => !this.destroyRef.destroyed && this.queryVersion === queryVersion
       && this.activeProject.contextVersion() === contextVersion;
+    const unfiltered = this.tab() === 'ALL' && !this.hasAppliedFilters();
     // Preserve only presentation dimensions, never the previous financial response.
     if (!this.loading()) {
       const results = this.expenseResults()?.nativeElement;
@@ -377,6 +380,7 @@ export class AccountsPageComponent {
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
         this.totalElements.set(response.totalElements ?? null);
+        if (unfiltered) this.projectHasExpenses.set((response.totalElements ?? 0) > 0);
         this.totals.set(response.totals);
         this.loading.set(false);
       },
@@ -471,7 +475,7 @@ export class AccountsPageComponent {
   }
 
   isEmptyProject(): boolean {
-    return this.tab() === 'ALL' && !this.hasAppliedFilters();
+    return this.projectHasExpenses() === false;
   }
 
   private showInvalidFilters(): void {

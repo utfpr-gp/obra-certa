@@ -81,6 +81,20 @@ class ExpenseSituationListingIntegrationTest {
     }
 
     @Test
+    void referenceDateFollowsBusinessDayInSaoPauloNotUtcInLateEvening() throws Exception {
+        when(clock.instant()).thenReturn(Instant.parse("2026-11-10T01:30:00Z"));
+        when(clock.getZone()).thenReturn(ZoneId.of("America/Sao_Paulo"));
+        expense(false, "due-yesterday-local", LocalDate.of(2026, 11, 8));
+        expense(false, "due-today-local", LocalDate.of(2026, 11, 9));
+
+        mvc.perform(get("/api/expenses").param("projectId", project.getId()).param("tab", "OVERDUE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referenceDate").value("2026-11-09"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].description").value("due-yesterday-local"));
+    }
+
+    @Test
     void rejectsUnknownTabWithStandardApiErrorResponse() throws Exception {
         mvc.perform(get("/api/expenses")
                         .param("projectId", project.getId())

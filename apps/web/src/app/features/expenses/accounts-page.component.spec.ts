@@ -180,6 +180,58 @@ describe('AccountsPageComponent', () => {
     http.verify();
   });
 
+  it('offers registration in a filtered tab only when the project has no expenses at all', () => {
+    TestBed.configureTestingModule({
+      imports: [AccountsPageComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    TestBed.inject(ActiveProjectService).setActiveProject({ id: 'project', name: 'Casa', type: 'RENOVATION',
+      status: 'IN_PROGRESS', location: null, createdAt: '', updatedAt: '' }, 'owner');
+    const fixture = TestBed.createComponent(AccountsPageComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush({
+      content: [], page: 0, size: 15, totalElements: 0, totalPages: 0,
+      totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 },
+    });
+    fixture.componentInstance.selectTab('PENDING');
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush({
+      content: [], page: 0, size: 15, totalElements: 0, totalPages: 0,
+      totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-project"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Cadastre sua primeira conta');
+    http.verify();
+  });
+
+  it('does not claim the project is empty when an invalid interval blocks the query', () => {
+    TestBed.configureTestingModule({ imports: [AccountsPageComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
+    TestBed.inject(ActiveProjectService).setActiveProject({ id: 'project', name: 'Casa', type: 'RENOVATION',
+      status: 'IN_PROGRESS', location: null, createdAt: '', updatedAt: '' }, 'owner');
+    const fixture = TestBed.createComponent(AccountsPageComponent); fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(r => r.url.endsWith('/api/expenses')).flush({ content: [expense], page: 0, size: 15, totalElements: 1, totalPages: 1,
+      totals: { totalPaid: 125.5, totalPending: 0, totalGeneral: 125.5 } });
+    const input = (name: string, value: string) => {
+      const field = fixture.nativeElement.querySelector(`[data-testid="filter-${name}"]`);
+      expect(field).not.toBeNull();
+      if (field) { field.value = value; field.dispatchEvent(new Event('input')); }
+    };
+    input('purchaseDateFrom', '2026-11-02'); input('purchaseDateTo', '2026-11-01');
+    const form = fixture.nativeElement.querySelector('[data-testid="expense-filters"]');
+    if (form) form.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    http.expectNone(r => r.url.endsWith('/api/expenses'));
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-project"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-results"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Nenhuma despesa cadastrada');
+    http.verify();
+  });
+
   it('identifies loading state while the expense response is pending', () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
