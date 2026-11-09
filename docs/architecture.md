@@ -489,7 +489,7 @@ flowchart LR
 - Os cálculos somam apenas despesas com `deleted_at IS NULL`, incluindo pagas e pendentes. Saldo pode ser negativo; percentual é nulo quando o teto é zero, evitando divisão por zero.
 - `BudgetState`: `ON_TRACK` abaixo de 90%, `WARNING` de 90% até abaixo de 100%, `EXCEEDED` a partir de 100% e `NO_BUDGET` quando o teto é zero. O estado usa a razão exata; o percentual exibido é arredondado para uma casa decimal. `hasBudget` informa a existência do registro ativo, mesmo zerado.
 - `BudgetOverviewDTO` reúne `projectId`, `totalPlanned`, `totalSpent`, `available`, `globalPercentage`, `exceededCategories`, `budgetedCategories` e `categories`. Cada `BudgetCategoryDTO` informa categoria, planejado, gasto, saldo, percentual, estado e `hasBudget`.
-- O alerta de despesas sem teto oferece “Definir teto”. Os atalhos de despesas permanecem visíveis e desabilitados até US04/US05, com a dependência informada no tooltip.
+- O alerta de despesas sem teto oferece “Definir teto”. Os atalhos de despesas permanecem visíveis e desabilitados por contrato da spec 09, com a dependência informada no tooltip.
 
 ---
 
@@ -507,7 +507,7 @@ flowchart LR
 - No cadastro inline, nome do fornecedor é obrigatório e CNPJ é opcional. A tela aplica máscara `00.000.000/0000-00`; a API valida 14 dígitos quando preenchido e normaliza a pontuação. Ausência de documento é persistida como `NULL` e não é usada para reutilizar fornecedores. A coluna já aceita nulo; nenhuma migration adicional é necessária.
 - Modo direto exige total; modo calculado exige quantidade e valor unitário, calcula com `BigDecimal` e arredonda o total com `HALF_UP`. Pagamento a prazo exige vencimento igual ou posterior à compra. Gastos continuam no agregado da US07; alertas de teto ausente ou consumo de pelo menos 100% não bloqueiam a gravação.
 - Comprovantes: MIME declarado e extensão correspondente JPEG/PNG/PDF; arquivo não vazio e até 10 MiB (10 × 1024 × 1024 bytes). Sem inspeção de bytes, decodificação de imagens ou biblioteca de PDF. Tipo inválido retorna `400`; tamanho excedido, `413`.
-- Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado são entregues pela US04 abaixo; listagem completa permanece na US05.
+- Apenas sucesso do Supabase confirma `UPLOADED`. A consulta exibe “Sem comprovante” sem arquivo confirmado; falha de envio preserva despesa e pagamento e oferece reenvio posterior. Substituição/remoção de arquivo confirmado são entregues pela US04 abaixo; a listagem completa é entregue pela US05, na seção própria abaixo.
 - Entrada: `/contas` → “Cadastrar conta” → `/contas/nova`; consulta individual em `/despesas/:id`.
 
 ---
@@ -526,7 +526,7 @@ flowchart LR
 - A consulta individual contém edição, confirmação de exclusão e comprovantes, com retorno para `/contas`. Cancelar, X e Escape antes de enviar não gravam; backdrop é inerte. Os controles bloqueiam envio repetido. A versão da obra protege A → B → A e a versão de consulta impede que um GET anterior reexiba despesa já excluída. Atualizar metadados da mesma obra preserva o formulário aberto.
 - Em falha ou resposta perdida, a interface permite consultar o estado e tentar manualmente, sem reenvio automático. GET com `404` retira os dados indisponíveis sem afirmar que a exclusão foi confirmada. Os campos da edição são preservados enquanto o modal e o contexto continuam abertos.
 - Em `401`, todas as mutações mantêm a cadeia de segurança e o interceptor existentes: logout, limpeza da obra e login. O usuário volta manualmente à despesa para tentar novamente; não há reautenticação inline nem restauração de intenção após login.
-- Não há listagem US05, catálogo global US15 nem tabela/fila/agendamento de limpeza. Falhas na tentativa física podem deixar objetos no armazenamento, sem garantia de recuperação posterior.
+- A listagem da US05 está na seção própria acima; não há catálogo global US15 nem tabela/fila/agendamento de limpeza. Falhas na tentativa física podem deixar objetos no armazenamento, sem garantia de recuperação posterior.
 
 ## 🛡️ 7. Segurança, Isolamento e Soft Delete
 
