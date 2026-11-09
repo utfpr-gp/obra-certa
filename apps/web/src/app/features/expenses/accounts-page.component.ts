@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal } from '@lucide/angular';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, timeout } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
 import { SupplierService } from '../../core/services/supplier.service';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
@@ -417,7 +417,7 @@ export class AccountsPageComponent {
   loadPage(page: number, options: { projectId?: string; adjustEmptyPage?: boolean } = {}): void {
     const projectId = options.projectId ?? this.activeProject.activeProject()?.id;
     if (!projectId || page < 0) return;
-    if (this.filterForm.invalid) { this.showInvalidFilters(); return; }
+    if (this.filterForm.invalid && !options.adjustEmptyPage) { this.showInvalidFilters(); return; }
     const queryVersion = ++this.queryVersion;
     const contextVersion = this.activeProject.contextVersion();
     const isCurrent = () => !this.destroyRef.destroyed && this.queryVersion === queryVersion
@@ -442,9 +442,14 @@ export class AccountsPageComponent {
     this.totals.set(null);
     this.totalElements.set(null);
     this.loading.set(true);
-    this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).subscribe({
+    this.expenseService.list(projectId, page, this.size, this.tab(), this.filters(), this.sort()).pipe(timeout(30_000)).subscribe({
       next: response => {
         if (!isCurrent()) return;
+        const lastPage = Math.max(response.totalPages - 1, 0);
+        if (options.adjustEmptyPage && response.content.length === 0 && response.page > lastPage) {
+          this.loadPage(lastPage, { projectId, adjustEmptyPage: true });
+          return;
+        }
         this.page.set(response.page);
         this.totalPages.set(Math.max(response.totalPages, 1));
         this.expenses.set(response.content);
@@ -454,12 +459,6 @@ export class AccountsPageComponent {
         this.referenceDate.set(response.referenceDate ?? null);
         this.loading.set(false);
         this.settlementRefreshPending.set(false);
-        // A confirmed settlement can remove the only row of the current page.
-        // Move once to the last valid page instead of cascading queries.
-        if (options.adjustEmptyPage && response.content.length === 0 && response.page > 0
-          && response.totalPages > 0 && response.page >= response.totalPages) {
-          this.loadPage(response.totalPages - 1, { projectId, adjustEmptyPage: true });
-        }
       },
       error: () => {
         if (!isCurrent()) return;

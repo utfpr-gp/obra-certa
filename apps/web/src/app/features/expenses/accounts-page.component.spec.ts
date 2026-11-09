@@ -1079,7 +1079,14 @@ describe('AccountsPageComponent payment flow', () => {
     expect(el<HTMLButtonElement>('retry-expenses')?.textContent).toContain('Consultar novamente');
     click('retry-expenses');
     http.expectOne(r => r.url === listUrl && r.params.get('page') === '1')
-      .flush(body([], { page: 1, totalPages: 1, totalElements: 0 }));
+      .flush(body([], { page: 1, totalPages: 0, totalElements: 0 }));
+    http.expectOne(r => r.url === listUrl && r.params.get('page') === '0')
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+
+    expect(el('payment-settled-notice')?.textContent).toContain('Pagamento confirmado');
+    expect(el<HTMLButtonElement>('retry-expenses')?.textContent).toContain('Consultar novamente');
+    click('retry-expenses');
     const adjusted = http.expectOne(r => r.url === listUrl && r.params.get('page') === '0');
     adjusted.flush(body([paidExpense], { totalElements: 1 }));
     fixture.detectChanges();

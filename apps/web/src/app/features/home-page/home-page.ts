@@ -1,12 +1,11 @@
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { catchError, distinctUntilChanged, map, of, Subscription, switchMap, tap } from 'rxjs';
 import { PaymentAlertItem, PaymentAlerts, PaymentTarget, PaymentUrgency } from '../../core/models/payment.model';
 import { ExpenseResponse } from '../../core/models/expense-registration.model';
-import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { PaymentService } from '../../core/services/payment.service';
 import { BudgetService } from '../../core/services/budget.service';
-import { ExpenseService } from '../../core/services/expense.service';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
@@ -59,14 +58,9 @@ export class HomePage {
   private userId = inject(AuthenticatedIdentityService).getUserId();
   private readonly payments = inject(PaymentService);
   private readonly budgetService = inject(BudgetService);
-  private readonly expenseService = inject(ExpenseService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private paymentRequest?: Subscription;
-  private dashboardRequest?: Subscription;
-  readonly budgetOverview = signal<BudgetOverview | null>(null);
-  readonly recentExpenses = signal<ExpenseResponse[]>([]);
-  readonly dashboardError = signal(false);
   private paymentGeneration = 0;
   private destroyed = false;
   readonly paymentAlerts = signal<PaymentAlerts | null>(null);
@@ -90,7 +84,7 @@ export class HomePage {
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
   readonly activeObra = computed<DashboardView | null>(() => {
     const project = this.activeProject();
-    return project ? toDashboard(project.name, this.budgetOverview(), this.recentExpenses()) : null;
+    return project ? emptyDashboard(project.name) : null;
   });
   readonly hasNoBudgets = computed(() => {
     const obra = this.activeObra();
@@ -132,52 +126,40 @@ export class HomePage {
 
   constructor() {
     this.reloadProjects();
+    this.watchBudgetAvailability();
     effect(() => {
       this.activeProjectService.contextVersion();
       untracked(() => {
         this.paymentSelection.set(null);
         this.paymentSettlement.set(null);
         this.reloadPaymentAlerts();
-        this.reloadDashboard();
       });
     });
     this.destroyRef.onDestroy(() => {
       this.destroyed = true;
       this.paymentRequest?.unsubscribe();
-      this.dashboardRequest?.unsubscribe();
     });
   }
 
-  reloadDashboard(): void {
-    const projectId = this.activeProject()?.id;
-    const context = this.activeProjectService.contextVersion();
-    this.dashboardRequest?.unsubscribe();
-    this.budgetOverview.set(null);
-    this.recentExpenses.set([]);
-    this.budgetAvailability.set('unknown');
-    this.dashboardError.set(false);
-    if (!projectId) return;
-    const current = () => !this.destroyed && context === this.activeProjectService.contextVersion()
-      && projectId === this.activeProject()?.id;
-    const failed = () => {
-      if (current()) this.dashboardError.set(true);
-    };
-    const request = new Subscription();
-    this.dashboardRequest = request;
-    request.add(this.budgetService.getOverview(projectId).subscribe({
-      next: (overview) => {
-        if (!current()) return;
-        this.budgetOverview.set(overview);
-        this.budgetAvailability.set(overview.budgetedCategories === 0 ? 'none' : 'available');
-      },
-      error: failed,
-    }));
-    request.add(this.expenseService.list(projectId, 0, 5, 'ALL').subscribe({
-      next: (expenses) => {
-        if (current()) this.recentExpenses.set(expenses.content);
-      },
-      error: failed,
-    }));
+  private watchBudgetAvailability(): void {
+    toObservable(this.activeProject)
+      .pipe(
+        map((project) => project?.id ?? null),
+        distinctUntilChanged(),
+        tap(() => this.budgetAvailability.set('unknown')),
+        switchMap((projectId) =>
+          projectId
+            ? this.budgetService.getOverview(projectId).pipe(
+                map((overview): BudgetAvailability =>
+                  overview.budgetedCategories > 0 ? 'available' : 'none',
+                ),
+                catchError(() => of<BudgetAvailability>('unknown')),
+              )
+            : of<BudgetAvailability>('unknown'),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((availability) => this.budgetAvailability.set(availability));
   }
 
   reloadPaymentAlerts(): void {
@@ -238,7 +220,6 @@ export class HomePage {
     this.closePayment();
     this.paymentSettlement.set(expense);
     this.reloadPaymentAlerts();
-    this.reloadDashboard();
   }
 
   reloadProjects(): void {
@@ -342,44 +323,6 @@ interface DashboardView {
   categorias: CategoriaOrcamento[];
   contasProximas: ContaPagar[];
   ultimosGastos: DespesaRecente[];
-}
-
-function toDashboard(name: string, overview: BudgetOverview | null, expenses: ExpenseResponse[]): DashboardView {
-  const base = emptyDashboard(name);
-  if (!overview) return base;
-  return {
-    ...base,
-    percentualGasto: overview.globalPercentage ?? 0,
-    totalGasto: overview.totalSpent,
-    orcamentoTotal: overview.totalPlanned,
-    saldoDisponivel: overview.available,
-    categorias: overview.categories.filter((category) => category.hasBudget).map(toCategoria),
-    ultimosGastos: expenses.map(toDespesa),
-  };
-}
-
-function toCategoria(category: BudgetCategory): CategoriaOrcamento {
-  const emRisco = category.state === 'WARNING' || category.state === 'EXCEEDED';
-  return {
-    id: category.categoryId,
-    nome: category.categoryName,
-    orcado: category.plannedAmount,
-    gasto: category.spentAmount,
-    percentual: category.percentage ?? 0,
-    emRisco,
-    corBorda: category.state === 'EXCEEDED' ? '#EF4444' : category.state === 'WARNING' ? '#F59E0B' : '#007A80',
-  };
-}
-
-function toDespesa(expense: ExpenseResponse): DespesaRecente {
-  return {
-    id: expense.id,
-    descricao: expense.description,
-    categoriaNome: expense.categoryName,
-    valor: expense.totalPrice,
-    dataTexto: formatCivilDateValue(expense.purchaseDate),
-    status: expense.paid ? 'pago' : 'pendente',
-  };
 }
 
 function emptyDashboard(name: string): DashboardView {

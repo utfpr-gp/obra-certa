@@ -14,8 +14,6 @@ import { BudgetService } from '../../core/services/budget.service';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { PaymentService } from '../../core/services/payment.service';
 import { PaymentAlerts } from '../../core/models/payment.model';
-import { ExpensePageResponse } from '../../core/models/expense-registration.model';
-import { HttpTestingController } from '@angular/common/http/testing';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -117,35 +115,6 @@ describe('HomePage', () => {
     expect(component).toBeTruthy();
   });
 
-  it('fills the dashboard with the budget overview and recent expenses from the API', () => {
-    const httpMock = TestBed.inject(HttpTestingController);
-    overviewRequests[0].response.next(overviewResponse());
-    httpMock.expectOne((request) => request.url.endsWith('/api/expenses')).flush(expensesResponse());
-    fixture.detectChanges();
-    expect(page().textContent).toContain('Alvenaria');
-    expect(page().textContent).toContain('Cimento CP II 50kg');
-    expect(query('dashboard-load-error')).toBeNull();
-  });
-
-  it('shows a retryable error when the dashboard data fails to load', () => {
-    overviewRequests[0].response.error(new Error('rede'));
-    fixture.detectChanges();
-    expect(query('dashboard-load-error')).not.toBeNull();
-  });
-
-  function overviewResponse(): BudgetOverview {
-    return { projectId: activeProject.id, totalPlanned: 1000, totalSpent: 400, available: 600, globalPercentage: 40,
-      exceededCategories: 0, budgetedCategories: 1, categories: [{ categoryId: 'cat-alv', categoryName: 'Alvenaria',
-        plannedAmount: 1000, spentAmount: 400, balanceAmount: 600, percentage: 40, state: 'ON_TRACK', hasBudget: true }] };
-  }
-
-  function expensesResponse(): ExpensePageResponse {
-    return { totals: { totalPaid: 2850, totalPending: 0, totalGeneral: 2850 }, page: 0, size: 5, totalElements: 1, totalPages: 1,
-      content: [{ id: 'e1', projectId: activeProject.id, description: 'Cimento CP II 50kg', purchaseDate: '2026-10-01',
-        categoryId: 'cat-alv', categoryName: 'Alvenaria', supplier: { id: 's1', name: 'Fornecedor', document: null },
-        paid: true, dueDate: null, quantity: null, unitPrice: null, totalPrice: 2850, receiptState: 'NONE', paidAt: null }] };
-  }
-
   it('offers the payment action only on pending alert rows and opens the shared modal', () => {
     alerts.next(response()); fixture.detectChanges();
     const actions = page().querySelectorAll<HTMLButtonElement>('[data-testid="mark-payment-paid"]');
@@ -173,7 +142,7 @@ describe('HomePage', () => {
   it('renders the real summary and all urgency labels with color and civil due dates', () => {
     alerts.next(response()); fixture.detectChanges();
     const banner = query('payment-alert-banner')?.textContent ?? '';
-    expect(banner).toContain('3 contas totalizando');
+    expect(banner).toContain('Você tem 3 contas totalizando');
     expect(banner).toContain('123,45');
     expect(banner).toContain('a vencer nos próximos 7 dias');
     expect(banner).toContain('Ver Conta');
@@ -239,7 +208,6 @@ describe('HomePage', () => {
 
   it('displays a real UUID project without borrowing financial data from a mock', () => {
     expect(page().textContent).toContain(activeProject.name);
-    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     expect(page().textContent).not.toContain('Cimento CP II 50kg');
   });
 
@@ -253,7 +221,6 @@ describe('HomePage', () => {
 
   it('uses the global active project for the header and dashboard data', () => {
     expect(page().querySelector('h1')?.textContent).toContain(activeProject.name);
-    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
   });
 
   describe('budget availability', () => {
@@ -422,7 +389,6 @@ describe('HomePage', () => {
       expect(component.projects().map((project) => project.id)).toEqual([firstProject.id]);
       expect(page().textContent).not.toContain('Vamos começar sua obra');
       expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     });
 
     it('does not show onboarding when the project list is not empty', () => {
@@ -458,7 +424,6 @@ describe('HomePage', () => {
 
       expect(page().textContent).not.toContain('Vamos começar sua obra');
       expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
       expect(component.projects()).toEqual([]);
       expect(projectService.getProjects.calls.count()).toBe(callsBeforeActivation);
     });
@@ -494,7 +459,6 @@ describe('HomePage', () => {
 
       expect(activeProjectState()).toBe(activeProject);
       expect(query('projects-load-error')).not.toBeNull();
-      expect(page().textContent).not.toContain('Ainda não há dados financeiros disponíveis');
     });
 
     it('retries loading the projects from the error state', () => {
@@ -509,7 +473,6 @@ describe('HomePage', () => {
       expect(projectService.getProjects.calls.count()).toBe(callsBeforeRetry + 1);
       expect(query('projects-load-error')).toBeNull();
       expect(page().textContent).toContain(activeProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     });
   });
 

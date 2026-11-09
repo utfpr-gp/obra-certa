@@ -44,7 +44,7 @@
     <div data-testid="payment-alert-banner" class="sticky top-0 z-30">
       <app-alert-banner
         type="warning"
-        title="{{ alerts.count }} contas totalizando {{ formatBrl(alerts.totalAmount) }}"
+        title="Você tem {{ alerts.count }} contas totalizando {{ formatBrl(alerts.totalAmount) }}"
         message="a vencer nos próximos 7 dias."
         actionLabel="Ver Conta"
         (actionClick)="goToAccounts()"
@@ -69,11 +69,6 @@
           <p class="text-sm text-slate-500 mt-1">
             Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
           </p>
-          @if (!paymentAlerts()?.count) {
-          <p class="text-sm text-slate-600 mt-2">
-            Ainda não há dados financeiros disponíveis para esta obra.
-          </p>
-          }
           @if (deleteError()) {
             <div
               data-testid="delete-project-error"
@@ -88,18 +83,6 @@
                 (click)="openDeleteModal()"
               >
                 Tentar excluir novamente
-              </button>
-            </div>
-          }
-          @if (dashboardError()) {
-            <div
-              data-testid="dashboard-load-error"
-              class="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
-              role="alert"
-            >
-              <p>Não foi possível carregar os dados financeiros da obra.</p>
-              <button type="button" data-testid="retry-dashboard" class="btn-oc-outline btn-sm mt-2" (click)="reloadDashboard()">
-                Tentar novamente
               </button>
             </div>
           }
