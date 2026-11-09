@@ -14,12 +14,12 @@ Testes do frontend após a última correção: 442 de 442, build com código de 
 
 | Caso | Forma de validação | Resultado |
 | --- | --- | --- |
-| Obra de teste "Teste", todo o histórico, todas as categorias, desktop | PDF inspecionado pelo autor (`relatorio-teste-2026-11-09 (3).pdf`) | Aprovado |
+| Obra de teste "Teste", todo o histórico, todas as categorias, desktop | PDF gerado pelo autor na aplicação e inspecionado pelo agente (`relatorio-teste-2026-11-09 (3).pdf`) | Aprovado |
 | Obra vazia (CA4): zeros e exportação permitida | Validação manual do autor | Aprovado pelo autor |
 | Filtro de período e categoria (CA12): cabeçalho com o recorte aplicado | Validação manual do autor | Aprovado pelo autor |
 | PDF gerado em 360px, composição desktop (CA11) | Validação manual do autor | Aprovado pelo autor |
 
-## Verificações do PDF de obra de teste
+## Verificações feitas pelo agente sobre os PDFs enviados pelo autor
 
 - Cabeçalho com obra, data de geração, pago (R$ 7.093,50) e a pagar (R$ 20,00).
 - Totais: orçado R$ 14.000,00 e realizado R$ 7.113,50, igual a pago mais a pagar.
@@ -31,4 +31,4 @@ Testes do frontend após a última correção: 442 de 442, build com código de 
 
 ## Limitação
 
-Os três casos marcados como "validação manual do autor" não foram gerados nem inspecionados pelo agente. O registro reproduz a confirmação do autor. O PDF da obra de teste foi inspecionado pelo agente em suas três versões.
+Os três casos marcados como "validação manual do autor" não foram gerados nem inspecionados pelo agente. O registro reproduz a confirmação do autor. O agente não gerou os PDFs: inspecionou as versões `(1)`, `(2)` e `(3)` enviadas pelo autor, a última após as correções de `76f518f`.
