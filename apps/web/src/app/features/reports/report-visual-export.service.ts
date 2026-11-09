@@ -144,10 +144,18 @@ export class ReportVisualExportService {
       }
       const totalsPanel = startTable();
       totalsPanel.querySelector('.detail-heading')!.remove();
-      const columnLabels = totalsPanel.querySelector<HTMLElement>('thead')!;
-      columnLabels.style.visibility = 'hidden';
-      columnLabels.setAttribute('aria-hidden', 'true');
-      totalsPanel.querySelector('table')!.appendChild(original.querySelector('tfoot')!.cloneNode(true));
+      const totalsTable = totalsPanel.querySelector<HTMLTableElement>('table')!;
+      const originalTable = original.querySelector<HTMLTableElement>('table')!;
+      const columnWidths = Array.from(originalTable.querySelectorAll<HTMLElement>('thead th'))
+        .map(cell => `${cell.getBoundingClientRect().width}px`);
+      totalsTable.querySelector('thead')!.remove();
+      totalsTable.style.tableLayout = 'fixed';
+      totalsTable.style.width = `${originalTable.getBoundingClientRect().width}px`;
+      const totalsRow = original.querySelector('tfoot')!.cloneNode(true) as HTMLTableSectionElement;
+      Array.from(totalsRow.querySelectorAll<HTMLElement>('th, td')).forEach((cell, index) => {
+        cell.style.width = columnWidths[index];
+      });
+      totalsTable.appendChild(totalsRow);
       totalsPanel.appendChild(original.querySelector('.detail-note')!.cloneNode(true));
       add(totalsPanel);
     }

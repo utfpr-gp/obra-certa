@@ -58,7 +58,10 @@ describe('ReportVisualExportService', () => {
     expect(totals.length).toBe(1);
     const panel = totals[0].closest<HTMLElement>('.detail-panel')!;
     expect(panel.querySelector('.detail-heading')).toBeNull();
-    expect(panel.querySelector<HTMLElement>('thead')!.style.visibility).toBe('hidden');
+    expect(panel.querySelector('thead')).toBeNull();
+    expect(panel.querySelector<HTMLElement>('table')!.style.tableLayout).toBe('fixed');
+    const totalCells = Array.from(totals[0].querySelectorAll<HTMLElement>('th, td'));
+    expect(totalCells.every(cell => cell.style.width.endsWith('px'))).toBeTrue();
   });
 
   it('does not append any appendix or page header page', async () => {
