@@ -47,6 +47,20 @@ describe('ReportVisualExportService', () => {
     expect(document.querySelector('[data-testid="report-export-host"]')).toBeNull();
   });
 
+  it('renders the consolidated total without repeating the detail heading or column labels', async () => {
+    const sheets: HTMLElement[] = [];
+    capture.and.callFake(async (node: HTMLElement) => {
+      sheets.push(node);
+      return png;
+    });
+    await service.generate(snapshot, () => true);
+    const totals = sheets.flatMap(sheet => Array.from(sheet.querySelectorAll<HTMLElement>('tfoot')));
+    expect(totals.length).toBe(1);
+    const panel = totals[0].closest<HTMLElement>('.detail-panel')!;
+    expect(panel.querySelector('.detail-heading')).toBeNull();
+    expect(panel.querySelector<HTMLElement>('thead')!.style.visibility).toBe('hidden');
+  });
+
   it('does not append any appendix or page header page', async () => {
     const result = await service.generate(snapshot, () => true);
     const pdf = await PDFDocument.load(await result!.arrayBuffer());

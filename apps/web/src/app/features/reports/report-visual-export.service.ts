@@ -143,6 +143,10 @@ export class ReportVisualExportService {
         }
       }
       const totalsPanel = startTable();
+      totalsPanel.querySelector('.detail-heading')!.remove();
+      const columnLabels = totalsPanel.querySelector<HTMLElement>('thead')!;
+      columnLabels.style.visibility = 'hidden';
+      columnLabels.setAttribute('aria-hidden', 'true');
       totalsPanel.querySelector('table')!.appendChild(original.querySelector('tfoot')!.cloneNode(true));
       totalsPanel.appendChild(original.querySelector('.detail-note')!.cloneNode(true));
       add(totalsPanel);
