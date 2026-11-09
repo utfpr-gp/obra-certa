@@ -156,7 +156,7 @@ public class NfeImportService {
         keyGuard.ensureNotRegistered(project.getId(), preview.accessKey());
 
         var emitter = preview.supplier();
-        Supplier supplier = references.findOrCreateSupplier(owner, emitter.document(), emitter.name());
+        Supplier supplier = references.findOrCreateSupplier(owner, emitter.document(), emitter.name(), true);
 
         int firstNumber = firstItemNumber(preview);
         var created = new ArrayList<ExpenseResponseDTO>();

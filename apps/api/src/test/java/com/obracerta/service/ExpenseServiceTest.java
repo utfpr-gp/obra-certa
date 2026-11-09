@@ -87,6 +87,17 @@ class ExpenseServiceTest {
         }
         verifyNoInteractions(expenses);
     }
+    @Test void manualCreateWithKnownCnpjReusesSupplierWithoutRenaming() {
+        var existing = Supplier.builder().id("known").user(owner).name("Nome Antigo").document("12345678000190").build();
+        when(suppliers.findFirstByUserIdAndDocument("owner", "12345678000190")).thenReturn(Optional.of(existing));
+        when(suppliers.save(any())).thenAnswer(call -> call.getArgument(0));
+        var request = new ExpenseCreateDTO("project", "Cimento", LocalDate.of(2030,1,1), "category",
+                null, new ExpenseCreateDTO.NewSupplierDTO("Razão Digitada", "12.345.678/0001-90"), true,"DIRECT",null,null,
+                new BigDecimal("1.00"),null,false);
+        service.create(request);
+        assertThat(existing.getName()).isEqualTo("Nome Antigo");
+        verify(suppliers).save(argThat(saved -> saved == existing));
+    }
     @Test void foreignOrDeletedProjectIs404BeforeWriting() {
         when(projects.findByIdAndUserIdAndDeletedAtIsNull("project","owner")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.create(request("DIRECT",null,null,"1")))

@@ -410,10 +410,10 @@
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** L  
-- **Status:** ⚪ Draft  
+- **Status:** 🟢 Implementada localmente (Issue #11; spec em `specs/11-importacao-despesas-nfe/`)  
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Cadastro de Despesas); Categorias pré-definidas  
-- **História:** Como proprietário com uma obra selecionada, quero importar compras via upload do arquivo XML ou chave de acesso da NF-e e distribuir os itens pelas respectivas categorias da obra, para agilizar os lançamentos e manter a precisão do rateio financeiro por etapa.  
-- *Nota de Engenharia:* O desenvolvimento prioriza primeiramente o parser do arquivo XML local; a busca remota por chave de acesso via API fiscal externa constitui uma segunda fase condicionada à viabilidade de integração.
+- **História:** Como proprietário com uma obra selecionada, quero importar compras via upload do arquivo XML da NF-e e distribuir os itens pelas respectivas categorias da obra, para agilizar os lançamentos e manter a precisão do rateio financeiro por etapa.  
+- *Escopo entregue:* somente XML de NF-e (produtos). Digitação de chave, NFS-e e consulta remota à SEFAZ ficam fora de escopo. Notas canceladas não são detectadas.
 - **Regras de Negócio Associadas:** RN01, RN03
 
 **Critérios de Aceitação:**
@@ -425,12 +425,12 @@
    - **Dado** que os itens da nota estão na tela de conferência,
    - **Quando** o proprietário seleciona a categoria de destino para cada item e confirma o lançamento,
    - **Então** o sistema gera as despesas desdobradas vinculadas à obra, cadastra/vincula o fornecedor pelo CNPJ, atualiza os orçamentos de cada categoria envolvida e registra a chave para prevenir duplicidades.
-3. **Caminho Triste (Chave inválida — formato ou dígito verificador):**
-   - **Dado** que o usuário digita uma chave que não possui 44 dígitos numéricos ou cujo dígito verificador (módulo 11) seja inválido,
-   - **Quando** solicita a consulta,
-   - **Então** o sistema impede o envio e exibe alerta de chave de acesso inválida antes de qualquer requisição externa.
+3. **Caminho Triste (Arquivo que não é NF-e ou está corrompido):**
+   - **Dado** que o arquivo enviado é um XML corrompido ou que não é uma NF-e,
+   - **Quando** o sistema tenta extrair os dados,
+   - **Então** exibe alerta explicando o motivo da falha e oferece o cadastro manual da despesa.
 4. **Caminho Triste (Chave já importada):**
-   - **Dado** que a chave da NF-e informada (seja por digitação ou no XML) já foi importada anteriormente pelo usuário,
+   - **Dado** que a chave da NF-e extraída do XML já possui linhas ativas na mesma obra,
    - **Quando** tenta importar,
    - **Então** o sistema bloqueia a operação informando que a nota fiscal já foi registrada no sistema, prevenindo duplicidade de despesas.
 5. **Caminho Triste (XML corrompido, nota cancelada ou serviço indisponível):**

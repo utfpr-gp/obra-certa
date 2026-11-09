@@ -137,7 +137,7 @@ public class ExpenseService {
             if (input.name() == null || input.name().isBlank() || input.name().trim().length() > 255
                     || (document != null && !document.matches("[0-9]{14}")))
                 invalid("Informe o nome e, se preenchido, CNPJ de 14 dígitos do fornecedor.");
-            supplier = references.findOrCreateSupplier(owner, document, input.name().trim());
+            supplier = references.findOrCreateSupplier(owner, document, input.name().trim(), false);
         }
         Expense expense = Expense.builder().user(owner).project(project).category(category).supplier(supplier)
                 .budget(references.resolveBudget(project.getId(), category.getId()))

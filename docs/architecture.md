@@ -327,8 +327,7 @@ erDiagram
 O índice de orçamento do item 1 está implementado pela V6. Os demais itens descrevem a evolução do modelo; sua aplicação física deve ser conferida nas migrations da respectiva história.
 1. **Índice Único Parcial para Orçamento Único por Categoria:**
    `CREATE UNIQUE INDEX idx_budgets_project_category_active ON budgets (project_id, category_id) WHERE deleted_at IS NULL;`
-2. **Índice Único Parcial para Chave de NF-e na Obra:**
-   `CREATE UNIQUE INDEX idx_expenses_project_nfe_active ON expenses (project_id, nfe_key) WHERE deleted_at IS NULL AND nfe_key IS NOT NULL;`
+2. **Unicidade da Chave de NF-e na Obra (sem índice único):** a chave é verificada na aplicação, com a trava `SELECT … FOR UPDATE` sobre a linha da obra (`ProjectRepository`, `NfeKeyGuard`). Linhas ativas são as de `deleted_at IS NULL`. Não há índice único parcial para `nfe_key`; a decisão está registrada em `specs/11-importacao-despesas-nfe/plan.md`.
 3. **Índice Único Parcial para Fornecedor por Usuário:**
    `CREATE UNIQUE INDEX idx_suppliers_user_document_active ON suppliers (user_id, document) WHERE document IS NOT NULL;`
 4. **Índices de Performance para Filtros e Painéis:**
