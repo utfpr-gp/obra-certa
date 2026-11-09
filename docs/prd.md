@@ -9,7 +9,7 @@
 ## 🎯 1. Visão Geral e Objetivo
 
 - **Problema:** A gestão financeira de pequenas e médias obras residenciais autogeridas é comumente informal, levando à perda de previsibilidade orçamentária e elevado risco de paralisação da construção por falta ou descontrole de recursos.
-- **Solução:** O *ObraCerta* centraliza a gestão multi-obra, o planejamento orçamentário por categorias, o registro de despesas, o acompanhamento preventivo de pagamentos pendentes por meio de painel de alertas e a importação facilitada de compras via arquivo XML e chave de acesso da Nota Fiscal Eletrônica (NF-e).
+- **Solução:** O *ObraCerta* centraliza a gestão multi-obra, o planejamento orçamentário por categorias, o registro de despesas, o acompanhamento preventivo de pagamentos pendentes por meio de painel de alertas e a importação de compras pelo arquivo XML da Nota Fiscal Eletrônica (NF-e).
 - **Critério de Sucesso:** O proprietário consegue, em uma única visão consolidada por obra, verificar o montante gasto versus o teto previsto por categoria, identificar compromissos financeiros a vencer nos próximos 7 dias e evitar estouros no orçamento geral da construção.
 
 ---
@@ -26,7 +26,7 @@
 | **Despesa (Gasto Real)** | Registro financeiro efetivo de um custo incorrido na obra, com valor, data e comprovante opcional. | Não confundir com *Orçamento Previsto* nem com *Pagamento Pendente*. |
 | **Pagamento Pendente** | Compromisso financeiro oriundo de uma despesa a prazo (não liquidada no ato), com data futura de vencimento. | Não confundir com *Despesa Paga (liquidada)*. |
 | **Alerta de Vencimento** | Sinalização visual passiva no painel sobre contas a pagar próximas do prazo de vencimento. | Não confundir com *Mensagem de validação de formulário* nem com *Notificação externa ativa (SMS/Push)*. |
-| **Nota Fiscal Eletrônica (NF-e)** | Documento fiscal digital oficial cuja chave de 44 dígitos ou arquivo XML permite extrair fornecedor e itens da compra. | Não confundir com *Recibo informal* ou foto avulsa de comprovante. |
+| **Nota Fiscal Eletrônica (NF-e)** | Documento fiscal digital oficial cujo XML contém a chave de acesso de 44 dígitos, os dados do fornecedor e os itens da compra. | Não confundir com *Recibo informal* ou foto avulsa de comprovante. |
 
 ---
 
@@ -35,7 +35,7 @@
 | Ator | Descrição | O que PODE fazer | O que NÃO PODE fazer |
 | :--- | :--- | :--- | :--- |
 | **Visitante** | Pessoa não identificada no sistema. | - Visualizar a página institucional de apresentação.<br>- Realizar seu autocadastro.<br>- Acessar a tela de login. | - Visualizar, cadastrar ou alterar qualquer dado de obra, despesa ou orçamento.<br>- Acessar áreas logadas sem autenticação. |
-| **Proprietário (Usuário)** | Gestor autenticado da sua própria conta e obras. | - Cadastrar, editar e excluir suas próprias obras.<br>- Alternar entre suas obras ativas.<br>- Gerenciar orçamentos, despesas e fornecedores de suas obras.<br>- Marcar pagamentos como quitados.<br>- Importar despesas via XML/chave de NF-e.<br>- Visualizar relatórios e gráficos de suas obras. | - Visualizar, editar ou excluir obras, despesas ou orçamentos de outros proprietários.<br>- Transferir despesas entre obras diferentes durante a edição.<br>- Acessar painéis de administração global. |
+| **Proprietário (Usuário)** | Gestor autenticado da sua própria conta e obras. | - Cadastrar, editar e excluir suas próprias obras.<br>- Alternar entre suas obras ativas.<br>- Gerenciar orçamentos, despesas e fornecedores de suas obras.<br>- Marcar pagamentos como quitados.<br>- Importar despesas pelo XML da NF-e.<br>- Visualizar relatórios e gráficos de suas obras. | - Visualizar, editar ou excluir obras, despesas ou orçamentos de outros proprietários.<br>- Transferir despesas entre obras diferentes durante a edição.<br>- Acessar painéis de administração global. |
 | **Sistema (Automático)** | Rotinas internas e regras de negócio do sistema. | - Calcular saldos orçamentários e percentuais de consumo.<br>- Sinalizar alertas visuais de vencimento e estouro de teto orçado.<br>- Realizar leitura e extração de dados fiscais de NF-e. | - Tomar decisões financeiras ou excluir despesas sem comando explícito do proprietário. |
 
 ---
@@ -417,14 +417,14 @@
 - **Regras de Negócio Associadas:** RN01, RN03
 
 **Critérios de Aceitação:**
-1. **Caminho Feliz (Extração híbrida e exibição de itens):**
+1. **Caminho Feliz (Leitura do XML e exibição de itens):**
    - **Dado** que o proprietário está na área de importação da sua obra,
    - **Quando** ele faz upload do arquivo `.xml` da NF-e,
-   - **Então** o sistema processa os dados fiscais e exibe a tela de conferência com: fornecedor (Razão Social e CNPJ), data de emissão, chave fiscal e a listagem detalhada de todos os itens da nota (descrição, quantidade, unidade, valor unitário e total de cada item).
+   - **Então** o sistema processa os dados fiscais e exibe a tela de conferência com: fornecedor (Razão Social e CNPJ), data de emissão, chave de acesso e a listagem detalhada de todos os itens da nota (descrição, quantidade, unidade, valor unitário e total de cada item).
 2. **Caminho Feliz (Desdobro por itens e gravação das despesas):**
    - **Dado** que os itens da nota estão na tela de conferência,
-   - **Quando** o proprietário seleciona a categoria de destino para cada item e confirma o lançamento,
-   - **Então** o sistema gera as despesas desdobradas vinculadas à obra, cadastra/vincula o fornecedor pelo CNPJ, atualiza os orçamentos de cada categoria envolvida e registra a chave para prevenir duplicidades.
+   - **Quando** o proprietário seleciona a categoria de cada item, mantém ou desmarca a opção “Paga” e confirma o lançamento,
+   - **Então** o sistema grava uma despesa por item na obra, com a categoria selecionada, a chave de acesso extraída do XML, a data de emissão como data da compra e o fornecedor vinculado pelo CNPJ. As despesas entram nos totais das respectivas categorias. Apenas a primeira linha da nota (`nItem = 1`) recebe o XML como comprovante e o pagamento único, quitado na data de emissão quando a opção estiver marcada ou pendente com vencimento nessa data quando estiver desmarcada.
 3. **Caminho Triste (Arquivo que não é NF-e ou está corrompido):**
    - **Dado** que o arquivo enviado é um XML corrompido ou que não é uma NF-e,
    - **Quando** o sistema tenta extrair os dados,
@@ -433,10 +433,6 @@
    - **Dado** que a chave da NF-e extraída do XML já possui linhas ativas na mesma obra,
    - **Quando** tenta importar,
    - **Então** o sistema bloqueia a operação informando que a nota fiscal já foi registrada no sistema, prevenindo duplicidade de despesas.
-5. **Caminho Triste (XML corrompido ou que não é NF-e):**
-   - **Dado** que o XML enviado é inválido/corrompido ou não é uma NF-e,
-   - **Quando** o sistema tenta extrair os dados,
-   - **Então** o sistema exibe alerta explicativo sobre o motivo da falha e oferece a opção de cadastro manual da despesa.
 
 ---
 

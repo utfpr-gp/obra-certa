@@ -64,7 +64,7 @@ obra-certa/
 │       │   │   │   │   ├── dto/           # Java Records imutáveis para entrada e saída de dados
 │       │   │   │   │   └── entity/        # Entidades JPA; tipos físicos definidos pelas migrations
 │       │   │   │   ├── security/          # TokenService (JWT), SecurityFilter e UserContextHelper
-│       │   │   │   ├── integration/       # Cliente de integração e parser de NF-e (XML / API)
+│       │   │   │   ├── integration/       # Parser de XML de NF-e
 │       │   │   │   ├── exception/         # RestControllerAdvice e hierarquia de exceções de negócio
 │       │   │   │   └── enums/             # ProjectType, ProjectStatus, BudgetState e enums de despesas
 │       │   │   └── resources/
@@ -125,7 +125,7 @@ flowchart TD
 
 ## 🗄️ 3. Modelo de Dados (MER Consolidado)
 
-O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1-V10), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
+O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1-V11), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
 
 ```mermaid
 erDiagram
@@ -535,6 +535,18 @@ flowchart LR
 - Em falha ou resposta perdida, a interface permite consultar o estado e tentar manualmente, sem reenvio automático. GET com `404` retira os dados indisponíveis sem afirmar que a exclusão foi confirmada. Os campos da edição são preservados enquanto o modal e o contexto continuam abertos.
 - Em `401`, todas as mutações mantêm a cadeia de segurança e o interceptor existentes: logout, limpeza da obra e login. O usuário volta manualmente à despesa para tentar novamente; não há reautenticação inline nem restauração de intenção após login.
 - A listagem da US05 está na seção própria acima; não há catálogo global US15 nem tabela/fila/agendamento de limpeza. Falhas na tentativa física podem deixar objetos no armazenamento, sem garantia de recuperação posterior.
+
+### Contrato implementado da US09 — importação de despesas via NF-e (XML)
+
+| Método e caminho | Retorno | Partes de `multipart/form-data` |
+| --- | --- | --- |
+| `POST /api/projects/{projectId}/nfe/preview` | `200`, `NfePreviewResponseDTO` | `file` com o XML. Extrai os dados para conferência sem gravar despesas. |
+| `POST /api/projects/{projectId}/nfe/imports` | `201`, lista de `ExpenseResponseDTO` | `file` com o XML conferido, `items` como `application/json` no formato `{"items":[{"itemNumber":1,"categoryId":"<uuid>"}]}` e parte opcional `payment` como `application/json` no formato `{"paid":true}`. Se `payment` estiver ausente, usa o campo opcional homônimo dentro de `items`. Sem valor de `paid`, assume `true`. |
+
+- A configuração multipart da API limita o arquivo a 10 MiB (10.485.760 bytes) e a requisição completa a 11 MiB (11.534.336 bytes). O proxy Nginx também limita o corpo da requisição a 11 MiB (`client_max_body_size 11m`).
+- XML inválido ou fora do formato NF-e retorna `400` com o motivo. Na conferência, a interface exibe o alerta e oferece o cadastro manual. Obra alheia, inexistente ou excluída retorna `404`. Chave já importada com linhas ativas na mesma obra retorna `409`.
+- A confirmação grava uma despesa por item com a chave extraída do XML. Apenas a primeira linha (`nItem = 1`) recebe o registro de pagamento e o comprovante XML. O indicador `paid` da nota é replicado em todas as despesas do grupo.
+- A migração `V11__allow_xml_nfe_receipt.sql` acrescenta `application/xml` e `text/xml` aos tipos aceitos pela constraint `chk_expense_receipt_state` em `UPLOADED`, preservando o intervalo de tamanho maior que zero e de até 10 MiB. A importação preserva `text/xml` quando informado e usa `application/xml` nos demais casos. O upload manual de comprovantes segue restrito a JPEG, PNG e PDF.
 
 ### Contrato implementado da US08 — alertas e quitação
 

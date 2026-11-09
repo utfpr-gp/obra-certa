@@ -3,7 +3,7 @@ issue: 11
 status: aprovada   # rascunho | aprovada
 ---
 
-# US09 — Importação de Despesas via NF-e (Chave ou XML)
+# US09 — Importação de Despesas via NF-e (XML)
 
 ## O problema
 
@@ -26,7 +26,7 @@ O proprietário compra materiais com nota fiscal e precisa lançar cada item à 
 - **Fornecedor:** a razão social do fornecedor é atualizada com a da nota quando o CNPJ já existe para o usuário. A razão social da nota é considerada mais precisa.
 - **Dados lidos da nota:** somente os que o sistema já usa: chave de acesso, data de emissão, CNPJ e razão social do emitente e, por item, descrição, unidade, quantidade, valor unitário e valor total. Nenhum outro dado do XML é extraído ou gravado.
 - **Pagamento:** a conferência traz o checkbox "paga", marcado por padrão. Marcado, grava o pagamento como Pago com data de quitação igual à data de emissão. Desmarcado, grava o pagamento como pendente com vencimento igual à data de emissão, editável depois na tela de despesas.
-- **Formato:** o XML aceito é de NF-e (produtos). Não há limite de tamanho definido.
+- **Formato e limites:** o arquivo deve ser um XML de NF-e (produtos) de até 10 MiB (10.485.760 bytes). A requisição multipart completa tem limite de 11 MiB (11.534.336 bytes), incluindo as demais partes e a estrutura do multipart. Os limites valem na conferência e na confirmação.
 
 ## Critérios de aceite
 

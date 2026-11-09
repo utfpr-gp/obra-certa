@@ -135,7 +135,7 @@
 
 ## Pendências da auditoria final, rodada 2
 
-- [ ] **Tarefa 11 — Alinhar limites e contratos da importação**
+- [x] **Tarefa 11 — Alinhar limites e contratos da importação**
   - Cobre CA2 e CA5 e os apontamentos B1 e B3. Documentar na spec os limites já aplicados de 10 MiB por arquivo e 11 MiB por requisição. Registrar na arquitetura os endpoints multipart, a migração V11 e os tipos MIME do comprovante XML. Alinhar a terminologia e remover duplicações no PRD.
   - Verificação: confrontar os documentos com os controllers, a configuração da API, o proxy e a migração. Sem alteração de comportamento nesta tarefa.
 - [ ] **Tarefa 12 — Recuperar a limpeza de XML após falhas na confirmação**
