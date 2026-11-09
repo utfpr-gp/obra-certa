@@ -91,4 +91,18 @@
   - Migration: nenhuma.
   - Arquivos previstos: `ExpenseRepository`, `ReportService`, `ReportController`, `ReportExportDTO` e testes JUnit correspondentes; `core/services/report.service.{ts,spec.ts}`, `reports-page.component.{ts,html,css,spec.ts}`, `report-presentation.component.{ts,html}`, `report-presentation.model.ts`, `report-visual-export.service.{ts,spec.ts}`. Não afrouxar os limites de build.
 
+- [x] **Tarefa 9 — Sincronizar a categoria após aplicar o período**
+  - Cobre: CA11 e CA12, conforme o apontamento aceito na auditoria final r5.
+  - Teste primeiro: selecionar uma categoria antes de aplicar o período, conferir o seletor e a requisição de PDF quando a categoria desaparece, e preservar a seleção quando ela continua disponível.
+  - Implementação: reconciliar a seleção com a resposta atual do relatório e manter o seletor, as visualizações e o PDF sincronizados.
+  - Migration: nenhuma.
+  - Arquivos previstos: `reports-page.component.{ts,html,spec.ts}`.
+
+- [x] **Tarefa 10 — Impedir exportação após falha da consulta**
+  - Cobre: CA11, conforme o apontamento aceito na auditoria final r6.
+  - Teste primeiro: aplicar um período com categoria selecionada, simular a falha da consulta e comprovar que o PDF fica indisponível até uma resposta válida.
+  - Implementação: compartilhar a condição de exportação entre o botão e a ação, mantendo o filtro reconciliado após a recuperação.
+  - Migration: nenhuma.
+  - Arquivos previstos: `reports-page.component.{ts,html,spec.ts}`.
+
 ## Critérios sem tarefa

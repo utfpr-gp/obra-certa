@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ReportPresentationModel } from './report-presentation.model';
@@ -24,6 +24,12 @@ export class ReportsPageComponent extends ReportPresentationModel {
   readonly error = signal<string | null>(null);
   readonly generatingPdf = signal(false);
   readonly pdfError = signal<string | null>(null);
+  readonly exportableProjectId = computed(() => {
+    const report = this.report();
+    if (!report || report.projectId !== this.activeProject.activeProject()?.id
+      || this.loading() || this.generatingPdf()) return null;
+    return report.projectId;
+  });
   readonly periodForm = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
@@ -58,6 +64,10 @@ export class ReportsPageComponent extends ReportPresentationModel {
     this.reportService.get(project.id, this.appliedFrom(), this.appliedTo()).subscribe({
       next: report => {
         if (generation === this.requestGeneration && report.projectId === project.id) {
+          const category = this.selectedCategory();
+          if (category !== 'all' && !report.categories.some(item => item.categoryId === category)) {
+            this.selectedCategory.set('all');
+          }
           this.report.set(report);
           this.loading.set(false);
         }
@@ -93,23 +103,23 @@ export class ReportsPageComponent extends ReportPresentationModel {
   }
 
   exportPdf(): void {
-    const project = this.activeProject.activeProject();
-    if (!project || this.generatingPdf() || this.loading()) return;
+    const projectId = this.exportableProjectId();
+    if (projectId === null) return;
     const generation = ++this.pdfGeneration;
     const contextVersion = this.activeProject.contextVersion();
     this.generatingPdf.set(true);
     this.pdfError.set(null);
     const isCurrent = () => !this.destroyRef.destroyed && generation === this.pdfGeneration
-      && contextVersion === this.activeProject.contextVersion() && this.activeProject.activeProject()?.id === project.id;
+      && contextVersion === this.activeProject.contextVersion() && this.activeProject.activeProject()?.id === projectId;
     const fail = (message = 'Não foi possível gerar o PDF.') => {
       if (!isCurrent()) return;
       this.generatingPdf.set(false);
       this.pdfError.set(message);
     };
-    this.pdfRequest = this.reportService.exportSnapshot(project.id, this.appliedFrom(), this.appliedTo(), this.selectedCategory()).subscribe({
+    this.pdfRequest = this.reportService.exportSnapshot(projectId, this.appliedFrom(), this.appliedTo(), this.selectedCategory()).subscribe({
       next: snapshot => {
         if (!isCurrent()) return;
-        if (!snapshot?.report || snapshot.report.projectId !== project.id) { fail(); return; }
+        if (!snapshot?.report || snapshot.report.projectId !== projectId) { fail(); return; }
         void this.visualExport.generate(snapshot, isCurrent).then(blob => {
           if (!isCurrent() || !blob) return;
           const safeFilename = /^relatorio-[a-z0-9-]+-\d{4}-\d{2}-\d{2}\.pdf$/.test(snapshot.filename)

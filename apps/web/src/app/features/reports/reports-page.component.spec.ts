@@ -223,6 +223,80 @@ describe('ReportsPageComponent real report', () => {
     expect(fixture.componentInstance.totals().actualCents).toBe(35005000);
   });
 
+  for (const scenario of [
+    { selected: 'unplanned', expected: 'all', exportCategory: null, rows: 2 },
+    { selected: 'over', expected: 'over', exportCategory: 'over', rows: 1 },
+  ]) {
+    it(`synchronizes the selector, presentation and PDF when ${scenario.selected} is selected before applying a period`, () => {
+      loadComparison();
+      const category = root().querySelector<HTMLSelectElement>('#report-category')!;
+      category.value = scenario.selected;
+      category.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(category.value).toBe(scenario.selected);
+
+      date('#report-from', '2026-10-01');
+      root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+      fixture.detectChanges();
+      const request = http.expectOne(r => r.url.endsWith('/reports'));
+      request.flush({ projectId: 'project-a', projectName: 'Casa', totalPlanned: 300, totalSpent: 100,
+        totalPaid: 100, totalPending: 0, categories: [
+          { categoryId: 'equal', categoryName: 'Elétrica', plannedAmount: 100, amount: 60, percentage: 60 },
+          { categoryId: 'over', categoryName: 'Pintura', plannedAmount: 200, amount: 40, percentage: 40 },
+        ] });
+      fixture.detectChanges();
+
+      expect(root().querySelector<HTMLSelectElement>('#report-category')!.value).toBe(scenario.expected);
+      expect(root().querySelectorAll('.distribution-item').length).toBe(scenario.rows);
+      expect(root().querySelectorAll('.detail-row').length).toBe(scenario.rows);
+      expect(root().querySelector('.detail-row:last-child')?.textContent).toContain('Pintura');
+      root().querySelector<HTMLButtonElement>('.export')!.click();
+      const pdf = http.expectOne(r => r.url.endsWith('/reports/export'));
+      expect(pdf.request.params.get('from')).toBe('2026-10-01');
+      expect(pdf.request.params.get('category')).toBe(scenario.exportCategory);
+      pdf.flush({}, { status: 500, statusText: 'Failure' });
+    });
+  }
+
+  it('blocks PDF export after a failed period query until retry loads and reconciles the report', () => {
+    loadComparison();
+    const category = root().querySelector<HTMLSelectElement>('#report-category')!;
+    category.value = 'over';
+    category.dispatchEvent(new Event('change'));
+    date('#report-from', '2026-10-01');
+    root().querySelector<HTMLButtonElement>('[data-testid="apply-period"]')!.click();
+    http.expectOne(r => r.url.endsWith('/reports')).flush('offline', {
+      status: 503, statusText: 'Unavailable',
+    });
+    fixture.detectChanges();
+
+    const exportButton = root().querySelector<HTMLButtonElement>('.export')!;
+    expect(exportButton.disabled).toBeTrue();
+    exportButton.click();
+    fixture.componentInstance.exportPdf();
+    http.expectNone(r => r.url.endsWith('/reports/export'));
+
+    root().querySelector<HTMLButtonElement>('button[aria-label="Tentar novamente"]')!.click();
+    fixture.detectChanges();
+    expect(exportButton.disabled).toBeTrue();
+    const retry = http.expectOne(r => r.url.endsWith('/reports'));
+    expect(retry.request.params.get('from')).toBe('2026-10-01');
+    retry.flush({ projectId: 'project-a', projectName: 'Casa', totalPlanned: 100, totalSpent: 60,
+      totalPaid: 60, totalPending: 0, categories: [
+        { categoryId: 'equal', categoryName: 'Elétrica', plannedAmount: 100, amount: 60, percentage: 100 },
+      ] });
+    fixture.detectChanges();
+
+    expect(category.value).toBe('all');
+    expect(exportButton.disabled).toBeFalse();
+    http.expectNone(r => r.url.endsWith('/reports/export'));
+    exportButton.click();
+    const pdf = http.expectOne(r => r.url.endsWith('/reports/export'));
+    expect(pdf.request.params.get('from')).toBe('2026-10-01');
+    expect(pdf.request.params.has('category')).toBeFalse();
+    pdf.flush({}, { status: 500, statusText: 'Failure' });
+  });
+
   it('exports the applied period and category while ignoring dates still being edited', () => {
     loadComparison();
     date('#report-from', '2026-10-01');

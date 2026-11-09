@@ -268,8 +268,8 @@
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** M  
-- **Status:** 🟢 Live — implementada e validada localmente; não declara implantação em produção.
-- **Rastreabilidade:** Issue #8; [spec, plano e revisões](../specs/8-relatorios-graficos-gastos/). Oito tarefas concluídas; auditoria final e integração por PR pendentes.
+- **Status:** 🟢 Implementada localmente. A auditoria final aprovou a entrega para PR em `develop`.
+- **Rastreabilidade:** Issue #8. Dez tarefas encerradas, incluindo a sincronização da categoria e a disponibilidade do PDF após falha de consulta. [Spec, plano e revisões](../specs/8-relatorios-graficos-gastos/).
 - **Decisões aprovadas na entrega:** PDF visual com os indicadores, gráficos, resumo e detalhamento por categoria, sem apêndice textual; pago, a pagar e data no cabeçalho da composição. Período opcional por data da compra, com limites inclusivos e orçamento previsto integral. A exportação acompanha período e categoria aplicados; sem filtro, considera todo o histórico e todas as categorias. Falha de exportação apresenta apenas uma mensagem de erro. O endpoint PDF legado mantém consolidado e despesas individuais.
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Despesas); US07 (Orçamentos)  
 - **História:** Como proprietário com uma obra selecionada, quero visualizar gráficos comparativos entre orçamento previsto e despesas acumuladas e exportar um relatório consolidado em PDF do histórico da obra, para analisar o equilíbrio financeiro e identificar sobras ou estouros orçamentários.
