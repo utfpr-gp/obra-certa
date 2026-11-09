@@ -539,7 +539,7 @@ flowchart LR
 
 ### Contrato implementado da US08 — alertas e quitação
 
-Implementação local concluída em 04/11/2026; auditoria final pendente. Reutiliza o schema V10, sem nova migration, alteração de entidades ou mudança no MER. `Expense.paid`, `PendingPayment.status` e `PendingPayment.paidAt` continuam sendo os campos persistidos do ciclo de pagamento.
+Implementação local concluída em 04/11/2026. A auditoria final aprovou a versão com as correções da segunda rodada. Reutiliza o schema V10, sem nova migration, alteração de entidades ou mudança no MER. `Expense.paid`, `PendingPayment.status` e `PendingPayment.paidAt` continuam sendo os campos persistidos do ciclo de pagamento.
 
 | Método e caminho | Retorno | Comportamento |
 | --- | --- | --- |

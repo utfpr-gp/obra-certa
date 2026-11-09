@@ -362,7 +362,7 @@
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** S  
-- **Status:** 🟢 Implementada localmente — auditoria final pendente; sem declaração de implantação.
+- **Status:** 🟢 Implementada localmente — auditoria final aprovada.
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Despesas a prazo com pagamento pendente)  
 - **História:** Como proprietário com uma obra selecionada, quero visualizar no painel principal um resumo e a listagem das contas a pagar no horizonte de até 7 dias, podendo marcá-las como pagas com registro da data, para evitar juros e atrasos na obra.
 - **Regras de Negócio Associadas:** RN01, RN04, RN07
