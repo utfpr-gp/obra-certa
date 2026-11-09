@@ -23,6 +23,11 @@ public class ExpenseController {
     @GetMapping("/{id}")
     public ExpenseResponseDTO get(@PathVariable String id) { return service.get(id); }
 
+    @GetMapping
+    public ExpensePageResponseDTO list(@RequestParam org.springframework.util.MultiValueMap<String, String> parameters) {
+        return service.list(parameters);
+    }
+
     @DeleteMapping("/{id}")
     public ExpenseDeleteResponseDTO delete(@PathVariable String id) { return service.delete(id); }
 }

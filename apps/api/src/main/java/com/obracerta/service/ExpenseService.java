@@ -1,12 +1,15 @@
 package com.obracerta.service;
 
 import com.obracerta.enums.PaymentStatus;
+import com.obracerta.enums.ExpenseTab;
+import com.obracerta.enums.ExpenseSort;
 import com.obracerta.model.dto.expense.ExpenseCreateDTO;
 import com.obracerta.model.dto.expense.ExpenseUpdateDTO;
 import com.obracerta.model.dto.expense.ExpenseDeleteResponseDTO;
 import com.obracerta.integration.ReceiptStorage;
 import com.obracerta.exception.ReceiptException;
 import com.obracerta.model.entity.Expense;
+import com.obracerta.configuration.ClockConfiguration;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.repository.*;
 import com.obracerta.model.entity.*;
@@ -26,6 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.LocalDate;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.obracerta.model.dto.expense.ExpensePageResponseDTO;
+import com.obracerta.model.dto.expense.ExpenseTotalsDTO;
+import com.obracerta.model.dto.expense.ExpenseListQueryDTO;
+import org.springframework.util.MultiValueMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class ExpenseService {
@@ -42,7 +55,7 @@ public class ExpenseService {
     public ExpenseService(UserContextHelper identity, ProjectRepository projects,
             ExpenseCategoryRepository categories, SupplierRepository suppliers,
             BudgetRepository budgets, ExpenseRepository expenses) {
-        this(identity, projects, categories, suppliers, budgets, expenses, Clock.systemUTC());
+        this(identity, projects, categories, suppliers, budgets, expenses, Clock.system(ClockConfiguration.BUSINESS_ZONE));
     }
 
     public ExpenseService(UserContextHelper identity, ProjectRepository projects,
@@ -220,6 +233,97 @@ public class ExpenseService {
     public ExpenseResponseDTO get(String id) {
         return ExpenseMapper.toDTO(expenses.findActiveByIdAndOwner(id, identity.getAuthenticatedUser().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada")));
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(String projectId, int page, int size) {
+        return list(projectId, page, size, ExpenseTab.ALL);
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(String projectId, int page, int size, ExpenseTab tab) {
+        return list(new ExpenseListQueryDTO(projectId, page, size, tab, null, null, null, null, List.of(), null, ExpenseSort.PURCHASE_DATE_DESC));
+    }
+
+    @Transactional(readOnly = true)
+    public ExpensePageResponseDTO list(MultiValueMap<String, String> parameters) {
+        return list(parseQuery(parameters));
+    }
+
+    private ExpensePageResponseDTO list(ExpenseListQueryDTO query) {
+        User owner = identity.getAuthenticatedUser();
+        projects.findByIdAndUserIdAndDeletedAtIsNull(query.projectId(), owner.getId())
+                .orElseThrow(ResourceNotFoundException::new);
+        if (query.supplierId() != null)
+            suppliers.findByIdAndUserId(query.supplierId(), owner.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Fornecedor não encontrado"));
+        for (String categoryId : query.categoryIds()) {
+            if (!categories.existsById(categoryId)) invalid("Categoria de filtro inválida.");
+        }
+        LocalDate referenceDate = LocalDate.now(clock);
+        var result = expenses.findActiveByFilters(query, owner.getId(), referenceDate,
+                PageRequest.of(query.page(), query.size(), sortFor(query.sort())));
+        var totals = expenses.sumActiveByFilters(query, owner.getId(), referenceDate);
+        var summary = new ExpenseTotalsDTO(totals.getTotalPaid(), totals.getTotalPending(),
+                totals.getTotalPaid().add(totals.getTotalPending()));
+        return ExpenseMapper.toPageDTO(result, referenceDate, summary);
+    }
+
+    private static ExpenseListQueryDTO parseQuery(MultiValueMap<String, String> parameters) {
+        Set<String> allowed = Set.of("projectId", "page", "size", "tab", "purchaseDateFrom", "purchaseDateTo",
+                "dueDateFrom", "dueDateTo", "categoryIds", "supplierId", "sort");
+        for (var entry : parameters.entrySet()) {
+            if (!allowed.contains(entry.getKey()) || entry.getValue().isEmpty()
+                    || (!entry.getKey().equals("categoryIds") && entry.getValue().size() != 1)
+                    || entry.getValue().stream().anyMatch(value -> value == null || value.isBlank()))
+                invalid("Parâmetro de consulta inválido: " + entry.getKey());
+        }
+        try {
+            String projectId = validQueryId(parameters.getFirst("projectId"));
+            int page = Integer.parseInt(parameters.getFirst("page") == null ? "0" : parameters.getFirst("page"));
+            int size = Integer.parseInt(parameters.getFirst("size") == null ? "15" : parameters.getFirst("size"));
+            if (page < 0 || size < 1 || size > 15) invalid("Página ou tamanho inválido.");
+            ExpenseTab tab = ExpenseTab.valueOf(parameters.getFirst("tab") == null ? "ALL" : parameters.getFirst("tab"));
+            ExpenseSort sort = ExpenseSort.valueOf(parameters.getFirst("sort") == null
+                    ? "PURCHASE_DATE_DESC" : parameters.getFirst("sort"));
+            LocalDate purchaseFrom = queryDate(parameters.getFirst("purchaseDateFrom"));
+            LocalDate purchaseTo = queryDate(parameters.getFirst("purchaseDateTo"));
+            LocalDate dueFrom = queryDate(parameters.getFirst("dueDateFrom"));
+            LocalDate dueTo = queryDate(parameters.getFirst("dueDateTo"));
+            if (purchaseFrom != null && purchaseTo != null && purchaseFrom.isAfter(purchaseTo))
+                invalid("A data inicial da compra não pode ser posterior à final.");
+            if (dueFrom != null && dueTo != null && dueFrom.isAfter(dueTo))
+                invalid("A data inicial do vencimento não pode ser posterior à final.");
+            List<String> categoryIds = parameters.getOrDefault("categoryIds", List.of()).stream()
+                    .map(ExpenseService::validQueryId).distinct().toList();
+            String supplierId = parameters.containsKey("supplierId") ? validQueryId(parameters.getFirst("supplierId")) : null;
+            return new ExpenseListQueryDTO(projectId, page, size, tab, purchaseFrom, purchaseTo,
+                    dueFrom, dueTo, categoryIds, supplierId, sort);
+        } catch (IllegalArgumentException | java.time.format.DateTimeParseException exception) {
+            throw new ExpenseValidationException("Parâmetros de consulta inválidos.");
+        }
+    }
+
+    private static Sort sortFor(ExpenseSort sort) {
+        Sort primary = switch (sort) {
+            case PURCHASE_DATE_DESC -> Sort.by(Sort.Direction.DESC, "purchaseDate");
+            case PURCHASE_DATE_ASC -> Sort.by(Sort.Direction.ASC, "purchaseDate");
+            case AMOUNT_DESC -> Sort.by(Sort.Direction.DESC, "totalPrice");
+            case AMOUNT_ASC -> Sort.by(Sort.Direction.ASC, "totalPrice");
+        };
+        return primary.and(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    private static LocalDate queryDate(String value) {
+        if (value == null) return null;
+        if (!value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) invalid("Data de filtro inválida.");
+        return LocalDate.parse(value);
+    }
+
+    private static String validQueryId(String value) {
+        if (value == null || !UUID.fromString(value).toString().equalsIgnoreCase(value))
+            throw new IllegalArgumentException("Identificador inválido");
+        return value;
     }
 
     private static void validateNumber(BigDecimal number, int integers, String field) {

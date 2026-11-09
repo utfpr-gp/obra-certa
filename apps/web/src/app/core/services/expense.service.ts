@@ -2,7 +2,7 @@ import { HttpClient, HttpEvent } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ExpenseCreate, ExpenseDeleteResponse, ExpenseResponse, ExpenseUpdate } from '../models/expense-registration.model';
+import { ExpenseCreate, ExpenseDeleteResponse, ExpensePageResponse, ExpenseResponse, ExpenseUpdate, ExpenseTab, ExpenseFilters, ExpenseSort } from '../models/expense-registration.model';
 
 @Injectable({ providedIn: 'root' })
 export class ExpenseService {
@@ -27,6 +27,11 @@ export class ExpenseService {
 
   get(id: string): Observable<ExpenseResponse> {
     return this.http.get<ExpenseResponse>(`${this.endpoint}/${encodeURIComponent(id)}`);
+  }
+  list(projectId: string, page = 0, size = 15, tab: ExpenseTab = 'ALL', filters: ExpenseFilters = {}, sort: ExpenseSort = 'PURCHASE_DATE_DESC'): Observable<ExpensePageResponse> {
+    return this.http.get<ExpensePageResponse>(this.endpoint, {
+      params: { projectId, page, size, tab, ...filters, sort },
+    });
   }
   delete(id: string): Observable<ExpenseDeleteResponse> {
     return this.http.delete<ExpenseDeleteResponse>(`${this.endpoint}/${encodeURIComponent(id)}`);

@@ -44,5 +44,35 @@ export interface ExpenseResponse {
   receiptDeletionFailed?: boolean;
 }
 
+export interface ExpenseTotals {
+  totalPaid: number;
+  totalPending: number;
+  totalGeneral: number;
+}
+
+export interface ExpensePageResponse {
+  totals: ExpenseTotals;
+  content: ExpenseResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last?: boolean;
+  referenceDate?: string;
+}
+
+export type ExpenseSort = 'PURCHASE_DATE_DESC' | 'PURCHASE_DATE_ASC' | 'AMOUNT_DESC' | 'AMOUNT_ASC';
+
+export type ExpenseTab = 'ALL' | 'PENDING' | 'OVERDUE' | 'PAID';
+
 export type ExpenseUpdate = Pick<ExpenseCreate,
   'description' | 'purchaseDate' | 'categoryId' | 'valueMode' | 'quantity' | 'unitPrice' | 'totalPrice' | 'paid' | 'dueDate'>;
+
+export interface ExpenseFilters {
+  purchaseDateFrom?: string;
+  purchaseDateTo?: string;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  categoryIds?: string[];
+  supplierId?: string;
+}
