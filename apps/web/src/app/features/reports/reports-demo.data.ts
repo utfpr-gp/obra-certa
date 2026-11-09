@@ -6,7 +6,6 @@ export interface ReportDemoCategory {
   readonly color: string;
 }
 
-// TODO #8: substituir a massa demonstrativa pelo relatório integrado da obra.
 export const REPORT_DEMO_CATEGORIES: readonly ReportDemoCategory[] = [
   { id: 'structure', name: 'Fundação e Estrutura', plannedCents: 4500000, actualCents: 1550000, color: '#007f87' },
   { id: 'masonry', name: 'Alvenaria', plannedCents: 8500000, actualCents: 1200000, color: '#4884bb' },
