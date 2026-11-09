@@ -2,12 +2,16 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { Subject } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { authInterceptor } from '../../../core/interceptors/auth-interceptor';
+import { ExpenseCategory } from '../../../core/models/expense-category.model';
+import { ExpenseResponse } from '../../../core/models/expense-registration.model';
 import { NfePreview } from '../../../core/models/nfe-import.model';
 import { Project, ProjectStatus, ProjectType } from '../../../core/models/project.model';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
 import { Auth } from '../../../core/services/auth';
+import { NfeImportService } from '../../../core/services/nfe-import.service';
 import { NfeImportDialogComponent } from './nfe-import-dialog.component';
 
 describe('NfeImportDialogComponent', () => {
@@ -15,6 +19,7 @@ describe('NfeImportDialogComponent', () => {
   let http: HttpTestingController;
   let active: ActiveProjectService;
   let closedCount: number;
+  let opener: HTMLButtonElement;
 
   const projectA: Project = {
     id: 'project-a', name: 'Obra A', type: ProjectType.RENOVATION, status: ProjectStatus.IN_PROGRESS,
@@ -22,6 +27,8 @@ describe('NfeImportDialogComponent', () => {
   };
   const projectB: Project = { ...projectA, id: 'project-b', name: 'Obra B' };
   const url = `${environment.apiUrl}/api/projects/project-a/nfe/preview`;
+  const importsUrl = `${environment.apiUrl}/api/projects/project-a/nfe/imports`;
+  const categoriesUrl = `${environment.apiUrl}/api/expense-categories`;
 
   const preview: NfePreview = {
     projectId: 'project-a',
@@ -34,6 +41,27 @@ describe('NfeImportDialogComponent', () => {
     ],
     total: 170,
   };
+
+  const categories: ExpenseCategory[] = [
+    { id: 'cat-1', name: 'Alvenaria' },
+    { id: 'cat-2', name: 'Elétrica' },
+  ];
+
+  const created: ExpenseResponse[] = preview.items.map((item, index) => ({
+    id: `expense-${item.itemNumber}`,
+    projectId: 'project-a',
+    description: item.description,
+    purchaseDate: '2026-07-10',
+    categoryId: categories[index].id,
+    categoryName: categories[index].name,
+    supplier: { id: 'sup-1', name: 'Fornecedor XPTO', document: '12345678000199' },
+    paid: true,
+    dueDate: null,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.totalPrice,
+    receiptState: index === 0 ? 'UPLOADED' : 'NONE',
+  }));
 
   const el = <T extends HTMLElement = HTMLElement>(id: string): T | null =>
     fixture.nativeElement.querySelector(`[data-testid="${id}"]`);
@@ -61,6 +89,32 @@ describe('NfeImportDialogComponent', () => {
     click('nfe-submit');
   }
 
+  function openPreview(): void {
+    send();
+    http.expectOne(url).flush(preview);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush(categories);
+    fixture.detectChanges();
+  }
+
+  function selectCategory(itemNumber: number, categoryId: string): void {
+    const select = el<HTMLSelectElement>(`nfe-category-${itemNumber}`);
+    expect(select).withContext(`nfe-category-${itemNumber}`).not.toBeNull();
+    if (!select) return;
+    select.value = categoryId;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  function selectAllCategories(): void {
+    selectCategory(1, 'cat-1');
+    selectCategory(2, 'cat-2');
+  }
+
+  function confirm(): void {
+    click('nfe-confirm');
+  }
+
   beforeEach(async () => {
     localStorage.clear();
     await TestBed.configureTestingModule({
@@ -75,6 +129,10 @@ describe('NfeImportDialogComponent', () => {
     active = TestBed.inject(ActiveProjectService);
     active.setActiveProject(projectA, 'owner');
     http = TestBed.inject(HttpTestingController);
+    opener = document.createElement('button');
+    opener.textContent = 'Abrir importação';
+    document.body.appendChild(opener);
+    opener.focus();
     fixture = TestBed.createComponent(NfeImportDialogComponent);
     fixture.componentRef.setInput('projectId', projectA.id);
     closedCount = 0;
@@ -84,6 +142,7 @@ describe('NfeImportDialogComponent', () => {
 
   afterEach(() => {
     fixture.destroy();
+    opener.remove();
     http.verify();
     localStorage.clear();
   });
@@ -104,14 +163,7 @@ describe('NfeImportDialogComponent', () => {
   });
 
   it('sends the XML and shows supplier, issue date, access key, every item and the note total', () => {
-    send();
-
-    const request = http.expectOne(url);
-    expect(request.request.method).toBe('POST');
-    const body = request.request.body as FormData;
-    expect((body.get('file') as File).name).toBe('nota.xml');
-    request.flush(preview);
-    fixture.detectChanges();
+    openPreview();
 
     expect(el('nfe-supplier-name')?.textContent).toContain('Fornecedor XPTO');
     expect(el('nfe-supplier-document')?.textContent).toContain('12345678000199');
@@ -126,6 +178,7 @@ describe('NfeImportDialogComponent', () => {
     expect(items?.textContent).toContain('Areia média');
     expect(items?.textContent).toContain('120,00');
     expect(items?.querySelectorAll('[data-testid^="nfe-item-"]').length).toBe(2);
+    expect(el('nfe-submit')).toBeNull();
   });
 
   it('explains an invalid XML with the backend reason and offers manual registration', () => {
@@ -170,6 +223,8 @@ describe('NfeImportDialogComponent', () => {
     expect((retry.request.body as FormData).get('file')).toEqual(jasmine.any(File));
     expect(((retry.request.body as FormData).get('file') as File).name).toBe('nota.xml');
     retry.flush(preview);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush(categories);
     fixture.detectChanges();
     expect(el('nfe-supplier-name')?.textContent).toContain('Fornecedor XPTO');
   });
@@ -235,5 +290,314 @@ describe('NfeImportDialogComponent', () => {
     expect(el('nfe-preview')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Fornecedor XPTO');
     expect(closedCount).toBe(1);
+  });
+
+  it('blocks confirmation while an item has no category and lists the missing item numbers', () => {
+    openPreview();
+
+    expect(el('nfe-missing-categories')?.textContent).toContain('Itens sem categoria: 1, 2');
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeTrue();
+
+    selectCategory(1, 'cat-1');
+    expect(el('nfe-missing-categories')?.textContent).toContain('Itens sem categoria: 2');
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeTrue();
+
+    fixture.componentInstance.confirm();
+    fixture.detectChanges();
+    http.expectNone(importsUrl);
+  });
+
+  it('confirms the chosen categories and paid=true, then only Concluir emits imported and closed', async () => {
+    openPreview();
+    selectAllCategories();
+
+    const order: string[] = [];
+    let imported: ExpenseResponse[] | undefined;
+    fixture.componentInstance.imported.subscribe((list) => { order.push('imported'); imported = list; });
+    fixture.componentInstance.closed.subscribe(() => order.push('closed'));
+
+    expect(el<HTMLInputElement>('nfe-paid')?.checked).toBeTrue();
+    expect(el('nfe-paid-label')?.textContent).toContain('Paga em 10/07/2026');
+
+    confirm();
+    const request = http.expectOne(importsUrl);
+    expect(request.request.method).toBe('POST');
+    const body = request.request.body as FormData;
+    expect((body.get('file') as File).name).toBe('nota.xml');
+
+    const items = body.get('items') as Blob;
+    expect(items.type).toBe('application/json');
+    expect(JSON.parse(await items.text())).toEqual({
+      items: [
+        { itemNumber: 1, categoryId: 'cat-1' },
+        { itemNumber: 2, categoryId: 'cat-2' },
+      ],
+    });
+
+    const payment = body.get('payment') as Blob;
+    expect(payment.type).toBe('application/json');
+    expect(JSON.parse(await payment.text())).toEqual({ paid: true });
+
+    request.flush(created);
+    fixture.detectChanges();
+
+    expect(order).toEqual([]);
+    expect(el('nfe-result')?.textContent).toContain('2 linhas criadas');
+    expect(el('nfe-result')?.textContent).toContain('170,00');
+    expect(el('nfe-result')?.textContent).toContain('3526 0112 3456 7800 0199 5500 1000 0012 3410 0001 2345');
+    expect(el('close-nfe-import')).toBeNull();
+
+    click('nfe-finish');
+    expect(order).toEqual(['imported', 'closed']);
+    expect(imported).toEqual(created);
+  });
+
+  it('starts with the paid checkbox checked and sends paid=false with the pending consequence label', async () => {
+    openPreview();
+    selectAllCategories();
+
+    const paid = el<HTMLInputElement>('nfe-paid');
+    expect(paid?.checked).toBeTrue();
+    if (!paid) return;
+    paid.checked = false;
+    paid.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(el('nfe-paid-label')?.textContent).toContain('Pendente, vence em 10/07/2026');
+
+    confirm();
+    const request = http.expectOne(importsUrl);
+    const payment = (request.request.body as FormData).get('payment') as Blob;
+    expect(payment.type).toBe('application/json');
+    expect(JSON.parse(await payment.text())).toEqual({ paid: false });
+    request.flush(created);
+  });
+
+  it('sends only one confirmation when the button is clicked twice before the response', () => {
+    openPreview();
+    selectAllCategories();
+
+    const button = el<HTMLButtonElement>('nfe-confirm');
+    button?.click();
+    button?.click();
+    fixture.detectChanges();
+    fixture.componentInstance.confirm();
+
+    const requests = http.match((request) => request.url === importsUrl);
+    expect(requests.length).toBe(1);
+    requests[0].flush(created);
+    fixture.detectChanges();
+    expect(el('nfe-result')).not.toBeNull();
+  });
+
+  it('does not close through X, Escape or backdrop while the confirmation is in flight', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+    http.expectOne(importsUrl);
+
+    click('close-nfe-import');
+    expect(closedCount).toBe(0);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+
+    const backdrop = el('nfe-backdrop');
+    backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    expect(closedCount).toBe(0);
+  });
+
+  it('closes before confirming without sending any import', () => {
+    openPreview();
+    selectAllCategories();
+
+    click('close-nfe-import');
+
+    expect(closedCount).toBe(1);
+    http.expectNone(importsUrl);
+  });
+
+  it('shows a confirmation 409 without success or result and keeps the choices', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    http.expectOne(importsUrl).flush(
+      { status: 409, message: 'A nota fiscal já foi registrada', fieldErrors: [] },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+
+    expect(el('nfe-confirm-error')?.textContent).toContain('A nota fiscal já foi registrada');
+    expect(el('nfe-result')).toBeNull();
+    expect(el<HTMLSelectElement>('nfe-category-1')?.value).toBe('cat-1');
+    expect(el<HTMLSelectElement>('nfe-category-2')?.value).toBe('cat-2');
+  });
+
+  it('returns to the conference with the category message and keeps the choices after a 400', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+
+    http.expectOne(importsUrl).flush(
+      { status: 400, message: 'Itens sem categoria: 1, 3', fieldErrors: [] },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
+
+    expect(el('nfe-confirm-error')?.textContent).toContain('Itens sem categoria: 1, 3');
+    expect(el('nfe-preview')).not.toBeNull();
+    expect(el('nfe-result')).toBeNull();
+    expect(el<HTMLSelectElement>('nfe-category-1')?.value).toBe('cat-1');
+    expect(el<HTMLSelectElement>('nfe-category-2')?.value).toBe('cat-2');
+  });
+
+  it('blocks confirmation when categories fail to load and retries only the categories', () => {
+    send();
+    http.expectOne(url).flush(preview);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(el('nfe-categories-error')?.textContent).toContain('Não foi possível carregar as categorias');
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeTrue();
+
+    click('nfe-categories-retry');
+    http.expectNone(url);
+    http.expectOne(categoriesUrl).flush(categories);
+    fixture.detectChanges();
+
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeTrue();
+    selectAllCategories();
+    expect(el<HTMLButtonElement>('nfe-confirm')?.disabled).toBeFalse();
+  });
+
+  it('discards the confirmation response when the project changes while it is in flight', () => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+    const request = http.expectOne(importsUrl);
+
+    active.setActiveProject(projectB, 'owner');
+    fixture.detectChanges();
+    expect(closedCount).toBe(1);
+
+    request.flush(created);
+    fixture.detectChanges();
+
+    expect(el('nfe-result')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('linhas criadas');
+  });
+
+  it('reports an uncertain result after a confirmation timeout and retries the same form data', fakeAsync(() => {
+    openPreview();
+    selectAllCategories();
+    confirm();
+    const request = http.expectOne(importsUrl);
+
+    tick(30000);
+    fixture.detectChanges();
+
+    expect(request.cancelled).toBeTrue();
+    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-retry')).not.toBeNull();
+
+    click('nfe-confirm-retry');
+    const retry = http.expectOne(importsUrl);
+    expect((retry.request.body as FormData).get('file')).toEqual(jasmine.any(File));
+    retry.flush(created);
+    fixture.detectChanges();
+
+    expect(el('nfe-result')).not.toBeNull();
+  }));
+
+  it('ignores a different file chosen while the preview upload is in flight', () => {
+    const fileA = new File(['<nfe/>'], 'nota-a.xml', { type: 'application/xml' });
+    const fileB = new File(['<nfe/>'], 'nota-b.xml', { type: 'application/xml' });
+
+    choose(fileA);
+    click('nfe-submit');
+    const request = http.expectOne(url);
+    fixture.detectChanges();
+
+    expect(el<HTMLInputElement>('nfe-file-input')?.disabled).toBeTrue();
+    expect(el<HTMLButtonElement>('nfe-submit')?.disabled).toBeTrue();
+
+    choose(fileB);
+    expect(fixture.componentInstance.selectedFile()?.name).toBe('nota-a.xml');
+    expect(fixture.componentInstance.phase()).toBe('sending');
+    http.expectNone(url);
+
+    request.flush(preview);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush(categories);
+    fixture.detectChanges();
+
+    expect(el('nfe-supplier-name')?.textContent).toContain('Fornecedor XPTO');
+
+    selectAllCategories();
+    confirm();
+    const confirmation = http.expectOne(importsUrl);
+    expect(((confirmation.request.body as FormData).get('file') as File).name).toBe('nota-a.xml');
+    confirmation.flush(created);
+  });
+
+  it('discards a preview response from an older request generation', () => {
+    const service = TestBed.inject(NfeImportService);
+    const responses: Subject<NfePreview>[] = [];
+    spyOn(service, 'preview').and.callFake(() => {
+      const subject = new Subject<NfePreview>();
+      responses.push(subject);
+      return subject.asObservable();
+    });
+    const previewB: NfePreview = { ...preview, supplier: { name: 'Fornecedor B', document: '98765432000188' } };
+
+    choose(new File(['<nfe/>'], 'nota-a.xml', { type: 'application/xml' }));
+    click('nfe-submit');
+    expect(responses.length).toBe(1);
+
+    // White-box: simulate the component allowing a newer request while the first is still open.
+    fixture.componentInstance.phase.set('failure');
+    fixture.detectChanges();
+    choose(new File(['<nfe/>'], 'nota-b.xml', { type: 'application/xml' }));
+    click('nfe-submit');
+    expect(responses.length).toBe(2);
+
+    responses[0].next(preview);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.preview()).toBeNull();
+    expect(fixture.componentInstance.phase()).toBe('sending');
+    http.expectNone(categoriesUrl);
+
+    responses[1].next(previewB);
+    fixture.detectChanges();
+    http.expectOne(categoriesUrl).flush(categories);
+    fixture.detectChanges();
+
+    expect(el('nfe-supplier-name')?.textContent).toContain('Fornecedor B');
+  });
+
+  it('wraps Tab from the last focusable element to the first and Shift+Tab back', () => {
+    const first = el('close-nfe-import')!;
+    const last = el('nfe-submit')!;
+
+    last.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('returns focus to the opener when the dialog is destroyed', () => {
+    expect(document.activeElement).toBe(el('nfe-import-dialog'));
+
+    fixture.destroy();
+
+    expect(document.activeElement).toBe(opener);
   });
 });

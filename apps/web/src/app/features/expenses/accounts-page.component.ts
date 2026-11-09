@@ -148,6 +148,9 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
             Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.
           </p>
         }
+        @if (nfeImportNotice(); as notice) {
+          <p data-testid="nfe-import-notice" role="status" class="m-4 rounded-lg bg-teal-50 p-3 text-sm text-teal-900">{{ notice }}</p>
+        }
         <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
           <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
@@ -263,7 +266,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
           (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
       }
       @if (selectedNfeImport(); as selection) {
-        <app-nfe-import-dialog [projectId]="selection.projectId" (closed)="closeNfeImport()" />
+        <app-nfe-import-dialog [projectId]="selection.projectId" (closed)="closeNfeImport()" (imported)="onNfeImported($event)" />
       }
     </main>
   `,
@@ -336,6 +339,8 @@ export class AccountsPageComponent {
   readonly referenceDate = signal<string | null>(null);
   readonly settlement = signal<ExpenseResponse | null>(null);
   readonly settlementRefreshPending = signal(false);
+  readonly nfeImportNotice = signal<string | null>(null);
+  private nfeImportRefreshPending = false;
   private readonly paymentSelection = signal<{ projectId: string; context: number; target: PaymentTarget } | null>(null);
   readonly selectedPayment = computed(() => {
     const selection = this.paymentSelection();
@@ -381,6 +386,8 @@ export class AccountsPageComponent {
         this.settlementRefreshPending.set(false);
         this.paymentSelection.set(null);
         this.nfeImportSelection.set(null);
+        this.nfeImportNotice.set(null);
+        this.nfeImportRefreshPending = false;
         this.loading.set(false);
         const project = this.activeProject.activeProject();
         if (project) this.loadPage(0, { projectId: project.id });
@@ -415,6 +422,15 @@ export class AccountsPageComponent {
   }
 
   closeNfeImport(): void { this.nfeImportSelection.set(null); }
+
+  onNfeImported(created: ExpenseResponse[]): void {
+    const selection = this.selectedNfeImport();
+    if (!selection || !created.length || created.some(expense => expense.projectId !== selection.projectId)) return;
+    this.nfeImportNotice.set(`${created.length} ${created.length === 1 ? 'linha criada' : 'linhas criadas'} na importação da NF-e.`);
+    this.closeNfeImport();
+    this.nfeImportRefreshPending = true;
+    this.loadPage(this.page());
+  }
 
   onPaymentSettled(expense: ExpenseResponse): void {
     const selection = this.selectedPayment();
@@ -484,11 +500,14 @@ export class AccountsPageComponent {
         this.referenceDate.set(response.referenceDate ?? null);
         this.loading.set(false);
         this.settlementRefreshPending.set(false);
+        this.nfeImportRefreshPending = false;
       },
       error: () => {
         if (!isCurrent()) return;
         this.loading.set(false);
-        this.error.set('Não foi possível carregar as despesas.');
+        this.error.set(this.nfeImportRefreshPending
+          ? 'Importou, mas a consulta falhou. Consulte novamente as despesas.'
+          : 'Não foi possível carregar as despesas.');
       },
     });
   }

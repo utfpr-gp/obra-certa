@@ -12,6 +12,11 @@ export interface NfePreviewItem {
   totalPrice: number;
 }
 
+export interface NfeImportItemChoice {
+  itemNumber: number;
+  categoryId: string;
+}
+
 export interface NfePreview {
   projectId: string;
   accessKey: string;
