@@ -406,7 +406,7 @@
 
 ---
 
-### ⚪ US09 — Importação de Despesas via NF-e (Chave ou XML)
+### 🟢 US09 — Importação de Despesas via NF-e (XML)
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** L  
@@ -419,7 +419,7 @@
 **Critérios de Aceitação:**
 1. **Caminho Feliz (Extração híbrida e exibição de itens):**
    - **Dado** que o proprietário está na área de importação da sua obra,
-   - **Quando** ele faz upload do arquivo `.xml` da NF-e ou digita a chave de 44 dígitos (validada com dígito verificador módulo 11),
+   - **Quando** ele faz upload do arquivo `.xml` da NF-e,
    - **Então** o sistema processa os dados fiscais e exibe a tela de conferência com: fornecedor (Razão Social e CNPJ), data de emissão, chave fiscal e a listagem detalhada de todos os itens da nota (descrição, quantidade, unidade, valor unitário e total de cada item).
 2. **Caminho Feliz (Desdobro por itens e gravação das despesas):**
    - **Dado** que os itens da nota estão na tela de conferência,
@@ -433,8 +433,8 @@
    - **Dado** que a chave da NF-e extraída do XML já possui linhas ativas na mesma obra,
    - **Quando** tenta importar,
    - **Então** o sistema bloqueia a operação informando que a nota fiscal já foi registrada no sistema, prevenindo duplicidade de despesas.
-5. **Caminho Triste (XML corrompido, nota cancelada ou serviço indisponível):**
-   - **Dado** que o XML enviado é inválido/corrompido, a nota fiscal se encontra cancelada ou o serviço de consulta estiver fora do ar,
+5. **Caminho Triste (XML corrompido ou que não é NF-e):**
+   - **Dado** que o XML enviado é inválido/corrompido ou não é uma NF-e,
    - **Quando** o sistema tenta extrair os dados,
    - **Então** o sistema exibe alerta explicativo sobre o motivo da falha e oferece a opção de cadastro manual da despesa.
 
