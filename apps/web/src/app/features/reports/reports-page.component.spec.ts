@@ -347,6 +347,14 @@ describe('ReportsPageComponent real report', () => {
     expect(fixture.componentInstance.pdfError()).toBe('Não foi possível gerar o PDF.');
   });
 
+  it('reports that the project was not located when the PDF snapshot is not found', () => {
+    loadComparison();
+    fixture.componentInstance.exportPdf();
+    http.expectOne(r => r.url.endsWith('/reports/export')).flush({ message: 'Projeto não encontrado' }, { status: 404, statusText: 'Not Found' });
+    expect(fixture.componentInstance.pdfError()).toBe('A obra não foi localizada.');
+    expect(fixture.componentInstance.generatingPdf()).toBeFalse();
+  });
+
   it('uses one dynamic scale for planned and actual bars and omits unbudgeted categories', () => {
     loadComparison();
     const comparisons = root().querySelectorAll<HTMLElement>('.comparison-row');

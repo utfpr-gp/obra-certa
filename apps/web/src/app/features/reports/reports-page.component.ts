@@ -101,10 +101,10 @@ export class ReportsPageComponent extends ReportPresentationModel {
     this.pdfError.set(null);
     const isCurrent = () => !this.destroyRef.destroyed && generation === this.pdfGeneration
       && contextVersion === this.activeProject.contextVersion() && this.activeProject.activeProject()?.id === project.id;
-    const fail = () => {
+    const fail = (message = 'Não foi possível gerar o PDF.') => {
       if (!isCurrent()) return;
       this.generatingPdf.set(false);
-      this.pdfError.set('Não foi possível gerar o PDF.');
+      this.pdfError.set(message);
     };
     this.pdfRequest = this.reportService.exportSnapshot(project.id, this.appliedFrom(), this.appliedTo(), this.selectedCategory()).subscribe({
       next: snapshot => {
@@ -122,9 +122,9 @@ export class ReportsPageComponent extends ReportPresentationModel {
             anchor.click();
           } finally { URL.revokeObjectURL(url); }
           this.generatingPdf.set(false);
-        }).catch(fail);
+        }).catch(() => fail());
       },
-      error: fail,
+      error: (error: HttpErrorResponse) => fail(error.status === 404 ? 'A obra não foi localizada.' : undefined),
     });
   }
 }
