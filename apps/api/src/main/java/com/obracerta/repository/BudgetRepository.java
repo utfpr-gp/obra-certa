@@ -16,6 +16,17 @@ public interface BudgetRepository extends JpaRepository<Budget, String> {
     @EntityGraph(attributePaths = "category")
     List<Budget> findByProjectIdAndDeletedAtIsNull(String projectId);
 
+    @EntityGraph(attributePaths = "category")
+    @Query("""
+            select b from Budget b
+            where b.project.id = :projectId
+              and b.project.user.id = :userId
+              and b.project.deletedAt is null
+              and b.deletedAt is null
+            """)
+    List<Budget> findByProjectIdAndOwnerIdAndDeletedAtIsNull(@Param("projectId") String projectId,
+                                                              @Param("userId") String userId);
+
     Optional<Budget> findByProjectIdAndCategoryIdAndDeletedAtIsNull(String projectId, String categoryId);
 
     @Modifying

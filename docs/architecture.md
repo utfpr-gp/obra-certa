@@ -125,7 +125,7 @@ flowchart TD
 
 ## 🗄️ 3. Modelo de Dados (MER Consolidado)
 
-O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1–V9), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
+O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1-V10), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
 
 ```mermaid
 erDiagram
@@ -435,10 +435,19 @@ O índice de orçamento do item 1 está implementado pela V6. Os demais itens de
    - Listas pequenas, como categorias, retornam `List<T>` com `200 OK`. O painel de orçamento retorna um objeto `BudgetOverviewDTO`, contendo totais e a lista `categories`.
 3. **Escopo por Obra:**
    - Consultas de coleções filtram via query parameter obrigatório: `?projectId=<uuid>`.
-   - Leituras agregadas da obra residem sob: `GET /api/projects/{id}/reports/pdf`.
+   - Leituras agregadas da obra residem sob `GET /api/projects/{id}/reports`; a exportação visual usa `GET /api/projects/{id}/reports/export`, e o PDF legado permanece em `GET /api/projects/{id}/reports/pdf`.
 4. **Documentação OpenAPI / Swagger:**
    - Habilitado em desenvolvimento sob `/swagger-ui.html` e `/v3/api-docs` com esquema de segurança `bearerAuth` configurado para permitir testes diretos no navegador;
    - Desabilitado no perfil de produção (`springdoc.swagger-ui.enabled=false`).
+
+### Contrato implementado da US06 — relatórios
+
+- `GET /api/projects/{id}/reports`: JSON com identificação, totais previsto/realizado/pago/a pagar e consolidação por categoria. Aceita `from` e `to` opcionais em ISO (`LocalDate`); limita despesas por `purchaseDate` inclusiva e mantém o orçamento integral. Intervalo invertido retorna `400`.
+- `GET /api/projects/{id}/reports/export`: snapshot JSON autorizado com `report`, `filename`, `generatedAt`, `from`, `to` e `categoryName`. Aceita também `category`; os totais e valores de quitação refletem a categoria selecionada. A leitura usa uma transação `REPEATABLE_READ` e a resposta recebe `Cache-Control: no-store`.
+- `GET /api/projects/{id}/reports/pdf`: contrato legado `application/pdf` com consolidado e despesas individuais, gerado por Apache PDFBox 3.0.8. Não recebe os filtros da exportação visual. Nome de arquivo e data de geração são definidos no servidor com `Clock`.
+- `ReportController` delega a `ReportService`, que valida posse antes das consultas financeiras e usa `BigDecimal`. Consultas excluem despesas e orçamentos removidos logicamente; obra inexistente, excluída ou alheia retorna `404`. Categorias sem orçamento participam dos gastos, mas não do comparativo de tetos. Nenhuma migration foi necessária para a US06.
+- No Angular, `/relatorios` usa o layout autenticado e `core/services/report.service.ts`. Datas digitadas em Reactive Forms são separadas das aplicadas; limpar restaura o histórico e trocar de obra restaura o período vazio. Signals alimentam a apresentação compartilhada da tela e do PDF.
+- `ReportVisualExportService` carrega `html-to-image` 1.11.13 e `pdf-lib` 1.17.1 sob demanda, captura a apresentação isolada em composição desktop a 2x e pagina o PDF visual sem navegação, controles ou apêndice. O snapshot autorizado fornece período, categoria, nome e data, preservando os filtros da tela. A exportação mantém somente estado transitório, impede duplicidade e descarta trabalho abandonado ao mudar obra, filtros ou página, inclusive após etapas assíncronas locais. Em falha, apresenta apenas um erro, sem retry automático ou ação específica de nova tentativa.
 
 ### Contrato implementado da US05 — listagem de despesas
 

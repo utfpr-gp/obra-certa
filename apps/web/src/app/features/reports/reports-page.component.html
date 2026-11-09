@@ -1,0 +1,25 @@
+<main class="reports-page">
+  @if (loading()) { <p class="report-status" role="status">Carregando relatórios…</p> }
+  @if (error(); as reportError) { <div class="report-status error" role="alert">{{ reportError }} <button type="button" aria-label="Tentar novamente" (click)="retry()">Tentar novamente</button></div> }
+  @if (!activeProject.activeProject() && !loading() && !error()) { <p class="report-status" role="status">Selecione uma obra para consultar os relatórios.</p> }
+  @if (noExpenses()) { <p class="report-status" role="status">Esta obra ainda não possui despesas ativas. Os valores da distribuição estão zerados.</p> }
+  <header class="heading">
+    <div><h1>Relatórios</h1><p class="text-[#647897] mt-[5px] leading-relaxed">Obra: {{ reportProjectName() || activeProject.activeProject()?.name || 'não selecionada' }}. Entenda a distribuição dos gastos e compare o realizado com o orçamento da obra.</p></div>
+    <button type="button" class="export hover:bg-[#00686d]" [disabled]="exportableProjectId() === null" [attr.aria-busy]="generatingPdf()" (click)="exportPdf()"><svg lucideFileText [size]="17" aria-hidden="true" />{{ generatingPdf() ? 'Gerando PDF…' : 'Exportar PDF consolidado' }}</button>
+  </header>
+  @if (generatingPdf()) { <p class="pdf-notice" role="status">Gerando PDF…</p> }
+  @if (pdfError(); as exportError) { <p class="report-status error" role="alert">{{ exportError }}</p> }
+  <section class="filters" aria-label="Filtros do relatório">
+    <label for="report-from">Período de<input id="report-from" type="date" [formControl]="periodForm.controls.from" /></label>
+    <label for="report-to">Período até<input id="report-to" type="date" [formControl]="periodForm.controls.to" /></label>
+    <label for="report-category">Categoria<select id="report-category" (change)="selectCategory($event)">
+      <option value="all" [selected]="selectedCategory() === 'all'">Todas as categorias</option>
+      @for (category of categories(); track category.id) { <option [value]="category.id" [selected]="selectedCategory() === category.id">{{ category.name }}</option> }
+    </select></label>
+    <div class="period-actions"><button type="button" data-testid="apply-period" (click)="applyPeriod()">Filtrar</button><button type="button" data-testid="clear-period" (click)="clearPeriod()">Limpar</button></div>
+  </section>
+  @if (periodError(); as message) { <p class="report-status error" role="alert">{{ message }}</p> }
+
+  <app-report-presentation [model]="this" />
+  <footer class="report-footer flex justify-between gap-4 text-xs text-[#536b8c] pt-5 leading-relaxed"><p>O detalhamento integral de quitação da obra não está disponível nesta etapa.</p><p>Dados reais da obra ativa</p></footer>
+</main>
