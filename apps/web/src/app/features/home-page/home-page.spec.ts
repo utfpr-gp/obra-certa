@@ -4,7 +4,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
 import { Project, ProjectStatus, ProjectType } from '../../core/models/project.model';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
@@ -12,6 +12,8 @@ import { By } from '@angular/platform-browser';
 import { of, Subject, throwError } from 'rxjs';
 import { BudgetService } from '../../core/services/budget.service';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
+import { PaymentService } from '../../core/services/payment.service';
+import { PaymentAlerts } from '../../core/models/payment.model';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -23,6 +25,8 @@ describe('HomePage', () => {
   let projectService: jasmine.SpyObj<ProjectService>;
   let budgetService: jasmine.SpyObj<BudgetService>;
   let overviewRequests: { projectId: string; response: Subject<BudgetOverview> }[];
+  let paymentService: jasmine.SpyObj<PaymentService>;
+  let alerts: Subject<PaymentAlerts>;
 
   const activeProject: Project = {
     id: '550e8400-e29b-41d4-a716-446655440000',
@@ -60,6 +64,10 @@ describe('HomePage', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    alerts = new Subject<PaymentAlerts>();
+    paymentService = jasmine.createSpyObj<PaymentService>('PaymentService', ['getAlerts', 'requiresReconciliation']);
+    paymentService.requiresReconciliation.and.returnValue(false);
+    paymentService.getAlerts.and.returnValue(alerts);
     projectService = jasmine.createSpyObj<ProjectService>('ProjectService', [
       'getProjects',
       'deleteProject',
@@ -78,6 +86,7 @@ describe('HomePage', () => {
       providers: [
         { provide: ProjectService, useValue: projectService },
         { provide: BudgetService, useValue: budgetService },
+        { provide: PaymentService, useValue: paymentService },
         {
           provide: AuthenticatedIdentityService,
           useValue: { getUserId: () => 'user-1' },
@@ -106,9 +115,99 @@ describe('HomePage', () => {
     expect(component).toBeTruthy();
   });
 
+  it('offers the payment action only on pending alert rows and opens the shared modal', () => {
+    alerts.next(response()); fixture.detectChanges();
+    const actions = page().querySelectorAll<HTMLButtonElement>('[data-testid="mark-payment-paid"]');
+    expect(actions.length).toBe(3);
+    actions[0]?.click(); fixture.detectChanges();
+    expect(page().querySelector('app-payment-modal')).not.toBeNull();
+    expect(query('payment-modal')?.textContent).toContain('Cimento');
+  });
+
+  it('keeps the payment alert fixed at the top of the page', () => {
+    alerts.next(response()); fixture.detectChanges();
+    expect(query('payment-alert-banner')?.classList).toContain('sticky');
+    expect(page().querySelector('app-alert-banner')).not.toBeNull();
+  });
+
+  function response(description = 'Cimento'): PaymentAlerts {
+    return { projectId: activeProject.id, referenceDate: '2026-11-04', count: 3,
+      totalAmount: 123.45, items: [
+        { expenseId: '1', description, purchaseDate: '2026-10-01', dueDate: '2026-11-03', totalPrice: 23.45, urgency: 'OVERDUE' },
+        { expenseId: '2', description: 'Hoje', purchaseDate: '2026-10-01', dueDate: '2026-11-04', totalPrice: 50, urgency: 'DUE_SOON' },
+        { expenseId: '3', description: 'Semana', purchaseDate: '2026-10-01', dueDate: '2026-11-11', totalPrice: 50, urgency: 'REGULAR' },
+      ] };
+  }
+
+  it('renders the real summary and all urgency labels with color and civil due dates', () => {
+    alerts.next(response()); fixture.detectChanges();
+    const banner = query('payment-alert-banner')?.textContent ?? '';
+    expect(banner).toContain('Você tem 3 contas totalizando');
+    expect(banner).toContain('123,45');
+    expect(banner).toContain('a vencer nos próximos 7 dias');
+    expect(banner).toContain('Ver Conta');
+    const rows = page().querySelectorAll('[data-testid="payment-alert-item"]');
+    expect(rows.length).toBe(3);
+    expect(rows[0].textContent).toContain('Cimento');
+    expect(rows[0].textContent).toContain('03/11/2026');
+    expect(rows[0].textContent).toContain('Vencida');
+    expect(rows[1].textContent).toContain('Em até 3 dias');
+    expect(rows[2].textContent).toContain('A Vencer');
+  });
+
+  it('navigates to the accounts page when Ver Conta is clicked', () => {
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigateByUrl');
+    alerts.next(response()); fixture.detectChanges();
+    const action = query('payment-alert-banner')?.querySelector('button');
+    action?.click();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/contas');
+  });
+
+  it('shows positive empty state only after a successful empty response', () => {
+    expect(query('payment-alert-empty')).toBeNull();
+    alerts.next({ ...response(), count: 0, totalAmount: 0, items: [] }); fixture.detectChanges();
+    expect(query('payment-alert-empty')?.textContent).toContain('Nenhum pagamento pendente');
+    expect(query('payment-alert-banner')).toBeNull();
+  });
+
+  it('distinguishes failure from empty and retries only on manual action', () => {
+    alerts.error(new Error('network')); fixture.detectChanges();
+    expect(query('payment-alert-error')).not.toBeNull();
+    expect(query('payment-alert-empty')).toBeNull();
+    expect(query('payment-alert-loading')).toBeNull();
+    expect(paymentService.getAlerts).toHaveBeenCalledTimes(1);
+    const retry = new Subject<PaymentAlerts>(); paymentService.getAlerts.and.returnValue(retry);
+    click('retry-payment-alerts');
+    expect(paymentService.getAlerts).toHaveBeenCalledTimes(2);
+    retry.next(response()); fixture.detectChanges();
+    expect(query('payment-alert-error')).toBeNull();
+    expect(query('payment-alert-banner')).not.toBeNull();
+  });
+
+  it('does not query without a selected project and clears previous alerts', () => {
+    alerts.next(response()); fixture.detectChanges();
+    paymentService.getAlerts.calls.reset();
+    activeProjectState.set(null); fixture.detectChanges();
+    expect(paymentService.getAlerts).not.toHaveBeenCalled();
+    expect(query('payment-alert-banner')).toBeNull();
+  });
+
+  it('rejects both old success and error in A → B → A even before effects run', () => {
+    activeProjectState.set(anotherProject); activeProjectState.set(activeProject);
+    alerts.next(response('Resposta antiga')); fixture.detectChanges();
+    expect(query('payment-alert-banner')).toBeNull();
+    const current = new Subject<PaymentAlerts>();
+    paymentService.getAlerts.and.returnValue(current);
+    component.reloadPaymentAlerts();
+    alerts.error(new Error('old error')); fixture.detectChanges();
+    expect(query('payment-alert-error')).toBeNull();
+    current.next(response('Resposta atual')); fixture.detectChanges();
+    expect(query('payment-alert-banner')).not.toBeNull();
+  });
+
   it('displays a real UUID project without borrowing financial data from a mock', () => {
     expect(page().textContent).toContain(activeProject.name);
-    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     expect(page().textContent).not.toContain('Cimento CP II 50kg');
   });
 
@@ -122,7 +221,6 @@ describe('HomePage', () => {
 
   it('uses the global active project for the header and dashboard data', () => {
     expect(page().querySelector('h1')?.textContent).toContain(activeProject.name);
-    expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
   });
 
   describe('budget availability', () => {
@@ -291,7 +389,6 @@ describe('HomePage', () => {
       expect(component.projects().map((project) => project.id)).toEqual([firstProject.id]);
       expect(page().textContent).not.toContain('Vamos começar sua obra');
       expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     });
 
     it('does not show onboarding when the project list is not empty', () => {
@@ -327,7 +424,6 @@ describe('HomePage', () => {
 
       expect(page().textContent).not.toContain('Vamos começar sua obra');
       expect(page().querySelector('h1')?.textContent).toContain(firstProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
       expect(component.projects()).toEqual([]);
       expect(projectService.getProjects.calls.count()).toBe(callsBeforeActivation);
     });
@@ -363,7 +459,6 @@ describe('HomePage', () => {
 
       expect(activeProjectState()).toBe(activeProject);
       expect(query('projects-load-error')).not.toBeNull();
-      expect(page().textContent).not.toContain('Ainda não há dados financeiros disponíveis');
     });
 
     it('retries loading the projects from the error state', () => {
@@ -378,7 +473,6 @@ describe('HomePage', () => {
       expect(projectService.getProjects.calls.count()).toBe(callsBeforeRetry + 1);
       expect(query('projects-load-error')).toBeNull();
       expect(page().textContent).toContain(activeProject.name);
-      expect(page().textContent).toContain('Ainda não há dados financeiros disponíveis');
     });
   });
 

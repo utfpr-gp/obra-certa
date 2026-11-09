@@ -39,18 +39,26 @@
     </section>
   </main>
 } @else if (activeObra(); as obra) {
-<!-- Optional Danger / Due Today Alert Banner -->
-@if (obra.alertaHoje) {
-  <app-alert-banner
-    type="danger"
-    [title]="obra.alertaHoje!.titulo"
-    [message]="obra.alertaHoje!.detalhe"
-    actionLabel="Ver Conta"
-  />
+@if (paymentAlerts(); as alerts) {
+  @if (alerts.count > 0) {
+    <div data-testid="payment-alert-banner" class="sticky top-0 z-30">
+      <app-alert-banner
+        type="warning"
+        title="Você tem {{ alerts.count }} contas totalizando {{ formatBrl(alerts.totalAmount) }}"
+        message="a vencer nos próximos 7 dias."
+        actionLabel="Ver Conta"
+        (actionClick)="goToAccounts()"
+      />
+    </div>
+  }
 }
-
 <!-- Scrollable Main Dashboard Content -->
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
+<section aria-label="Alertas de pagamentos" aria-live="polite">
+  @if (paymentSettlement(); as settled) {
+    <p data-testid="payment-settled-notice" role="status" class="mb-3 rounded-lg bg-teal-50 p-3 text-teal-900">Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.</p>
+  }
+</section>
       <!-- Page Header with Title and Action CTA -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -60,9 +68,6 @@
           </h1>
           <p class="text-sm text-slate-500 mt-1">
             Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
-          </p>
-          <p class="text-sm text-slate-600 mt-2">
-            Ainda não há dados financeiros disponíveis para esta obra.
           </p>
           @if (deleteError()) {
             <div
@@ -149,8 +154,8 @@
         <!-- 3. Contas a Vencer Card Component -->
         <app-kpi-card
           title="Contas a Vencer"
-          [value]="obra.contasAVencerQtd + ' contas'"
-          subtitle="/ 30 dias"
+          [value]="paymentAlerts() ? paymentAlerts()!.count + ' contas' : '—'"
+          subtitle="/ próximos 7 dias e vencidas"
           icon="calendar-clock"
           iconBgClass="bg-amber-100/70 text-amber-700"
         />
@@ -191,54 +196,47 @@
 
       <!-- Bottom Lists: Contas Próximas & Últimos Gastos -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Panel 1: Contas Próximas -->
+        <!-- Panel 1: Pagamentos próximos (contas a vencer) -->
         <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-slate-900">
-                Contas Próximas ({{ obra.contasProximas.length }})
-              </h3>
-              <a
-                routerLink="/contas"
-                class="btn-oc-redirect"
-                title="Ver todas as contas"
-              >
+              <h3 class="text-base font-bold text-slate-900">Pagamentos próximos • 7 dias</h3>
+              <a routerLink="/contas" class="btn-oc-redirect" title="Ver todas as contas">
                 <span>Ver todas</span>
                 <svg lucideArrowRight [size]="14" />
               </a>
             </div>
 
-            <div class="divide-y divide-slate-100">
-              @for (conta of obra.contasProximas; track conta.id) {
-                <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
-                  <div class="flex items-center gap-2.5 min-w-0">
-                    <svg
-                      lucideClock
-                      [size]="16"
-                      class="shrink-0"
-                      [ngClass]="{
-                        'text-rose-500': conta.status === 'hoje' || conta.status === 'atrasado',
-                        'text-amber-500': conta.status === 'amanha',
-                        'text-slate-400': conta.status === 'futuro'
-                      }"
-                    />
-                    <span class="text-slate-700 truncate font-medium">
-                      {{ conta.descricao }} — {{ conta.vencimentoTexto }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <app-status-badge [status]="conta.status" />
-                    <span class="font-bold text-slate-900 tabular-nums">
-                      {{ formatBrl(conta.valor) }}
-                    </span>
-                  </div>
+            @if (paymentLoading()) {
+              <p data-testid="payment-alert-loading" class="text-sm text-slate-500">Carregando pagamentos...</p>
+            } @else if (paymentError()) {
+              <div data-testid="payment-alert-error" role="alert" class="text-sm text-rose-700">
+                <p>{{ paymentSettlement() ? 'A quitação ocorreu, mas a atualização da consulta falhou. Consulte novamente.' : 'Não foi possível carregar os pagamentos. Tente novamente.' }}</p>
+                <button type="button" data-testid="retry-payment-alerts" class="btn-oc-outline btn-sm mt-2" (click)="reloadPaymentAlerts()">Tentar novamente</button>
+              </div>
+            } @else if (paymentAlerts(); as alerts) {
+              @if (alerts.count > 0) {
+                <div class="divide-y divide-slate-100">
+                  @for (item of alerts.items; track item.expenseId) {
+                    <div data-testid="payment-alert-item" class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <svg lucideClock [size]="16" class="shrink-0" [class.text-amber-500]="item.urgency !== 'REGULAR'" [class.text-slate-400]="item.urgency === 'REGULAR'" />
+                        <span class="text-slate-700 truncate font-medium">
+                          {{ item.description }} <span class="text-slate-400">— {{ formatCivilDate(item.dueDate) }}</span>
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <app-status-badge [status]="urgencyBadgeStatus(item.urgency)" [label]="urgencyBadgeLabel(item.urgency)" />
+                        <span class="font-bold tabular-nums text-slate-900">{{ formatBrl(item.totalPrice) }}</span>
+                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline min-h-9 px-3 text-[#007A80] font-bold" (click)="openPayment(item)">Marcar como Pago</button>
+                      </div>
+                    </div>
+                  }
                 </div>
-              } @empty {
-                <div class="py-8 text-center text-sm text-slate-400">
-                  Nenhuma conta a vencer cadastrada.
-                </div>
+              } @else {
+                <p data-testid="payment-alert-empty" class="text-sm text-teal-800">Nenhum pagamento pendente no período. Tudo em dia!</p>
               }
-            </div>
+            }
           </div>
         </div>
 
@@ -250,7 +248,7 @@
                 Últimos Gastos ({{ obra.ultimosGastos.length }})
               </h3>
               <a
-                routerLink="/despesas"
+                routerLink="/contas"
                 class="btn-oc-redirect"
                 title="Ver todos os gastos"
               >
@@ -314,6 +312,11 @@
   (closed)="closeProjectModal()"
   (saved)="onProjectSaved()"
 />
+
+@if (selectedPayment(); as selection) {
+  <app-payment-modal [target]="selection.target" [projectId]="selection.projectId"
+    (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
+}
 
 <app-confirm-modal
   [isOpen]="deleteModalOpen()"

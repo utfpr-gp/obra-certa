@@ -1,20 +1,25 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { catchError, distinctUntilChanged, map, of, Subscription, switchMap, tap } from 'rxjs';
+import { PaymentAlertItem, PaymentAlerts, PaymentTarget, PaymentUrgency } from '../../core/models/payment.model';
+import { ExpenseResponse } from '../../core/models/expense-registration.model';
+import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
+import { PaymentService } from '../../core/services/payment.service';
+import { BudgetService } from '../../core/services/budget.service';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../core/services/project.service';
-import { BudgetService } from '../../core/services/budget.service';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { catchError, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { CategoryProgressCardComponent } from '../../shared/components/category-progress-card/category-progress-card.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { BadgeStatus, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
+import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 import { Project } from '../../core/models/project.model';
 import {
   LucideHome,
@@ -29,12 +34,13 @@ import {
   standalone: true,
   imports: [
     CommonModule,
+    PaymentModalComponent,
     RouterLink,
-    AlertBannerComponent,
     RadialGaugeComponent,
     KpiCardComponent,
     CategoryProgressCardComponent,
     StatusBadgeComponent,
+    AlertBannerComponent,
     ProjectModalComponent,
     ConfirmModalComponent,
     LucideHome,
@@ -49,8 +55,24 @@ import {
 export class HomePage {
   private activeProjectService = inject(ActiveProjectService);
   private projectService = inject(ProjectService);
-  private budgetService = inject(BudgetService);
   private userId = inject(AuthenticatedIdentityService).getUserId();
+  private readonly payments = inject(PaymentService);
+  private readonly budgetService = inject(BudgetService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private paymentRequest?: Subscription;
+  private paymentGeneration = 0;
+  private destroyed = false;
+  readonly paymentAlerts = signal<PaymentAlerts | null>(null);
+  readonly paymentLoading = signal(false);
+  readonly paymentError = signal(false);
+  readonly paymentSettlement = signal<ExpenseResponse | null>(null);
+  private readonly paymentSelection = signal<{ projectId: string; context: number; target: PaymentTarget } | null>(null);
+  readonly selectedPayment = computed(() => {
+    const selection = this.paymentSelection();
+    return selection?.context === this.activeProjectService.contextVersion()
+      && selection.projectId === this.activeProject()?.id ? selection : null;
+  });
 
   readonly activeProject = this.activeProjectService.activeProject;
   readonly projects = signal<Project[]>([]);
@@ -60,10 +82,6 @@ export class HomePage {
   readonly deleteModalOpen = signal(false);
   readonly deleteFailure = signal<{ id: string; name: string } | null>(null);
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
-  /**
-   * Financial endpoints are not part of this task yet. Keep the dashboard
-   * explicitly empty rather than associating mock financial records by id.
-   */
   readonly activeObra = computed<DashboardView | null>(() => {
     const project = this.activeProject();
     return project ? emptyDashboard(project.name) : null;
@@ -109,14 +127,20 @@ export class HomePage {
   constructor() {
     this.reloadProjects();
     this.watchBudgetAvailability();
+    effect(() => {
+      this.activeProjectService.contextVersion();
+      untracked(() => {
+        this.paymentSelection.set(null);
+        this.paymentSettlement.set(null);
+        this.reloadPaymentAlerts();
+      });
+    });
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.paymentRequest?.unsubscribe();
+    });
   }
 
-  /**
-   * CA5 da US14: o banner de obra sem orcamentos depende da API da US07. A cada troca
-   * de obra o estado volta a 'unknown' ate a resposta chegar; o switchMap descarta a
-   * resposta atrasada da obra anterior. Teto zerado conta como sem orcamento, e em
-   * falha o estado fica 'unknown' para nao anunciar um vazio que nao foi confirmado.
-   */
   private watchBudgetAvailability(): void {
     toObservable(this.activeProject)
       .pipe(
@@ -136,6 +160,66 @@ export class HomePage {
         takeUntilDestroyed(),
       )
       .subscribe((availability) => this.budgetAvailability.set(availability));
+  }
+
+  reloadPaymentAlerts(): void {
+    const generation = ++this.paymentGeneration;
+    const context = this.activeProjectService.contextVersion();
+    const projectId = this.activeProject()?.id;
+    this.paymentRequest?.unsubscribe();
+    this.paymentAlerts.set(null);
+    this.paymentError.set(false);
+    this.paymentLoading.set(!!projectId);
+    if (!projectId) return;
+    const current = () => !this.destroyed && generation === this.paymentGeneration
+      && context === this.activeProjectService.contextVersion()
+      && projectId === this.activeProject()?.id;
+    this.paymentRequest = this.payments.getAlerts(projectId).subscribe({
+      next: result => {
+        if (!current()) return;
+        this.paymentAlerts.set(result);
+        this.paymentLoading.set(false);
+      },
+      error: () => {
+        if (!current()) return;
+        this.paymentError.set(true);
+        this.paymentLoading.set(false);
+      },
+    });
+  }
+
+  urgencyBadgeStatus(urgency: PaymentUrgency): BadgeStatus {
+    return { OVERDUE: 'vencido', DUE_SOON: 'amanha', REGULAR: 'futuro' }[urgency] as BadgeStatus;
+  }
+
+  urgencyBadgeLabel(urgency: PaymentUrgency): string {
+    return { OVERDUE: 'Vencida', DUE_SOON: 'Em até 3 dias', REGULAR: 'A Vencer' }[urgency];
+  }
+
+  formatCivilDate(value: string): string {
+    return formatCivilDateValue(value);
+  }
+
+  openPayment(item: PaymentAlertItem): void {
+    const projectId = this.activeProject()?.id;
+    const alerts = this.paymentAlerts();
+    if (!projectId || !alerts || alerts.projectId !== projectId || !alerts.items.includes(item)) return;
+    this.paymentSelection.set({ projectId, context: this.activeProjectService.contextVersion(),
+      target: { ...item, referenceDate: alerts.referenceDate } });
+  }
+
+  goToAccounts(): void {
+    this.router.navigateByUrl('/contas');
+  }
+
+  closePayment(): void { this.paymentSelection.set(null); }
+
+  onPaymentSettled(expense: ExpenseResponse): void {
+    const selection = this.selectedPayment();
+    if (!selection || expense.projectId !== selection.projectId || expense.id !== selection.target.expenseId || !expense.paid) return;
+    this.closePayment();
+    this.paymentSettlement.set(expense);
+    this.reloadPaymentAlerts();
   }
 
   reloadProjects(): void {

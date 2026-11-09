@@ -537,6 +537,41 @@ flowchart LR
 - Em `401`, todas as mutações mantêm a cadeia de segurança e o interceptor existentes: logout, limpeza da obra e login. O usuário volta manualmente à despesa para tentar novamente; não há reautenticação inline nem restauração de intenção após login.
 - A listagem da US05 está na seção própria acima; não há catálogo global US15 nem tabela/fila/agendamento de limpeza. Falhas na tentativa física podem deixar objetos no armazenamento, sem garantia de recuperação posterior.
 
+### Contrato implementado da US08 — alertas e quitação
+
+Implementação local concluída em 04/11/2026. A auditoria final aprovou a versão com as correções da segunda rodada. Reutiliza o schema V10, sem nova migration, alteração de entidades ou mudança no MER. `Expense.paid`, `PendingPayment.status` e `PendingPayment.paidAt` continuam sendo os campos persistidos do ciclo de pagamento.
+
+| Método e caminho | Retorno | Comportamento |
+| --- | --- | --- |
+| `GET /api/projects/{projectId}/payment-alerts` | `200`, `PaymentAlertsDTO` | Retorna `projectId`, `referenceDate`, `count`, `totalAmount` e `items`, sem paginação ou truncamento. Cada item informa `expenseId`, `description`, `purchaseDate`, `dueDate`, `totalPrice` e `urgency`. |
+| `PUT /api/projects/{projectId}/expenses/{expenseId}/payment` | `200`, `ExpenseResponseDTO` | Recebe `PaymentSettlementRequestDTO` com `paymentDate` obrigatório em `yyyy-MM-dd`. Quita a despesa e o compromisso na mesma transação, preservando a primeira quitação nas repetições. |
+
+- A consulta usa uma única referência UTC obtida de `Clock` e inclui todas as contas vencidas e as que vencem até referência + 7 dias, inclusive. Exclui despesas pagas, pagamentos com status diferente de `PENDING`, vencimentos nulos e obra, despesa ou pagamento excluídos. A ordenação é por vencimento crescente e identificador da despesa. Quantidade e soma com `BigDecimal` derivam dos mesmos itens.
+- `urgency`: `OVERDUE` antes da referência; `DUE_SOON` entre referência e +3 dias; `REGULAR` de +4 até +7. A Home apresenta texto e cor correspondentes, resumo, lista, vazio positivo e erro com nova consulta manual.
+- A escrita identifica o usuário autenticado, autoriza a obra e obtém um bloqueio pessimista da linha da despesa por consulta SQL escalar `FOR UPDATE OF e`. Somente depois carrega despesa e pagamento, evitando decidir com estado materializado antes do bloqueio. Confere exclusão do pagamento antes de tratar idempotência; despesa pendente sem compromisso não é quitada por esta ação. Recurso inexistente, alheio, fora da obra ou excluído retorna `404` sem escrita.
+- Campo ausente, nulo ou formato de data inválido retorna `400`. Na transição de pendente para paga, a data não pode anteceder a compra; igualdade e datas futuras são aceitas. A data fornecida é convertida para início do dia UTC em `paid_at`; o status passa imediatamente para `PAID` e `Expense.paid` para verdadeiro. Vencimento, histórico e demais campos financeiros são preservados. Repetição sobre despesa já paga retorna o estado persistido sem sobrescrever sua data. O fluxo de edição completa da US04 continua com sua própria regra documentada acima.
+- `PaymentService` concentra autorização, classificação e agregação; `PaymentMapper` monta os itens de alerta e `ExpenseMapper` a resposta da quitação. A transação abrange ambos os registros. Os testes de integração verificam concorrência com sessões PostgreSQL identificadas e espera real por bloqueios, rollback após falha de gravação e autenticação JWT.
+- No Angular, `core/services/payment.service.ts` centraliza PUT, consulta de alertas e reconciliação pela leitura individual de `ExpenseService`, conferindo obra e despesa retornadas. As operações da US08 têm timeout de 30 segundos, sem repetição automática e preservando o interceptor de 401. O modal compartilhado em `shared/components/payment-modal/` usa formulário reativo, data sugerida igual ao maior valor entre referência UTC e compra, foco contido no diálogo e devolução ao acionador quando disponível. Cancelar, X e Escape fecham antes do envio; backdrop é inerte. Durante envio, confirmação e fechamento ficam bloqueados.
+- Home e Contas a Pagar reutilizam o mesmo modal. Sucesso fecha o diálogo e consulta os dados novamente; na listagem, preserva filtros/ordenação e ajusta página vazia. Falha nessa atualização informa que a quitação foi confirmada e oferece nova consulta. No envio com resultado incerto, o fluxo exige consultar a despesa antes de nova tentativa manual; um marcador transitório de incerteza pode sobreviver ao fechamento do modal, sem salvar a data digitada ou reenviar a operação. Resposta Pago confirma o estado persistido; Pendente libera tentativa manual; falha mantém recuperação por consulta.
+- A versão do contexto invalida seleção, diálogo e respostas antigas inclusive em A → B → A. Trocar de obra não promete desfazer uma transação enviada. `401` mantém logout, limpeza da obra e login, sem restauração da intenção. `shared/utils/civil-date.ts` compartilha a apresentação do dia civil entre Home e Contas a Pagar, sem deslocamento pelo fuso do navegador.
+
+```mermaid
+flowchart TD
+    Home["Home: contas vencidas e até 7 dias"] --> Modal["Modal compartilhado: data efetiva"]
+    Contas["Contas a Pagar: conta pendente"] --> Modal
+    Modal --> HTTP["PaymentService Angular: PUT de quitação"]
+    HTTP --> API["Controller → PaymentService Java"]
+    API --> Auth["Autorizar proprietário, obra e despesa"]
+    Auth --> Lock["Bloquear despesa no PostgreSQL"]
+    Lock --> Paid{"Despesa já paga?"}
+    Paid -->|Sim| Original["Retornar estado e data originais"]
+    Paid -->|Não| Date["Validar data e atualizar despesa + pagamento"]
+    Date --> Commit["Commit atômico"]
+    Commit --> Refresh["Fechar modal e consultar dados atuais"]
+    Original --> Refresh
+    HTTP -->|Resultado incerto| Recover["GET individual antes de nova tentativa manual"]
+```
+
 ## 🛡️ 7. Segurança, Isolamento e Soft Delete
 
 1. **Autenticação Stateless (JWT):**

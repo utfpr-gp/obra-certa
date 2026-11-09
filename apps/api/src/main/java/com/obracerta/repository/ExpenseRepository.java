@@ -16,6 +16,29 @@ import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, String> {
 
+    // Lock only the expense row, without loading the eager payment before acquiring the lock.
+    @Query(value = """
+            select e.id from expenses e join projects p on p.id = e.project_id
+            where e.id = :expenseId and p.id = :projectId and p.user_id = :userId
+              and e.deleted_at is null and p.deleted_at is null
+            for update of e
+            """, nativeQuery = true)
+    java.util.Optional<String> lockActivePaymentExpense(@Param("expenseId") String expenseId,
+                                                       @Param("projectId") String projectId,
+                                                       @Param("userId") String userId);
+
+    @Query("""
+            select e from Expense e join fetch e.pendingPayment pp
+            where e.project.id = :projectId and e.project.user.id = :userId
+              and e.project.deletedAt is null and e.deletedAt is null
+              and e.paid = false and pp.status = com.obracerta.enums.PaymentStatus.PENDING
+              and pp.deletedAt is null and pp.dueDate <= :horizon
+            order by pp.dueDate asc, e.id asc
+            """)
+    List<Expense> findPaymentAlerts(@Param("projectId") String projectId,
+                                    @Param("userId") String userId,
+                                    @Param("horizon") LocalDate horizon);
+
     String FILTERED_EXPENSES = """
             from Expense e left join e.pendingPayment pp
             where e.project.id = :#{#query.projectId()}

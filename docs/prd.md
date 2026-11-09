@@ -358,11 +358,11 @@
 
 ---
 
-### ⚪ US08 — Painel de Alertas de Vencimento de Pagamentos
+### 🟢 US08 — Painel de Alertas de Vencimento de Pagamentos
 - **Ator:** Proprietário  
 - **Prioridade:** Must Have  
 - **Tamanho:** S  
-- **Status:** ⚪ Draft  
+- **Status:** 🟢 Implementada localmente — auditoria final aprovada.
 - **Dependências:** US14 (Obra ativa selecionada); US03 (Despesas a prazo com pagamento pendente)  
 - **História:** Como proprietário com uma obra selecionada, quero visualizar no painel principal um resumo e a listagem das contas a pagar no horizonte de até 7 dias, podendo marcá-las como pagas com registro da data, para evitar juros e atrasos na obra.
 - **Regras de Negócio Associadas:** RN01, RN04, RN07
@@ -378,13 +378,15 @@
        - **Amarelo** para contas a vencer em até 3 dias (`hoje <= vencimento <= hoje + 3 dias`);
        - **Neutro/Regular** para contas a vencer entre 4 e 7 dias.
 2. **Caminho Feliz (Ação rápida de quitação com data efetiva e idempotência):**
-   - **Dado** que o proprietário clica em "Marcar como Pago" em um compromisso pendente no painel,
-   - **Quando** a ação é processada,
+   - **Dado** que o proprietário clica em "Marcar como Pago" em um compromisso pendente na Home ou em Contas a Pagar,
+   - **Quando** informa a data efetiva no modal e confirma a quitação,
    - **Então** o sistema:
-     - Registra a data atual como a data efetiva do pagamento;
+     - Exige e registra a data informada como data efetiva do pagamento, igual ou posterior à data da despesa, permitindo datas futuras;
      - Altera o status do pagamento para "Pago" e da despesa para quitada;
      - Remove o compromisso da listagem de alertas ativos e recalcula o totalizador do banner;
      - Garante idempotência (cliques repetidos não geram erro nem alteram a data original de quitação).
+     - Em Contas a Pagar, atualiza a listagem e os totalizadores, preservando filtros e ordenação; a conta sai das abas Pendentes/Vencidas e passa a constar como paga nas abas correspondentes.
+     - Cancelar o modal antes do envio não altera o pagamento. Durante o envio, bloqueia confirmações repetidas. Em falha, informa o problema e permite consultar o estado e tentar manualmente, sem anunciar sucesso nem reenviar automaticamente. Trocar de obra invalida o modal e respostas do contexto anterior; sessão expirada segue o fluxo de login existente.
 3. **Caminho Alternativo (Contas com vencimento superior a 7 dias):**
    - **Dado** que existem despesas a prazo com vencimento além de 7 dias no futuro,
    - **Quando** o painel da Home é renderizado,
