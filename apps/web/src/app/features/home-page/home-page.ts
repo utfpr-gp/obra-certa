@@ -1,5 +1,5 @@
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
-import { forkJoin, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { PaymentAlertItem, PaymentAlerts, PaymentTarget, PaymentUrgency } from '../../core/models/payment.model';
 import { ExpenseResponse } from '../../core/models/expense-registration.model';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
@@ -13,15 +13,11 @@ import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/model
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../core/services/project.service';
-import { BudgetService } from '../../core/services/budget.service';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { catchError, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { RadialGaugeComponent } from '../../shared/components/radial-gauge/radial-gauge.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { CategoryProgressCardComponent } from '../../shared/components/category-progress-card/category-progress-card.component';
 import { BadgeStatus, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { ProjectModalComponent } from '../../shared/components/project-modal/project-modal.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
@@ -60,7 +56,6 @@ import {
 export class HomePage {
   private activeProjectService = inject(ActiveProjectService);
   private projectService = inject(ProjectService);
-  private budgetService = inject(BudgetService);
   private userId = inject(AuthenticatedIdentityService).getUserId();
   private readonly payments = inject(PaymentService);
   private readonly budgetService = inject(BudgetService);
@@ -137,7 +132,6 @@ export class HomePage {
 
   constructor() {
     this.reloadProjects();
-    this.watchBudgetAvailability();
     effect(() => {
       this.activeProjectService.contextVersion();
       untracked(() => {
@@ -165,48 +159,25 @@ export class HomePage {
     if (!projectId) return;
     const current = () => !this.destroyed && context === this.activeProjectService.contextVersion()
       && projectId === this.activeProject()?.id;
-    this.dashboardRequest = forkJoin({
-      overview: this.budgetService.getOverview(projectId),
-      expenses: this.expenseService.list(projectId, 0, 5, 'ALL'),
-    }).subscribe({
-      next: ({ overview, expenses }) => {
+    const failed = () => {
+      if (current()) this.dashboardError.set(true);
+    };
+    const request = new Subscription();
+    this.dashboardRequest = request;
+    request.add(this.budgetService.getOverview(projectId).subscribe({
+      next: (overview) => {
         if (!current()) return;
         this.budgetOverview.set(overview);
-        this.recentExpenses.set(expenses.content);
         this.budgetAvailability.set(overview.budgetedCategories === 0 ? 'none' : 'available');
       },
-      error: () => {
-        if (!current()) return;
-        this.dashboardError.set(true);
+      error: failed,
+    }));
+    request.add(this.expenseService.list(projectId, 0, 5, 'ALL').subscribe({
+      next: (expenses) => {
+        if (current()) this.recentExpenses.set(expenses.content);
       },
-    });
-  }
-
-  /**
-   * CA5 da US14: o banner de obra sem orcamentos depende da API da US07. A cada troca
-   * de obra o estado volta a 'unknown' ate a resposta chegar; o switchMap descarta a
-   * resposta atrasada da obra anterior. Teto zerado conta como sem orcamento, e em
-   * falha o estado fica 'unknown' para nao anunciar um vazio que nao foi confirmado.
-   */
-  private watchBudgetAvailability(): void {
-    toObservable(this.activeProject)
-      .pipe(
-        map((project) => project?.id ?? null),
-        distinctUntilChanged(),
-        tap(() => this.budgetAvailability.set('unknown')),
-        switchMap((projectId) =>
-          projectId
-            ? this.budgetService.getOverview(projectId).pipe(
-                map((overview): BudgetAvailability =>
-                  overview.budgetedCategories > 0 ? 'available' : 'none',
-                ),
-                catchError(() => of<BudgetAvailability>('unknown')),
-              )
-            : of<BudgetAvailability>('unknown'),
-        ),
-        takeUntilDestroyed(),
-      )
-      .subscribe((availability) => this.budgetAvailability.set(availability));
+      error: failed,
+    }));
   }
 
   reloadPaymentAlerts(): void {

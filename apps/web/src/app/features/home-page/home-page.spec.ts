@@ -14,7 +14,6 @@ import { BudgetService } from '../../core/services/budget.service';
 import { BudgetCategory, BudgetOverview } from '../../core/models/budget.model';
 import { PaymentService } from '../../core/services/payment.service';
 import { PaymentAlerts } from '../../core/models/payment.model';
-import { BudgetOverview } from '../../core/models/budget.model';
 import { ExpensePageResponse } from '../../core/models/expense-registration.model';
 import { HttpTestingController } from '@angular/common/http/testing';
 
@@ -120,7 +119,7 @@ describe('HomePage', () => {
 
   it('fills the dashboard with the budget overview and recent expenses from the API', () => {
     const httpMock = TestBed.inject(HttpTestingController);
-    httpMock.expectOne((request) => request.url.endsWith('/api/budgets')).flush(overviewResponse());
+    overviewRequests[0].response.next(overviewResponse());
     httpMock.expectOne((request) => request.url.endsWith('/api/expenses')).flush(expensesResponse());
     fixture.detectChanges();
     expect(page().textContent).toContain('Alvenaria');
@@ -129,8 +128,7 @@ describe('HomePage', () => {
   });
 
   it('shows a retryable error when the dashboard data fails to load', () => {
-    const httpMock = TestBed.inject(HttpTestingController);
-    httpMock.expectOne((request) => request.url.endsWith('/api/budgets')).flush('erro', { status: 500, statusText: 'Server Error' });
+    overviewRequests[0].response.error(new Error('rede'));
     fixture.detectChanges();
     expect(query('dashboard-load-error')).not.toBeNull();
   });

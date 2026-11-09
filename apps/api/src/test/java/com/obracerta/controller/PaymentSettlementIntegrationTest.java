@@ -176,7 +176,7 @@ class PaymentSettlementIntegrationTest {
         jdbc.execute("alter table pending_payments add constraint " + constraint
                 + " check (expense_id <> '" + expense.getId() + "' or paid_at is null) not valid");
         try {
-            assertThatThrownBy(() -> settle("2030-02-01")).hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class);
+            settle("2030-02-01").andExpect(status().isConflict());
             assertThat(snapshot()).isEqualTo(before);
         } finally { jdbc.execute("alter table pending_payments drop constraint " + constraint); }
     }

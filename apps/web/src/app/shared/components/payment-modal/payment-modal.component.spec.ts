@@ -7,6 +7,8 @@ import { HomePage } from '../../../features/home-page/home-page';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../../core/services/project.service';
+import { BudgetService } from '../../../core/services/budget.service';
+import { ExpenseService } from '../../../core/services/expense.service';
 import { Auth } from '../../../core/services/auth';
 import { authInterceptor } from '../../../core/interceptors/auth-interceptor';
 import { Project, ProjectStatus, ProjectType } from '../../../core/models/project.model';
@@ -62,9 +64,17 @@ describe('Payment modal through the Home HTTP flow', () => {
       provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([]),
       { provide: AuthenticatedIdentityService, useValue: { getUserId: () => 'owner' } },
       { provide: ProjectService, useValue: { getProjects: () => of([project]) } },
+      { provide: BudgetService, useValue: { getOverview: () => of({
+        projectId: project.id, totalPlanned: 0, totalSpent: 0, available: 0,
+        globalPercentage: null, exceededCategories: 0, budgetedCategories: 0, categories: [],
+      }) } },
     ] }).compileComponents();
     active = TestBed.inject(ActiveProjectService); active.setActiveProject(project, 'owner');
     http = TestBed.inject(HttpTestingController);
+    spyOn(TestBed.inject(ExpenseService), 'list').and.returnValue(of({
+      totals: { totalPaid: 0, totalPending: 0, totalGeneral: 0 }, content: [],
+      page: 0, size: 5, totalElements: 0, totalPages: 0,
+    }));
     fixture = TestBed.createComponent(HomePage); fixture.detectChanges();
     http.expectOne(alertsUrl).flush(alerts()); fixture.detectChanges();
   });
