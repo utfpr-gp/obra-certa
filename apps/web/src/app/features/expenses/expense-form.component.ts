@@ -1,3 +1,4 @@
+import { ConnectivityService } from '../../core/services/connectivity.service';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
@@ -27,6 +28,7 @@ export class ExpenseFormComponent {
   private readonly budgetService = inject(BudgetService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  readonly offline = inject(ConnectivityService).offline;
   private readonly projects = inject(ActiveProjectService);
   readonly activeProject = this.projects.activeProject;
   private contextVersion = this.projects.contextVersion();
@@ -256,6 +258,7 @@ export class ExpenseFormComponent {
   }
 
   save(): void {
+    if (this.offline()) return;
     this.synchronizeContext();
     if (this.saving() || this.loading() || this.savedExpenseId()) return;
     this.form.markAllAsTouched();

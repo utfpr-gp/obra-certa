@@ -89,7 +89,7 @@ import { ActiveProjectService } from '../../core/services/active-project.service
           }
             <label class="block min-w-0 text-sm font-medium text-slate-700">
               <span>{{ expense.receiptState === 'UPLOADED' ? 'Substituir comprovante' : 'Comprovante' }} (JPEG, PNG e PDF, até 10 MB — 10 MiB)</span>
-              <input class="file-input mt-2 h-11 min-h-11 min-w-0 w-full overflow-hidden rounded-md border border-slate-300 bg-white p-0 text-sm leading-[42px] text-slate-600 file:mr-3 file:h-full file:rounded-none file:border-0 file:border-r file:border-solid file:border-slate-200 file:bg-slate-100 file:px-4 file:py-0 file:align-top file:text-sm file:leading-normal file:font-medium file:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc disabled:cursor-not-allowed disabled:opacity-60" data-testid="receipt-file" type="file"
+              <input class="file-input mt-2 h-11 min-h-11 min-w-0 w-full overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-sm leading-[42px] text-slate-600 file:mr-3 file:h-full file:rounded-none file:border-0 file:border-r file:border-solid file:border-slate-200 file:bg-slate-100 file:px-4 file:py-0 file:align-top file:text-sm file:leading-normal file:font-medium file:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc disabled:cursor-not-allowed disabled:opacity-60" data-testid="receipt-file" type="file"
                 accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" [disabled]="uploading() || removingReceipt() || downloading() || editing() !== null || deleting() || deleteConfirmation()"
                 (change)="selectReceipt($event)" />
             </label>

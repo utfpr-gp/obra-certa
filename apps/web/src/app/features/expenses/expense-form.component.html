@@ -1,7 +1,7 @@
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
   <header class="flex flex-wrap items-center justify-between gap-3">
     <div class="min-w-0">
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Cadastrar despesa</h1>
+      <h1 class="text-2xl font-bold text-slate-800">Cadastrar despesa</h1>
       @if (activeProject(); as project) {
         <p class="mt-1 text-sm text-slate-500 break-words">{{ project.name }}</p>
       }
@@ -24,16 +24,16 @@
       <section aria-labelledby="expense-information-title" class="space-y-4">
         <h2 id="expense-information-title" class="text-lg font-semibold text-slate-900">Informações da despesa</h2>
         <label class="block min-w-0 text-sm font-medium text-slate-700">Descrição <span class="text-rose-600" aria-hidden="true">*</span>
-          <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="description" placeholder="Ex.: Compra de cimento" aria-required="true" [attr.aria-invalid]="invalid('description')" />
+          <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="description" placeholder="Ex.: Compra de cimento" aria-required="true" [attr.aria-invalid]="invalid('description')" />
           @if (invalid('description')) { <span class="mt-1 block text-xs text-rose-700">Informe a descrição.</span> }
         </label>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block min-w-0 text-sm font-medium text-slate-700">Data da despesa <span class="text-rose-600" aria-hidden="true">*</span>
-            <input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="purchaseDate" aria-required="true" [attr.aria-invalid]="invalid('purchaseDate')" />
+            <input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="purchaseDate" aria-required="true" [attr.aria-invalid]="invalid('purchaseDate')" />
             @if (invalid('purchaseDate')) { <span class="mt-1 block text-xs text-rose-700">Informe uma data válida.</span> }
           </label>
           <label class="block min-w-0 text-sm font-medium text-slate-700">Categoria <span class="text-rose-600" aria-hidden="true">*</span>
-            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="categoryId" aria-required="true" [attr.aria-invalid]="invalid('categoryId')">
+            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="categoryId" aria-required="true" [attr.aria-invalid]="invalid('categoryId')">
               <option value="">Selecione a categoria</option>
               @for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
             </select>
@@ -58,17 +58,17 @@
         @if (inlineSupplier()) {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label class="block min-w-0 text-sm font-medium text-slate-700">Nome <span class="text-rose-600" aria-hidden="true">*</span>
-              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierName" placeholder="Ex.: Materiais de Construção Silva" aria-required="true" [attr.aria-invalid]="invalid('supplierName')" />
+              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierName" placeholder="Ex.: Materiais de Construção Silva" aria-required="true" [attr.aria-invalid]="invalid('supplierName')" />
               @if (invalid('supplierName')) { <span class="mt-1 block text-xs text-rose-700">Informe o nome (até 255 caracteres).</span> }
             </label>
             <label class="block min-w-0 text-sm font-medium text-slate-700">CNPJ (opcional)
-              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierDocument" inputmode="numeric" maxlength="18" (input)="onCnpjInput($event)" [attr.aria-invalid]="invalid('supplierDocument')" placeholder="00.000.000/0000-00" />
+              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierDocument" inputmode="numeric" maxlength="18" (input)="onCnpjInput($event)" [attr.aria-invalid]="invalid('supplierDocument')" placeholder="00.000.000/0000-00" />
               @if (invalid('supplierDocument')) { <span class="mt-1 block text-xs text-rose-700">Informe um CNPJ de 14 dígitos.</span> }
             </label>
           </div>
         } @else {
           <label class="block min-w-0 text-sm font-medium text-slate-700">Fornecedor cadastrado <span class="text-rose-600" aria-hidden="true">*</span>
-            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierId" aria-required="true" [attr.aria-invalid]="invalid('supplierId')">
+            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="supplierId" aria-required="true" [attr.aria-invalid]="invalid('supplierId')">
               <option value="">Selecione o fornecedor</option>
               @for (supplier of suppliers(); track supplier.id) { <option [value]="supplier.id">{{ supplier.name }}{{ supplier.document ? ' — ' + supplier.document : '' }}</option> }
             </select>
@@ -83,38 +83,38 @@
         <h2 id="expense-payment-title" class="text-lg font-semibold text-slate-900">Valores e pagamento</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block min-w-0 text-sm font-medium text-slate-700">Modo de valor
-            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="valueMode">
+            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="valueMode">
               <option value="DIRECT">Informar valor total</option>
               <option value="CALCULATED">Quantidade × valor unitário</option>
             </select>
           </label>
           @if (form.controls.valueMode.value === 'DIRECT') {
             <label class="block min-w-0 text-sm font-medium text-slate-700">Valor total <span class="text-rose-600" aria-hidden="true">*</span>
-              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" inputmode="numeric" formControlName="totalPrice" placeholder="R$ 0,00" aria-required="true" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" [attr.aria-invalid]="invalid('totalPrice')" />
+              <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" inputmode="numeric" formControlName="totalPrice" placeholder="R$ 0,00" aria-required="true" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" [attr.aria-invalid]="invalid('totalPrice')" />
               @if (invalid('totalPrice')) { <span class="mt-1 block text-xs text-rose-700">Informe um valor positivo com até duas casas decimais.</span> }
             </label>
           } @else {
             <div class="grid grid-cols-1 md:col-span-2 md:grid-cols-2 gap-4">
               <label class="block min-w-0 text-sm font-medium text-slate-700">Quantidade <span class="text-rose-600" aria-hidden="true">*</span>
-                <input type="number" step="0.01" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="quantity" placeholder="Ex.: 10" aria-required="true" [attr.aria-invalid]="invalid('quantity')" />
+                <input type="number" step="0.01" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="quantity" placeholder="Ex.: 10" aria-required="true" [attr.aria-invalid]="invalid('quantity')" />
                 @if (invalid('quantity')) { <span class="mt-1 block text-xs text-rose-700">Informe quantidade positiva com até duas casas decimais.</span> }
               </label>
               <label class="block min-w-0 text-sm font-medium text-slate-700">Valor unitário <span class="text-rose-600" aria-hidden="true">*</span>
-                <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" inputmode="numeric" formControlName="unitPrice" placeholder="R$ 0,00" aria-required="true" [value]="money(form.controls.unitPrice.value)" (input)="onMoneyInput($event,'unitPrice')" [attr.aria-invalid]="invalid('unitPrice')" />
+                <input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" inputmode="numeric" formControlName="unitPrice" placeholder="R$ 0,00" aria-required="true" [value]="money(form.controls.unitPrice.value)" (input)="onMoneyInput($event,'unitPrice')" [attr.aria-invalid]="invalid('unitPrice')" />
                 @if (invalid('unitPrice')) { <span class="mt-1 block text-xs text-rose-700">Informe valor positivo com até duas casas decimais.</span> }
               </label>
             </div>
             <output class="md:col-span-2 block rounded-md bg-[#E6F2F3] p-4 text-base font-semibold text-primary-oc" data-testid="calculated-total" aria-live="polite">Total: {{ money(calculatedTotal()) }}</output>
           }
           <label class="block min-w-0 text-sm font-medium text-slate-700">Pagamento
-            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="paid">
+            <select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="paid">
               <option [ngValue]="true">Quitada</option>
               <option [ngValue]="false">Não quitada</option>
             </select>
           </label>
           @if (!form.controls.paid.value) {
             <label class="block min-w-0 text-sm font-medium text-slate-700">Vencimento <span class="text-rose-600" aria-hidden="true">*</span>
-              <input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="dueDate" aria-required="true" required
+              <input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" formControlName="dueDate" aria-required="true" required
                 [min]="form.controls.purchaseDate.value" [attr.aria-invalid]="invalid('dueDate')" />
               @if (invalid('dueDate')) {
                 <span class="mt-1 block text-xs text-rose-700" role="alert">
@@ -128,7 +128,7 @@
       <section aria-labelledby="expense-receipt-title" class="border-t border-slate-200 pt-6 space-y-3">
         <h2 id="expense-receipt-title" class="text-lg font-semibold text-slate-900">Comprovante</h2>
         <label class="block min-w-0 text-sm font-medium text-slate-700">Comprovante (opcional)
-          <input #receiptInput type="file" class="file-input mt-1 h-11 min-h-11 min-w-0 w-full overflow-hidden rounded-md border border-slate-300 bg-white p-0 text-sm leading-[42px] text-slate-600 file:mr-3 file:h-full file:rounded-none file:border-0 file:border-r file:border-solid file:border-slate-200 file:bg-slate-100 file:px-4 file:py-0 file:align-top file:text-sm file:leading-normal file:font-medium file:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc disabled:cursor-not-allowed disabled:opacity-60 disabled:file:cursor-not-allowed" data-testid="receipt-file"
+          <input #receiptInput type="file" class="file-input mt-1 h-11 min-h-11 min-w-0 w-full overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-sm leading-[42px] text-slate-600 file:mr-3 file:h-full file:rounded-none file:border-0 file:border-r file:border-solid file:border-slate-200 file:bg-slate-100 file:px-4 file:py-0 file:align-top file:text-sm file:leading-normal file:font-medium file:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc disabled:cursor-not-allowed disabled:opacity-60 disabled:file:cursor-not-allowed" data-testid="receipt-file"
             accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" (change)="selectReceipt($event)"
             [disabled]="saving() || !!savedExpenseId()" aria-describedby="receipt-help" />
         </label>
@@ -147,7 +147,7 @@
       </section>
       <div class="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
         <button class="btn-oc-outline min-h-11 w-full sm:w-auto" type="button" data-testid="cancel-expense" (click)="cancel()">Cancelar</button>
-        <button class="btn-oc-primary min-h-11 w-full sm:w-auto disabled:opacity-60" type="submit" data-testid="save-expense" [disabled]="saving() || loading() || !!savedExpenseId()">
+        <button class="btn-oc-primary min-h-11 w-full sm:w-auto disabled:opacity-60" type="submit" data-testid="save-expense" [disabled]="offline() || saving() || loading() || !!savedExpenseId()">
           {{ saving() ? 'Salvando…' : 'Salvar despesa' }}
         </button>
       </div>

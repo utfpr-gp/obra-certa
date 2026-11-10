@@ -1,3 +1,4 @@
+import { ConnectivityService } from '../../../core/services/connectivity.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit,
@@ -45,6 +46,7 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   private readonly activeProject = inject(ActiveProjectService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  readonly offline = inject(ConnectivityService).offline;
   private readonly dialog = viewChild<ElementRef<HTMLElement>>('dialog');
   private readonly opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
@@ -171,6 +173,7 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   }
 
   confirm(): void {
+    if (this.offline()) return;
     if (!this.current() || this.phase() !== 'preview' || this.busy()) return;
     const note = this.preview();
     const file = this.selectedFile();

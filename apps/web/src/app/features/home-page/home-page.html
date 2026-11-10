@@ -64,7 +64,7 @@
       <!-- Page Header with Title and Action CTA -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2.5">
+          <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
             <svg lucideHome [size]="24" class="text-slate-700 shrink-0" />
             <span>{{ obra.nome }}</span>
           </h1>
@@ -81,7 +81,7 @@
               <button
                 type="button"
                 data-testid="retry-delete-project"
-                class="btn btn-sm mt-2 border-rose-300 bg-white text-rose-700"
+                class="btn min-h-11 mt-2 border-rose-300 bg-white text-rose-700"
                 (click)="openDeleteModal()"
               >
                 Tentar excluir novamente
@@ -116,13 +116,13 @@
             <span>Gerar Orçamento</span>
           </a>
         } @else {
-          <button
-            type="button"
+          <a
+            routerLink="/contas/nova"
             class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
           >
             <svg lucidePlusCircle [size]="18" />
             <span>Lançar Nova Despesa</span>
-          </button>
+          </a>
         }
         <button
           type="button"
@@ -136,7 +136,7 @@
       </div>
 
       <!-- KPI Summary Cards Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[270px_repeat(3,1fr)] gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3">
         <!-- 1. Total Gasto Radial Gauge Component -->
         <app-radial-gauge
           [percent]="obra.percentualGasto"
@@ -146,7 +146,7 @@
         />
 
         <!-- 2. Saldo Disponível Card Component -->
-        <app-kpi-card
+        <app-kpi-card [compact]="true"
           title="Saldo Disponível"
           [value]="activeBudget() ? formatBrl(obra.saldoDisponivel) : '—'"
           icon="piggy-bank"
@@ -154,7 +154,7 @@
         />
 
         <!-- 3. Contas a Vencer Card Component -->
-        <app-kpi-card
+        <app-kpi-card [compact]="true"
           title="Contas a Vencer"
           [value]="paymentAlerts() ? paymentAlerts()!.count + ' contas' : '—'"
           subtitle="/ próximos 7 dias e vencidas"
@@ -163,7 +163,7 @@
         />
 
         <!-- 4. Categorias em Risco Card Component -->
-        <app-kpi-card
+        <app-kpi-card [compact]="true"
           title="Categorias em Risco"
           [value]="activeBudget() ? riskCategories().length.toString() : '—'"
           [subtitle]="activeBudget() ? 'de ' + obra.categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '') : ''"
@@ -176,7 +176,7 @@
       <!-- Orçamento por Categoria Section -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-base font-bold text-slate-900">
+          <h2 class="text-xl font-semibold text-slate-800">
             Orçamento por categoria ({{ obra.categorias.length }})
           </h2>
           <a
@@ -199,10 +199,10 @@
       <!-- Bottom Lists: Contas Próximas & Últimos Gastos -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Panel 1: Pagamentos próximos (contas a vencer) -->
-        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-slate-900">Pagamentos próximos • 7 dias</h3>
+              <h3 class="text-base font-semibold text-slate-700">Pagamentos próximos • 7 dias</h3>
               <a routerLink="/contas" class="btn-oc-redirect" title="Ver todas as contas">
                 <span>Ver todas</span>
                 <svg lucideArrowRight [size]="14" />
@@ -214,7 +214,7 @@
             } @else if (paymentError()) {
               <div data-testid="payment-alert-error" role="alert" class="text-sm text-rose-700">
                 <p>{{ paymentSettlement() ? 'A quitação ocorreu, mas a atualização da consulta falhou. Consulte novamente.' : 'Não foi possível carregar os pagamentos. Tente novamente.' }}</p>
-                <button type="button" data-testid="retry-payment-alerts" class="btn-oc-outline btn-sm mt-2" (click)="reloadPaymentAlerts()">Tentar novamente</button>
+                <button type="button" data-testid="retry-payment-alerts" class="btn-oc-outline min-h-11 mt-2" (click)="reloadPaymentAlerts()">Tentar novamente</button>
               </div>
             } @else if (paymentAlerts(); as alerts) {
               @if (alerts.count > 0) {
@@ -230,7 +230,7 @@
                       <div class="flex items-center gap-2 shrink-0">
                         <app-status-badge [status]="urgencyBadgeStatus(item.urgency)" [label]="urgencyBadgeLabel(item.urgency)" />
                         <span class="font-bold tabular-nums text-slate-900">{{ formatBrl(item.totalPrice) }}</span>
-                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline min-h-9 px-3 text-[#007A80] font-bold" (click)="openPayment(item)">Marcar como Pago</button>
+                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline min-h-11 px-3 text-[#007A80] font-bold" (click)="openPayment(item)">Marcar como Pago</button>
                       </div>
                     </div>
                   }
@@ -243,10 +243,10 @@
         </div>
 
         <!-- Panel 2: Últimos Gastos -->
-        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-slate-900">
+              <h3 class="text-base font-semibold text-slate-700">
                 Últimos Gastos@if (!recentExpensesLoading() && !recentExpensesError()) { ({{ obra.ultimosGastos.length }}) }
               </h3>
               <a
@@ -291,7 +291,7 @@
                     Carregando últimos gastos...
                   } @else if (recentExpensesError()) {
                     <p role="alert">Não foi possível carregar os últimos gastos.</p>
-                    <button type="button" class="btn-oc-outline btn-sm mt-2" (click)="reloadRecentExpenses()">Tentar novamente</button>
+                    <button type="button" class="btn-oc-outline min-h-11 mt-2" (click)="reloadRecentExpenses()">Tentar novamente</button>
                   } @else {
                     Nenhum gasto registrado recentemente.
                   }
