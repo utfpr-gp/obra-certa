@@ -136,7 +136,7 @@
       </div>
 
       <!-- KPI Summary Cards Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div class="grid auto-rows-fr grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <!-- 1. Total Gasto Radial Gauge Component -->
         <app-radial-gauge
           [percent]="obra.percentualGasto"
@@ -189,7 +189,7 @@
           </a>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+        <div class="grid auto-rows-fr grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           @for (cat of obra.categorias; track cat.id) {
             <app-category-progress-card [category]="cat" />
           }
@@ -220,17 +220,17 @@
               @if (alerts.count > 0) {
                 <div class="divide-y divide-slate-100">
                   @for (item of alerts.items; track item.expenseId) {
-                    <div data-testid="payment-alert-item" class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
+                    <div data-testid="payment-alert-item" class="flex flex-col gap-2 rounded-lg px-2 py-3 text-sm transition-colors hover:bg-slate-50/70 md:flex-row md:items-center md:justify-between">
                       <div class="flex items-center gap-2.5 min-w-0">
                         <svg lucideClock [size]="16" class="shrink-0" [class.text-amber-500]="item.urgency !== 'REGULAR'" [class.text-slate-400]="item.urgency === 'REGULAR'" />
-                        <span class="text-slate-700 truncate font-medium">
-                          {{ item.description }} <span class="text-slate-400">— {{ formatCivilDate(item.dueDate) }}</span>
+                        <span class="min-w-0 break-words font-medium text-slate-700">
+                          {{ item.description }} <span class="whitespace-nowrap text-slate-500">— {{ formatCivilDate(item.dueDate) }}</span>
                         </span>
                       </div>
-                      <div class="flex items-center gap-2 shrink-0">
+                      <div class="flex flex-wrap items-center gap-2 md:shrink-0">
                         <app-status-badge [status]="urgencyBadgeStatus(item.urgency)" [label]="urgencyBadgeLabel(item.urgency)" />
                         <span class="font-bold tabular-nums text-slate-900">{{ formatBrl(item.totalPrice) }}</span>
-                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline min-h-11 px-3 text-[#007A80] font-bold" (click)="openPayment(item)">Marcar como Pago</button>
+                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline ml-auto h-11 min-h-11 px-2.5 text-xs font-semibold text-primary-oc md:ml-0 md:h-9 md:min-h-9" (click)="openPayment(item)">Marcar como Pago</button>
                       </div>
                     </div>
                   }
@@ -259,9 +259,9 @@
               </a>
             </div>
 
-            <div class="divide-y divide-slate-100">
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-2 divide-y divide-slate-100 px-2">
               @for (gasto of obra.ultimosGastos; track gasto.id) {
-                <div class="py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-slate-50/70 px-2 rounded-lg transition-colors">
+                <div class="col-span-full grid grid-cols-subgrid items-center rounded-lg py-2.5 text-sm transition-colors hover:bg-slate-50/70">
                   <div class="flex items-center gap-2.5 min-w-0">
                     @if (gasto.status === 'pago') {
                       <svg lucideCheckCircle [size]="16" class="text-[#007A80] shrink-0" />
@@ -272,10 +272,9 @@
                       {{ gasto.descricao }} <span class="text-slate-400">· {{ gasto.categoriaNome }}</span>
                     </span>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <app-status-badge [status]="gasto.status" />
+                    <app-status-badge class="justify-self-start" [status]="gasto.status" />
                     <span
-                      class="font-bold tabular-nums"
+                      class="text-right font-bold whitespace-nowrap tabular-nums"
                       [ngClass]="{
                         'text-slate-900': gasto.status === 'pago',
                         'text-amber-700': gasto.status === 'pendente'
@@ -283,10 +282,9 @@
                     >
                       {{ formatBrl(gasto.valor) }}
                     </span>
-                  </div>
                 </div>
               } @empty {
-                <div class="py-8 text-center text-sm text-slate-400">
+                <div class="col-span-full py-8 text-center text-sm text-slate-400">
                   @if (recentExpensesLoading()) {
                     Carregando últimos gastos...
                   } @else if (recentExpensesError()) {
