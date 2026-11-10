@@ -138,7 +138,7 @@
 - [x] **Tarefa 11 — Alinhar limites e contratos da importação**
   - Cobre CA2 e CA5 e os apontamentos B1 e B3. Documentar na spec os limites já aplicados de 10 MiB por arquivo e 11 MiB por requisição. Registrar na arquitetura os endpoints multipart, a migração V11 e os tipos MIME do comprovante XML. Alinhar a terminologia e remover duplicações no PRD.
   - Verificação: confrontar os documentos com os controllers, a configuração da API, o proxy e a migração. Sem alteração de comportamento nesta tarefa.
-- [ ] **Tarefa 12 — Recuperar a limpeza de XML após falhas na confirmação**
+- [x] **Tarefa 12 — Recuperar a limpeza de XML após falhas na confirmação**
   - Cobre CA8 e o apontamento B2. Registrar uma intenção de limpeza durável antes do upload. Vincular a conclusão dessa intenção à mesma transação que confirma a importação. Quando a confirmação falhar, tentar remover o objeto imediatamente e manter a intenção pendente se a remoção falhar. A reconciliação deve retomar pendências após reinício e distinguir uploads em andamento de importações confirmadas, sem apagar comprovantes válidos.
   - Testes primeiro: simular PUT persistido com resposta perdida, rollback seguido de falha no DELETE e retomada da limpeza. Verificar também que uma confirmação bem-sucedida e uma importação em andamento não perdem o XML. Validar persistência e concorrência com PostgreSQL.
 

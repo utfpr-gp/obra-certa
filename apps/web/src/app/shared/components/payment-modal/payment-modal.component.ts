@@ -99,8 +99,7 @@ export class PaymentModalComponent implements OnInit, AfterViewInit, OnDestroy {
     const nodes = Array.from(this.dialog().nativeElement.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'));
     const first = nodes[0], last = nodes[nodes.length - 1];
     if (!first) { event.preventDefault(); this.dialog().nativeElement.focus(); return; }
-    // The container itself (tabindex=-1) counts as "before the first": Shift+Tab goes to the last control.
-    if (event.shiftKey && (document.activeElement === first || document.activeElement === this.dialog().nativeElement || !this.dialog().nativeElement.contains(document.activeElement))) {
+    if (event.shiftKey && (document.activeElement === first || !this.dialog().nativeElement.contains(document.activeElement))) {
       event.preventDefault(); last.focus();
     } else if (!event.shiftKey && (document.activeElement === last || !this.dialog().nativeElement.contains(document.activeElement))) {
       event.preventDefault(); first.focus();

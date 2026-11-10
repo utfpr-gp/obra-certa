@@ -144,7 +144,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
       <section id="expenses-panel" role="tabpanel" tabindex="0" [attr.aria-labelledby]="'expense-tab-' + tab()"
         [attr.aria-busy]="loading()">
         @if (settlement(); as settled) {
-          <p data-testid="payment-settled-notice" role="status" class="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p data-testid="payment-settled-notice" role="status" class="m-4 rounded-lg bg-teal-50 p-3 text-sm text-teal-900">
             Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.
           </p>
         }
