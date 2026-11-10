@@ -28,6 +28,7 @@
     </span>
   </div>
 
+  <div class="flex shrink-0 items-center gap-2">
   @if (actionLabel()) {
     <button
       type="button"
@@ -43,4 +44,11 @@
       {{ actionLabel() }}
     </button>
   }
+  @if (dismissLabel(); as label) {
+    <button type="button" [attr.aria-label]="label" (click)="dismissClick.emit()"
+      class="min-h-11 min-w-11 rounded-md text-xl hover:bg-black/5">
+      <span aria-hidden="true">×</span>
+    </button>
+  }
+  </div>
 </div>

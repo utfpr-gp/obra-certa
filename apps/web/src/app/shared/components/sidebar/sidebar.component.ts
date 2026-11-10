@@ -6,7 +6,6 @@ import {
   LucideWallet,
   LucideReceipt,
   LucideCalendar,
-  LucideUsers,
   LucideFileText,
   LucideX
 } from '@lucide/angular';
@@ -29,7 +28,6 @@ export interface NavMenuItem {
     LucideWallet,
     LucideReceipt,
     LucideCalendar,
-    LucideUsers,
     LucideFileText,
     LucideX
   ],
@@ -44,7 +42,6 @@ export class SidebarComponent {
     { id: 'resumo', label: 'Resumo da Obra', icon: 'pie-chart', route: '/home' },
     { id: 'orcamentos', label: 'Orçamentos', icon: 'wallet', route: '/orcamentos' },
     { id: 'contas', label: 'Contas a Pagar', icon: 'calendar', route: '/contas' },
-    { id: 'fornecedores', label: 'Fornecedores', icon: 'users', route: '/fornecedores' },
     { id: 'relatorios', label: 'Relatórios', icon: 'file-text', route: '/relatorios' }
   ];
 
