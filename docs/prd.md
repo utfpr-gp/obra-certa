@@ -537,6 +537,39 @@
 
 ---
 
+### ⚪ US15 — Orçamento por Categoria a partir do CUB/m²
+
+- **História:** Como proprietário, quero usar o CUB/m² para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
+- **Status:** Rascunho.
+- **Regras de Negócio Associadas:** RN01, RN02, RN08.
+
+#### Critérios de Aceite
+
+1. Em **Orçamentos → Adicionar orçamento**, o proprietário pode escolher **Usar CUB**, informar a área equivalente e selecionar a UF, o mês de referência e um dos projetos-padrão R-1 Baixo, Normal ou Alto. O sistema consulta o índice na autoCUB API e apresenta a fonte, o valor em R$/m² e a estimativa calculada pela multiplicação do índice pela área equivalente.
+2. O sistema carrega os percentuais iniciais do projeto-padrão selecionado. O proprietário pode ajustar o rateio e conferir o valor de cada teto antes de salvar. Os percentuais devem ser não negativos e somar 100%. A soma dos valores em centavos deve corresponder ao total exibido.
+3. Na prévia, o sistema identifica as categorias que já têm teto e exibe os valores existentes. As parcelas calculadas para essas categorias ficam fora da gravação e não são redistribuídas automaticamente.
+4. Ao confirmar, o sistema cria tetos somente nas categorias sem teto e com parcela positiva na obra selecionada. A verificação é feita na gravação, inclusive para categorias que receberam um teto após a prévia. Se a gravação falhar, nenhum teto desse rateio é aplicado.
+5. Se a consulta falhar ou o índice selecionado estiver indisponível, o sistema informa a situação e impede a gravação pelo fluxo CUB até obter um índice válido.
+
+#### Percentuais iniciais por projeto-padrão
+
+| Categoria | R-1 Baixo | R-1 Normal | R-1 Alto |
+|---|---:|---:|---:|
+| Fundação e Estrutura | 25% | 24% | 22% |
+| Alvenaria | 15% | 12% | 10% |
+| Elétrica | 7% | 8% | 9% |
+| Hidráulica | 8% | 9% | 9% |
+| Telhado e Cobertura | 12% | 10% | 8% |
+| Esquadrias e Vidros | 8% | 11% | 14% |
+| Acabamento e Pintura | 25% | 26% | 28% |
+| Mão de Obra | 0% | 0% | 0% |
+| Taxas e Serviços | 0% | 0% | 0% |
+| **Total** | **100%** | **100%** | **100%** |
+
+Os percentuais são sugestões do Obra Certa. O rateio inicial inclui a mão de obra no valor de cada etapa. A parcela de **Fundação e Estrutura** representa a estrutura contemplada pelo CUB. O proprietário estima fundações e taxas separadamente.
+
+---
+
 ## 🛡️ 5. Regras de Negócio (Constraints)
 
 - **RN01 — Isolamento de Dados por Usuário e Obra (Anti-IDOR):** Um usuário só tem acesso a obras, despesas, orçamentos, fornecedores e pagamentos de sua própria titularidade. Qualquer tentativa de acesso a dados de terceiros deve ser tratada como recurso inexistente (não encontrado), sem expor a existência do registro.  
