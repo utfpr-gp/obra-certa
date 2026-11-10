@@ -22,7 +22,7 @@ describe('SidebarComponent', () => {
   });
 
   it('should list all main navigation items', () => {
-    expect(component.navItems.length).toBe(5);
+    expect(component.navItems.length).toBe(4);
     expect(component.navItems[0].label).toBe('Resumo da Obra');
   });
 

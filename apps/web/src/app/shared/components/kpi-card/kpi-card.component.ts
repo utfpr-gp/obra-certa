@@ -42,6 +42,7 @@ export type KpiIconType =
   styleUrl: './kpi-card.component.css'
 })
 export class KpiCardComponent {
+  compact = input(false);
   title = input.required<string>();
   value = input.required<string>();
   subtitle = input<string>();

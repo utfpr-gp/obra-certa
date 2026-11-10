@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "ObraCerta - Gestão de Obras",
+  "short_name": "ObraCerta",
+  "description": "Controle financeiro e planejamento orçamentário de obras residenciais autogeridas",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#007A80",
+  "background_color": "#F8FAFC",
+  "icons": [
+    { "src": "icons/obra-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/obra-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

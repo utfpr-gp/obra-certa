@@ -96,6 +96,19 @@ class ExpenseReceiptIntegrationTest {
                 .andExpect(header().string("Content-Disposition",org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("../"))));
     }
 
+    @Test void downloadsXmlNfeReceiptWithXmlFilename() throws Exception {
+        String id=create(body());
+        String key="expenses/"+id+"/nfe.xml";
+        byte[] xml=new org.springframework.core.io.ClassPathResource("nfe/nfe-valida.xml").getContentAsByteArray();
+        objects.put(key,xml);
+        jdbc.update("update expenses set receipt_state='UPLOADED',receipt_key=?,"
+                + "receipt_content_type='application/xml',receipt_size=? where id=?",key,xml.length,id);
+        mvc.perform(get("/api/expenses/"+id+"/receipt")).andExpect(status().isOk())
+                .andExpect(content().bytes(xml)).andExpect(content().contentType("application/xml"))
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString(".xml")));
+    }
+
     @ParameterizedTest
     @CsvSource({"receipt.txt,text/plain,text", "receipt.pdf,image/png,text", "receipt.png,application/pdf,text",
             "receipt.jpg,image/png,text", "receipt.gif,image/gif,text", "receipt.pdf,,text",

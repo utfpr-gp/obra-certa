@@ -82,6 +82,34 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    @ExceptionHandler(NfeInvalidXmlException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleNfeInvalidXml(
+            NfeInvalidXmlException exception,
+            HttpServletRequest request) {
+        return new ApiErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
+    @ExceptionHandler(NfeAlreadyRegisteredException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleNfeAlreadyRegistered(
+            NfeAlreadyRegisteredException exception,
+            HttpServletRequest request) {
+        return new ApiErrorResponse(
+                Instant.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiErrorResponse handleResourceNotFound(

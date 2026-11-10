@@ -51,6 +51,7 @@ public class ExpenseService {
     private final Clock clock;
     private final ReceiptStorage storage;
     private final TransactionTemplate transactions;
+    private final ExpenseReferenceResolver references;
 
     public ExpenseService(UserContextHelper identity, ProjectRepository projects,
             ExpenseCategoryRepository categories, SupplierRepository suppliers,
@@ -80,6 +81,7 @@ public class ExpenseService {
         this.transactions = transactionManager == null ? null : new TransactionTemplate(transactionManager);
         if (this.transactions != null)
             this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.references = new ExpenseReferenceResolver(budgets, suppliers);
     }
 
     public ExpenseDeleteResponseDTO delete(String id) {
@@ -135,13 +137,10 @@ public class ExpenseService {
             if (input.name() == null || input.name().isBlank() || input.name().trim().length() > 255
                     || (document != null && !document.matches("[0-9]{14}")))
                 invalid("Informe o nome e, se preenchido, CNPJ de 14 dígitos do fornecedor.");
-            supplier = document == null
-                    ? suppliers.save(Supplier.builder().user(owner).name(input.name().trim()).document(null).build())
-                    : suppliers.findFirstByUserIdAndDocument(owner.getId(), document).orElseGet(() ->
-                        suppliers.save(Supplier.builder().user(owner).name(input.name().trim()).document(document).build()));
+            supplier = references.findOrCreateSupplier(owner, document, input.name().trim(), false);
         }
         Expense expense = Expense.builder().user(owner).project(project).category(category).supplier(supplier)
-                .budget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(project.getId(), category.getId()).orElse(null))
+                .budget(references.resolveBudget(project.getId(), category.getId()))
                 .description(request.description().trim()).purchaseDate(request.purchaseDate()).paid(request.paid())
                 .quantity(calculated ? request.quantity() : null).unitPrice(calculated ? request.unitPrice() : null)
                 .totalPrice(total.setScale(2, RoundingMode.HALF_UP))
@@ -180,8 +179,7 @@ public class ExpenseService {
         expense.setDescription(request.description().trim());
         expense.setPurchaseDate(request.purchaseDate());
         expense.setCategory(category);
-        expense.setBudget(budgets.findByProjectIdAndCategoryIdAndDeletedAtIsNull(
-                expense.getProject().getId(), category.getId()).orElse(null));
+        expense.setBudget(references.resolveBudget(expense.getProject().getId(), category.getId()));
         expense.setQuantity(calculated ? request.quantity() : null);
         expense.setUnitPrice(calculated ? request.unitPrice() : null);
         expense.setTotalPrice(total.setScale(2, RoundingMode.HALF_UP));

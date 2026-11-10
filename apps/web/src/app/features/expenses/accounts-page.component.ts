@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal } from '@lucide/angular';
+import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp } from '@lucide/angular';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { forkJoin, timeout } from 'rxjs';
@@ -12,12 +12,13 @@ import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
 import { PaymentTarget } from '../../core/models/payment.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
+import { NfeImportDialogComponent } from './nfe-import/nfe-import-dialog.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, NfeImportDialogComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp],
   template: `
     <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
       <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -25,10 +26,16 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
           <h1 class="text-2xl font-bold text-slate-800">Contas a Pagar</h1>
           <p class="mt-1 text-sm text-slate-500">Acompanhe os compromissos da obra e mantenha o histórico de quitações.</p>
         </div>
-        <a routerLink="/contas/nova" data-testid="create-account"
-          class="btn-oc-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
-          <svg lucidePlus [size]="18" aria-hidden="true" />Cadastrar conta
-        </a>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <a routerLink="/contas/nova" data-testid="create-account"
+            class="btn-oc-primary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
+            <svg lucidePlus [size]="18" aria-hidden="true" />Cadastrar conta
+          </a>
+          <button type="button" data-testid="import-nfe" (click)="openNfeImport()" [disabled]="!hasActiveProject()"
+            class="btn-oc-secondary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">
+            <svg lucideFileUp [size]="18" aria-hidden="true" />Importar NF-e
+          </button>
+        </div>
       </header>
       @if (hasActiveProject()) {
         <section aria-label="Totalizadores das despesas" [attr.aria-busy]="loading()" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -141,6 +148,9 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
             Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.
           </p>
         }
+        @if (nfeImportNotice(); as notice) {
+          <p data-testid="nfe-import-notice" role="status" class="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{{ notice }}</p>
+        }
         <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
           <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
@@ -191,7 +201,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                   <div><dt class="font-medium">Situação</dt><dd>@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                 </dl>
                 @if (expense) {
-                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <div class="mt-2 flex flex-nowrap items-center gap-2">
                     <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                     @if (!expense.paid) {
                       <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -223,7 +233,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                     <td class="px-4 py-3">@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">
                       @if (expense) {
-                        <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                           <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                           @if (!expense.paid) {
                             <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -239,7 +249,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         }
         </div>
         <nav data-testid="pagination" aria-label="Paginação" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
-          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() === 0" (click)="loadPage(page() - 1)">Anterior</button>
+          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() === 0" (click)="goToPage(page() - 1)">Anterior</button>
           <div class="text-center text-xs text-slate-500">
             @if (loading()) { <span>Atualizando página...</span><span class="mt-1 block">Aguarde os resultados</span> }
             @else {
@@ -247,13 +257,16 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               @if (totalElements() !== null) { <span class="mt-1 block">{{ totalElements() }} {{ totalElements() === 1 ? 'registro' : 'registros' }} no resultado</span> }
             }
           </div>
-          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() + 1 >= totalPages()" (click)="loadPage(page() + 1)">Próxima</button>
+          <button type="button" class="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" [disabled]="page() + 1 >= totalPages()" (click)="goToPage(page() + 1)">Próxima</button>
         </nav>
       </section>
       </section>
       @if (selectedPayment(); as selection) {
         <app-payment-modal [target]="selection.target" [projectId]="selection.projectId"
           (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
+      }
+      @if (selectedNfeImport(); as selection) {
+        <app-nfe-import-dialog [projectId]="selection.projectId" (closed)="closeNfeImport()" (imported)="onNfeImported($event)" />
       }
     </main>
   `,
@@ -326,9 +339,17 @@ export class AccountsPageComponent {
   readonly referenceDate = signal<string | null>(null);
   readonly settlement = signal<ExpenseResponse | null>(null);
   readonly settlementRefreshPending = signal(false);
+  readonly nfeImportNotice = signal<string | null>(null);
+  private nfeImportRefreshPending = false;
   private readonly paymentSelection = signal<{ projectId: string; context: number; target: PaymentTarget } | null>(null);
   readonly selectedPayment = computed(() => {
     const selection = this.paymentSelection();
+    return selection?.context === this.activeProject.contextVersion()
+      && selection.projectId === this.activeProject.activeProject()?.id ? selection : null;
+  });
+  private readonly nfeImportSelection = signal<{ projectId: string; context: number } | null>(null);
+  readonly selectedNfeImport = computed(() => {
+    const selection = this.nfeImportSelection();
     return selection?.context === this.activeProject.contextVersion()
       && selection.projectId === this.activeProject.activeProject()?.id ? selection : null;
   });
@@ -364,6 +385,9 @@ export class AccountsPageComponent {
         this.settlement.set(null);
         this.settlementRefreshPending.set(false);
         this.paymentSelection.set(null);
+        this.nfeImportSelection.set(null);
+        this.nfeImportNotice.set(null);
+        this.nfeImportRefreshPending = false;
         this.loading.set(false);
         const project = this.activeProject.activeProject();
         if (project) this.loadPage(0, { projectId: project.id });
@@ -391,6 +415,28 @@ export class AccountsPageComponent {
 
   closePayment(): void { this.paymentSelection.set(null); }
 
+  openNfeImport(): void {
+    const projectId = this.activeProject.activeProject()?.id;
+    if (!projectId) return;
+    this.nfeImportSelection.set({ projectId, context: this.activeProject.contextVersion() });
+  }
+
+  closeNfeImport(): void { this.nfeImportSelection.set(null); }
+
+  onNfeImported(created: ExpenseResponse[]): void {
+    const selection = this.selectedNfeImport();
+    if (!selection || !created.length || created.some(expense => expense.projectId !== selection.projectId)) return;
+    this.nfeImportNotice.set(`${created.length} ${created.length === 1 ? 'linha criada' : 'linhas criadas'} na importação da NF-e.`);
+    this.closeNfeImport();
+    this.nfeImportRefreshPending = true;
+    this.loadPage(this.page());
+  }
+
+  goToPage(page: number): void {
+    this.nfeImportNotice.set(null);
+    this.loadPage(page);
+  }
+
   onPaymentSettled(expense: ExpenseResponse): void {
     const selection = this.selectedPayment();
     if (!selection || expense.projectId !== selection.projectId
@@ -415,9 +461,13 @@ export class AccountsPageComponent {
   }
 
   loadPage(page: number, options: { projectId?: string; adjustEmptyPage?: boolean } = {}): void {
+    // The import origin travels with this request: consumed once the request is actually issued.
+    // Early exits keep the flag, so a later load still knows it comes from an import.
+    const fromNfeImport = this.nfeImportRefreshPending;
     const projectId = options.projectId ?? this.activeProject.activeProject()?.id;
     if (!projectId || page < 0) return;
     if (this.filterForm.invalid && !options.adjustEmptyPage) { this.showInvalidFilters(); return; }
+    this.nfeImportRefreshPending = false;
     const queryVersion = ++this.queryVersion;
     const contextVersion = this.activeProject.contextVersion();
     const isCurrent = () => !this.destroyRef.destroyed && this.queryVersion === queryVersion
@@ -463,13 +513,16 @@ export class AccountsPageComponent {
       error: () => {
         if (!isCurrent()) return;
         this.loading.set(false);
-        this.error.set('Não foi possível carregar as despesas.');
+        this.error.set(fromNfeImport
+          ? 'Importou, mas a consulta falhou. Consulte novamente as despesas.'
+          : 'Não foi possível carregar as despesas.');
       },
     });
   }
 
   selectTab(tab: ExpenseTab): void {
     if (this.tab() === tab) return;
+    this.nfeImportNotice.set(null);
     this.tab.set(tab);
     this.page.set(0);
     this.loadPage(0);
@@ -494,6 +547,7 @@ export class AccountsPageComponent {
   selectSort(event: Event): void {
     const sort = (event.target as HTMLSelectElement).value as ExpenseSort;
     if (this.sort() === sort) return;
+    this.nfeImportNotice.set(null);
     this.sort.set(sort);
     this.page.set(0);
     this.loadPage(0);
@@ -531,6 +585,7 @@ export class AccountsPageComponent {
       if (value[key]) filters[key] = value[key];
     }
     if (value.categoryIds.length) filters.categoryIds = [...value.categoryIds];
+    this.nfeImportNotice.set(null);
     this.filters.set(filters);
     this.page.set(0);
     this.loadPage(0);
@@ -539,6 +594,7 @@ export class AccountsPageComponent {
   clearFilters(): void {
     this.filterForm.reset();
     this.validationAttempted.set(false);
+    this.nfeImportNotice.set(null);
     this.filters.set({});
     this.page.set(0);
     this.loadPage(0);

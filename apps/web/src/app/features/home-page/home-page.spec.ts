@@ -252,6 +252,21 @@ describe('HomePage', () => {
       expect(budgetService.getOverview).toHaveBeenCalledWith(activeProject.id);
     });
 
+    it('renders the active project budget totals and categories at risk', () => {
+      answer(activeProject.id, {
+        ...overview(activeProject.id, 1),
+        totalSpent: 930, available: 70, globalPercentage: 93,
+        categories: [{
+          categoryId: 'materials', categoryName: 'Materiais', plannedAmount: 1000,
+          spentAmount: 930, balanceAmount: 70, percentage: 93, state: 'WARNING', hasBudget: true,
+        }],
+      });
+
+      expect(page().querySelector('app-radial-gauge')?.textContent).toContain('930,00');
+      expect(page().textContent).toContain('70,00');
+      expect(page().textContent).toContain('de 1 — Materiais');
+    });
+
     it('does not advertise missing budgets while the budget API has not answered', () => {
       expect(query('define-project-budgets')).toBeNull();
       expect(query('generate-budget')).toBeNull();

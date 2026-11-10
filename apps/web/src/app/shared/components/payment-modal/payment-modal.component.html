@@ -15,7 +15,7 @@
         <input #dateInput id="payment-date" data-testid="payment-date" type="date" required formControlName="paymentDate"
           [min]="target().purchaseDate" [readOnly]="phase() !== 'ready'"
           [attr.aria-invalid]="form.controls.paymentDate.touched && form.controls.paymentDate.invalid"
-          aria-describedby="payment-date-error" class="input input-bordered mt-1 w-full focus:outline-primary-oc" />
+          aria-describedby="payment-date-error" class="input mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc aria-invalid:border-rose-500" />
         @if (form.controls.paymentDate.touched && form.controls.paymentDate.invalid) {
           <p id="payment-date-error" data-testid="payment-date-error" class="mt-1 text-sm text-rose-700" role="alert">Informe uma data válida, igual ou posterior à data da despesa.</p>
         }

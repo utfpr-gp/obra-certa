@@ -6,6 +6,8 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { PaymentService } from '../../core/services/payment.service';
 import { BudgetService } from '../../core/services/budget.service';
+import { BudgetOverview } from '../../core/models/budget.model';
+import { ExpenseService } from '../../core/services/expense.service';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { CategoriaOrcamento, ContaPagar, DespesaRecente } from '../../core/models/obra.model';
@@ -58,12 +60,20 @@ export class HomePage {
   private userId = inject(AuthenticatedIdentityService).getUserId();
   private readonly payments = inject(PaymentService);
   private readonly budgetService = inject(BudgetService);
+  private readonly expenseService = inject(ExpenseService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private paymentRequest?: Subscription;
   private paymentGeneration = 0;
   private destroyed = false;
   readonly paymentAlerts = signal<PaymentAlerts | null>(null);
+  private readonly dismissedPaymentAlertContext = signal<number | null>(null);
+  readonly paymentAlertDismissed = computed(() =>
+    this.dismissedPaymentAlertContext() === this.activeProjectService.contextVersion());
+
+  dismissPaymentAlert(): void {
+    this.dismissedPaymentAlertContext.set(this.activeProjectService.contextVersion());
+  }
   readonly paymentLoading = signal(false);
   readonly paymentError = signal(false);
   readonly paymentSettlement = signal<ExpenseResponse | null>(null);
@@ -82,9 +92,37 @@ export class HomePage {
   readonly deleteModalOpen = signal(false);
   readonly deleteFailure = signal<{ id: string; name: string } | null>(null);
   readonly budgetAvailability = signal<BudgetAvailability>('unknown');
+  readonly budgetOverview = signal<BudgetOverview | null>(null);
+  readonly activeBudget = computed(() => {
+    const overview = this.budgetOverview();
+    return overview?.projectId === this.activeProject()?.id ? overview : null;
+  });
+  readonly recentExpenses = signal<DespesaRecente[]>([]);
+  readonly recentExpensesLoading = signal(false);
+  readonly recentExpensesError = signal(false);
+  private readonly recentExpensesRefresh = signal(0);
   readonly activeObra = computed<DashboardView | null>(() => {
     const project = this.activeProject();
-    return project ? emptyDashboard(project.name) : null;
+    if (!project) return null;
+    const budget = this.activeBudget();
+    return {
+      ...emptyDashboard(project.name),
+      percentualGasto: budget?.globalPercentage ?? 0,
+      totalGasto: budget?.totalSpent ?? 0,
+      orcamentoTotal: budget?.totalPlanned ?? 0,
+      saldoDisponivel: budget?.available ?? 0,
+      categorias: budget?.categories.filter((category) => category.hasBudget).map((category) => ({
+        id: category.categoryId,
+        nome: category.categoryName,
+        orcado: category.plannedAmount,
+        gasto: category.spentAmount,
+        percentual: category.percentage ?? 0,
+        emRisco: category.state === 'WARNING' || category.state === 'EXCEEDED',
+        corBorda: category.state === 'EXCEEDED' ? '#EF4444'
+          : category.state === 'WARNING' ? '#F59E0B' : '#007A80',
+      })) ?? [],
+      ultimosGastos: this.recentExpenses(),
+    };
   });
   readonly hasNoBudgets = computed(() => {
     const obra = this.activeObra();
@@ -127,6 +165,35 @@ export class HomePage {
   constructor() {
     this.reloadProjects();
     this.watchBudgetAvailability();
+    toObservable(computed(() => ({
+      projectId: this.activeProject()?.id,
+      context: this.activeProjectService.contextVersion(),
+      refresh: this.recentExpensesRefresh(),
+    }))).pipe(
+      switchMap(({ projectId }) => {
+        this.recentExpenses.set([]);
+        this.recentExpensesError.set(false);
+        this.recentExpensesLoading.set(!!projectId);
+        return projectId ? this.expenseService.list(projectId, 0, 5).pipe(
+          map(({ content }) => content.map((expense): DespesaRecente => ({
+            id: expense.id,
+            descricao: expense.description,
+            categoriaNome: expense.categoryName,
+            valor: expense.totalPrice,
+            dataTexto: formatCivilDateValue(expense.purchaseDate),
+            status: expense.paid ? 'pago' : 'pendente',
+          }))),
+          catchError(() => {
+            this.recentExpensesError.set(true);
+            return of([]);
+          }),
+        ) : of([]);
+      }),
+      takeUntilDestroyed(),
+    ).subscribe((expenses) => {
+      this.recentExpenses.set(expenses);
+      this.recentExpensesLoading.set(false);
+    });
     effect(() => {
       this.activeProjectService.contextVersion();
       untracked(() => {
@@ -146,10 +213,14 @@ export class HomePage {
       .pipe(
         map((project) => project?.id ?? null),
         distinctUntilChanged(),
-        tap(() => this.budgetAvailability.set('unknown')),
+        tap(() => {
+          this.budgetAvailability.set('unknown');
+          this.budgetOverview.set(null);
+        }),
         switchMap((projectId) =>
           projectId
             ? this.budgetService.getOverview(projectId).pipe(
+                tap((overview) => this.budgetOverview.set(overview)),
                 map((overview): BudgetAvailability =>
                   overview.budgetedCategories > 0 ? 'available' : 'none',
                 ),
@@ -160,6 +231,10 @@ export class HomePage {
         takeUntilDestroyed(),
       )
       .subscribe((availability) => this.budgetAvailability.set(availability));
+  }
+
+  reloadRecentExpenses(): void {
+    this.recentExpensesRefresh.update((value) => value + 1);
   }
 
   reloadPaymentAlerts(): void {

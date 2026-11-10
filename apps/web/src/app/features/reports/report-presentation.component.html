@@ -11,7 +11,7 @@
 
   <section data-testid="report-charts" data-pdf-block class="charts" aria-label="Gráficos por categoria">
     <article class="panel distribution-panel">
-      <h2>Gastos por categoria</h2><p class="section-description text-[#647897] mt-[5px] leading-relaxed">Participação de cada categoria no total realizado.</p>
+      <h2>Gastos por categoria</h2><p class="section-description text-[#64748B] mt-[5px] leading-relaxed">Participação de cada categoria no total realizado.</p>
       <div class="distribution">
         <div data-testid="report-donut" class="donut">
           <svg viewBox="0 0 120 120" role="img" aria-label="Distribuição dos gastos; valores e percentuais na legenda">
@@ -27,12 +27,12 @@
           }
         </ul>
       </div>
-      <p class="text-[#647897] leading-relaxed mt-2">@if (vm.distributionRows().length) { Percentuais de participação somam {{ vm.percent(vm.displayedShareTotal()) }}@if (vm.displayedShareTotal() !== 100) { por arredondamento }. } @else { Sem despesas nesta seleção. }</p>
+      <p class="text-[#64748B] leading-relaxed mt-2">@if (vm.distributionRows().length) { Percentuais de participação somam {{ vm.percent(vm.displayedShareTotal()) }}@if (vm.displayedShareTotal() !== 100) { por arredondamento }. } @else { Sem despesas nesta seleção. }</p>
     </article>
 
     <article class="panel comparison-panel">
-      <h2>Previsto × realizado por categoria</h2><p class="section-description text-[#647897] mt-[5px] leading-relaxed">Despesas acumuladas e limites planejados na mesma escala.</p>
-      <div class="bar-legend flex flex-wrap gap-x-[21px] gap-y-[9px] mt-3 text-[#647897]"><span><i class="planned"></i>Previsto</span><span><i class="actual"></i>Realizado</span><span><i class="over-limit"></i>Realizado acima do limite</span></div>
+      <h2>Previsto × realizado por categoria</h2><p class="section-description text-[#64748B] mt-[5px] leading-relaxed">Despesas acumuladas e limites planejados na mesma escala.</p>
+      <div class="bar-legend flex flex-wrap gap-x-[21px] gap-y-[9px] mt-3 text-[#64748B]"><span><i class="planned"></i>Previsto</span><span><i class="actual"></i>Realizado</span><span><i class="over-limit"></i>Realizado acima do limite</span></div>
       <div data-testid="report-bars" class="comparison-chart">
         @for (row of vm.comparisonRows(); track row.id) {
           <div class="comparison-row" [attr.aria-label]="row.name + ': previsto ' + vm.money(row.plannedCents) + ', realizado ' + vm.money(row.actualCents)">
@@ -42,7 +42,7 @@
         }
         <div class="chart-axis"><span>Valores em R${{ vm.axisDivisor() === 100000 ? ' mil' : '' }}</span><div>@for (tick of vm.axisTicks(); track tick) { <span>{{ tick.toLocaleString('pt-BR') }}</span> }</div></div>
       </div>
-      @if (!vm.comparisonRows().length) { <p class="text-[#647897] mt-2">Sem categorias com orçamento nesta seleção.</p> }
+      @if (!vm.comparisonRows().length) { <p class="text-[#64748B] mt-2">Sem categorias com orçamento nesta seleção.</p> }
       @for (row of vm.exceededRows(); track row.id) { <p class="exceeded-note">{{ row.name }}: {{ vm.money(row.actualCents) }} realizados • excedente de {{ vm.money(-row.balanceCents) }}.</p> }
     </article>
   </section>

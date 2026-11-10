@@ -14,8 +14,10 @@ export class AlertBannerComponent {
   title = input.required<string>();
   message = input.required<string>();
   actionLabel = input<string>();
+  dismissLabel = input<string>();
 
   actionClick = output<void>();
+  dismissClick = output<void>();
 
   onAction(): void {
     this.actionClick.emit();

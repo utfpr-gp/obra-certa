@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35261012345678000190550010000000011000000012" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <nNF>1100</nNF>
+        <dhEmi>2026-10-15T10:30:00-03:00</dhEmi>
+      </ide>
+      <emit>
+        <CNPJ>12345678000190</CNPJ>
+        <xNome>Construções Exemplo Materiais Ltda</xNome>
+      </emit>
+      <det nItem="1">
+        <prod>
+          <cProd>001</cProd>
+          <xProd>Cimento CP-II 50kg</xProd>
+          <uCom>SC

@@ -1,5 +1,7 @@
 <div
-  class="px-4 md:px-6 py-3 flex items-center justify-between gap-3 shrink-0 border-b-2"
+  class="px-4 md:px-6 flex items-center justify-between gap-2 shrink-0 border-b-2"
+  [class.py-1]="dismissLabel()"
+  [class.py-3]="!dismissLabel()"
   [ngClass]="{
     'bg-rose-50 border-rose-500 text-rose-900': type() === 'danger',
     'bg-amber-50 border-amber-500 text-amber-900': type() === 'warning',
@@ -7,7 +9,7 @@
     'bg-emerald-50 border-emerald-500 text-emerald-900': type() === 'success'
   }"
 >
-  <div class="flex items-center gap-2.5 text-sm font-medium">
+  <div class="flex min-w-0 items-center gap-2.5 text-sm font-medium">
     @switch (type()) {
       @case ('danger') {
         <svg lucideCircleAlert [size]="18" class="text-rose-600 shrink-0" />
@@ -28,6 +30,7 @@
     </span>
   </div>
 
+  <div class="flex shrink-0 items-center gap-2">
   @if (actionLabel()) {
     <button
       type="button"
@@ -43,4 +46,11 @@
       {{ actionLabel() }}
     </button>
   }
+  @if (dismissLabel(); as label) {
+    <button type="button" [attr.aria-label]="label" (click)="dismissClick.emit()"
+      class="min-h-11 min-w-11 rounded-md text-xl hover:bg-black/5">
+      <span aria-hidden="true">×</span>
+    </button>
+  }
+  </div>
 </div>
