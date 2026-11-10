@@ -37,7 +37,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -174,7 +173,9 @@ class NfeImportControllerPaymentTest {
         assertThat(expenseCount()).isZero();
         assertThat(paymentCount()).isZero();
         assertThat(supplierCount()).isZero();
-        verify(storage, never()).delete(anyString());
+        var attempted = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(storage).put(attempted.capture(), any(), anyLong(), anyString());
+        verify(storage).delete(attempted.getValue());
     }
 
     private Map<String, Object> item(String description) {
@@ -237,6 +238,8 @@ class NfeImportControllerPaymentTest {
         jdbc.update("delete from pending_payments where expense_id in "
                 + "(select id from expenses where project_id = ?)", project.getId());
         jdbc.update("delete from expenses where project_id = ?", project.getId());
+        jdbc.update("delete from nfe_receipt_cleanups where object_key like ?",
+                "expenses/nfe/" + project.getId() + "/%");
         jdbc.update("delete from projects where id = ?", project.getId());
         jdbc.update("delete from suppliers where user_id = ?", owner.getId());
         users.deleteById(owner.getId());

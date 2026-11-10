@@ -125,7 +125,7 @@ flowchart TD
 
 ## 🗄️ 3. Modelo de Dados (MER Consolidado)
 
-O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1-V11), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
+O schema físico do PostgreSQL é versionado pelo **Flyway**. O MER consolidado abaixo é o modelo lógico alvo, incluindo atributos de histórias ainda não implementadas; não substitui as migrations. No schema versionado desta entrega (V1-V13), os identificadores UUID são armazenados em `VARCHAR(36)`, valores monetários usam `NUMERIC(15,2)` e os tipos temporais seguem cada migration. A notação `uuid` do modelo lógico não implica uma conversão física já aplicada. Os recortes por história abaixo documentam a evolução implementada.
 
 ```mermaid
 erDiagram
@@ -544,6 +544,7 @@ flowchart LR
 | `POST /api/projects/{projectId}/nfe/imports` | `201`, lista de `ExpenseResponseDTO` | `file` com o XML conferido, `items` como `application/json` no formato `{"items":[{"itemNumber":1,"categoryId":"<uuid>"}]}` e parte opcional `payment` como `application/json` no formato `{"paid":true}`. Se `payment` estiver ausente, usa o campo opcional homônimo dentro de `items`. Sem valor de `paid`, assume `true`. |
 
 - A configuração multipart da API limita o arquivo a 10 MiB (10.485.760 bytes) e a requisição completa a 11 MiB (11.534.336 bytes). O proxy Nginx também limita o corpo da requisição a 11 MiB (`client_max_body_size 11m`).
+- As migrações V12 e V13 guardam no PostgreSQL a chave do XML e a próxima tentativa de limpeza. A API registra a pendência antes do upload e a encerra na mesma transação que confirma a importação. Em caso de falha, tenta excluir o objeto sem depender do tipo da exceção. Uma exclusão bem-sucedida mantém a pendência para nova verificação, pois uma tentativa anterior do PUT ainda pode terminar. A reconciliação usa travas para preservar uploads ativos. Após uma exclusão periódica bem-sucedida, verifica novamente em um dia. Se o DELETE falhar, tenta novamente em dez minutos.
 - XML inválido ou fora do formato NF-e retorna `400` com o motivo. Na conferência, a interface exibe o alerta e oferece o cadastro manual. Obra alheia, inexistente ou excluída retorna `404`. Chave já importada com linhas ativas na mesma obra retorna `409`.
 - A confirmação grava uma despesa por item com a chave extraída do XML. Apenas a primeira linha (`nItem = 1`) recebe o registro de pagamento e o comprovante XML. O indicador `paid` da nota é replicado em todas as despesas do grupo.
 - A migração `V11__allow_xml_nfe_receipt.sql` acrescenta `application/xml` e `text/xml` aos tipos aceitos pela constraint `chk_expense_receipt_state` em `UPLOADED`, preservando o intervalo de tamanho maior que zero e de até 10 MiB. A importação preserva `text/xml` quando informado e usa `application/xml` nos demais casos. O upload manual de comprovantes segue restrito a JPEG, PNG e PDF.

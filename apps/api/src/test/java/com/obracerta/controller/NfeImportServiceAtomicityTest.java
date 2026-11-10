@@ -11,6 +11,7 @@ import com.obracerta.model.entity.User;
 import com.obracerta.repository.ExpenseCategoryRepository;
 import com.obracerta.repository.ProjectRepository;
 import com.obracerta.repository.UserRepository;
+import com.obracerta.service.NfeReceiptCleanupService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +40,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -59,6 +61,7 @@ class NfeImportServiceAtomicityTest {
     @Autowired private UserRepository users;
     @Autowired private ProjectRepository projects;
     @Autowired private ExpenseCategoryRepository categories;
+    @Autowired private NfeReceiptCleanupService cleanup;
     @MockBean private UserContextHelper identity;
     @MockBean private ReceiptStorage storage;
 
@@ -93,9 +96,11 @@ class NfeImportServiceAtomicityTest {
     }
 
     @Test
-    void falhaNoUploadNaoGravaNada() throws Exception {
-        doThrow(new RuntimeException("storage down"))
-                .when(storage).put(anyString(), any(), anyLong(), anyString());
+    void uploadPersistidoComRespostaPerdidaNaoDeixaObjetoOuDados() throws Exception {
+        doAnswer(invocation -> {
+            putKeys.add(invocation.getArgument(0));
+            throw new RuntimeException("resposta do upload perdida");
+        }).when(storage).put(anyString(), any(), anyLong(), anyString());
 
         mvc.perform(confirm())
                 .andExpect(status().isServiceUnavailable())
@@ -107,19 +112,39 @@ class NfeImportServiceAtomicityTest {
         var attempted = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(storage).put(attempted.capture(), any(), anyLong(), anyString());
         assertThat(attempted.getValue()).startsWith("expenses/nfe/" + project.getId() + "/");
-        assertThat(deletedKeys).isEmpty();
-        verify(storage, never()).delete(anyString());
+        assertThat(deletedKeys).containsExactlyElementsOf(putKeys);
+        verify(storage).delete(attempted.getValue());
+        assertThat(pending(attempted.getValue())).isEqualTo(1);
+        makeCleanupDue(attempted.getValue());
+        cleanup.reconcile();
+        assertThat(deletedKeys).containsExactly(attempted.getValue(), attempted.getValue());
+        // O servidor conclui o PUT apenas depois do primeiro DELETE periódico.
+        var remoteObjects = new java.util.HashSet<>(List.of(attempted.getValue()));
+        doAnswer(invocation -> {
+            remoteObjects.remove(invocation.<String>getArgument(0));
+            return null;
+        }).when(storage).delete(anyString());
+        makeCleanupDue(attempted.getValue());
+        cleanup.reconcile();
+        assertThat(remoteObjects).isEmpty();
+        assertThat(pending(attempted.getValue())).isEqualTo(1);
+    }
+
+    @Test
+    void reconciliacaoRetemPendenciaSemResultadoDoUploadAposInterrupcao() {
+        String key = "expenses/nfe/" + project.getId() + "/" + UUID.randomUUID() + ".xml";
+        jdbc.update("insert into nfe_receipt_cleanups (object_key, next_attempt_at) values (?, current_timestamp)",
+                key);
+
+        cleanup.reconcile();
+
+        verify(storage).delete(key);
+        assertThat(pending(key)).isEqualTo(1);
     }
 
     @Test
     void falhaDoBancoDepoisDoUploadFazRollbackEapagaOObjetoSemMetadados() throws Exception {
-        trigger = "nfe_insert_failure_" + UUID.randomUUID().toString().replace("-", "");
-        // Dispara só na SEGUNDA linha: a primeira já foi inserida quando o rollback acontece.
-        jdbc.execute("create function " + trigger + "() returns trigger language plpgsql as $$ begin "
-                + "if NEW.project_id = '" + project.getId() + "' and NEW.description = 'Areia média lavada' then "
-                + "raise exception 'simulated nfe persistence failure'; end if; return NEW; end $$");
-        jdbc.execute("create trigger " + trigger + " before insert on expenses for each row execute function "
-                + trigger + "()");
+        failOnSecondExpense();
 
         assertThatThrownBy(() -> mvc.perform(confirm())).satisfies(failure -> {
             assertThat(causes(failure)).anyMatch(DataAccessException.class::isInstance);
@@ -130,6 +155,53 @@ class NfeImportServiceAtomicityTest {
         assertThat(putKeys).hasSize(1);
         assertThat(deletedKeys).containsExactly(putKeys.get(0));
         verify(storage).delete(putKeys.get(0));
+        String key = putKeys.getFirst();
+        assertThat(pending(key)).isEqualTo(1);
+        // Uma tentativa anterior do SDK pode gravar depois da compensação.
+        var remoteObjects = new java.util.HashSet<>(List.of(key));
+        doAnswer(invocation -> {
+            remoteObjects.remove(invocation.<String>getArgument(0));
+            return null;
+        }).when(storage).delete(anyString());
+        makeCleanupDue(key);
+        cleanup.reconcile();
+        assertThat(remoteObjects).isEmpty();
+        assertThat(pending(key)).isEqualTo(1);
+    }
+
+    @Test
+    void falhaDaExclusaoMantemPendenciaParaReconciliacao() {
+        failOnSecondExpense();
+        doAnswer(invocation -> { throw new RuntimeException("DELETE indisponível"); })
+                .when(storage).delete(anyString());
+
+        assertThatThrownBy(() -> mvc.perform(confirm()))
+                .hasStackTraceContaining("simulated nfe persistence failure");
+        assertNothingWritten();
+        assertThat(putKeys).hasSize(1);
+        String key = putKeys.getFirst();
+        assertThat(pending(key)).isEqualTo(1);
+
+        doAnswer(invocation -> {
+            deletedKeys.add(invocation.getArgument(0));
+            return null;
+        }).when(storage).delete(anyString());
+        makeCleanupDue(key);
+        cleanup.reconcile();
+
+        assertThat(deletedKeys).containsExactly(key);
+        assertThat(pending(key)).isEqualTo(1);
+    }
+
+    private void failOnSecondExpense() {
+        trigger = "nfe_insert_failure_" + UUID.randomUUID().toString().replace("-", "");
+        // Dispara só na SEGUNDA linha: a primeira já foi inserida quando o rollback acontece.
+        jdbc.execute("create function " + trigger + "() returns trigger language plpgsql as $$ begin "
+                + "if NEW.project_id = '" + project.getId() + "' and NEW.description = 'Areia média lavada' then "
+                + "raise exception 'simulated nfe persistence failure'; end if; return NEW; end $$");
+        jdbc.execute("create trigger " + trigger + " before insert on expenses for each row execute function "
+                + trigger + "()");
+
     }
 
     @Test
@@ -142,8 +214,39 @@ class NfeImportServiceAtomicityTest {
         assertThat(count("pending_payments")).isEqualTo(1);
         assertThat(count("suppliers")).isEqualTo(1);
         assertThat(putKeys).hasSize(1);
+        assertThat(pending(putKeys.getFirst())).isZero();
+        cleanup.reconcile();
         assertThat(deletedKeys).isEmpty();
         verify(storage, never()).delete(anyString());
+    }
+
+    @Test
+    void reconciliacaoNaoApagaUploadEmAndamentoMesmoComPendenciaVencida() throws Exception {
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            putKeys.add(key);
+            // A sessão do PUT já segura a trava da intenção. Forçamos o relógio da
+            // reconciliação a passar do vencimento sem atualizar a linha travada.
+            CompletableFuture.runAsync(() -> cleanup.reconcileDueBefore(
+                    java.time.Instant.now().plusSeconds(3600))).get(5, TimeUnit.SECONDS);
+            assertThat(pending(key)).isEqualTo(1);
+            verify(storage, never()).delete(key);
+            return null;
+        }).when(storage).put(anyString(), any(), anyLong(), anyString());
+
+        mvc.perform(confirm()).andExpect(status().isCreated());
+        String key = putKeys.getFirst();
+        assertThat(pending(key)).isZero();
+        verify(storage, never()).delete(key);
+    }
+
+    private int pending(String key) {
+        return jdbc.queryForObject("select count(*) from nfe_receipt_cleanups where object_key = ?",
+                Integer.class, key);
+    }
+
+    private void makeCleanupDue(String key) {
+        jdbc.update("update nfe_receipt_cleanups set next_attempt_at = current_timestamp where object_key = ?", key);
     }
 
     private static List<Throwable> causes(Throwable failure) {
@@ -208,6 +311,8 @@ class NfeImportServiceAtomicityTest {
     void removeOnlyThisFixture() {
         dropTrigger();
         if (project == null) return;
+        jdbc.update("delete from nfe_receipt_cleanups where object_key like ?",
+                "expenses/nfe/" + project.getId() + "/%");
         jdbc.update("delete from pending_payments where expense_id in "
                 + "(select id from expenses where project_id = ?)", project.getId());
         jdbc.update("delete from expenses where project_id = ?", project.getId());
