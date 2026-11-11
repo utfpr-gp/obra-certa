@@ -41,7 +41,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/core/services/budget.service.ts` e `budget.service.spec.ts`; `budget-form-modal.component.spec.ts` se necessário.
 
-- [ ] **Tarefa 4 — Calcular o rateio editável**
+- [x] **Tarefa 4 — Calcular o rateio editável**
   - Cobre: CA2 e CA6.
   - Teste primeiro: em `apps/web`, verificar os percentuais do PRD para qualquer modelo, edição, soma de 100%, desempate e conservação dos centavos, além de cancelamento e reabertura. Em `apps/api`, testar a mesma regra de cálculo com os mesmos casos de centavos e percentuais inválidos.
   - Migration: nenhuma.

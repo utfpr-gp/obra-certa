@@ -5,18 +5,18 @@ import { catchError, EMPTY, merge, Subject, switchMap } from 'rxjs';
 import { SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
+import {
+  allocateCents,
+  estimateCents,
+  FULL_ALLOCATION,
+  initialPercent,
+  parsePercent,
+  PercentError,
+  prdOrder,
+  shareCents,
+} from './sinapi-allocation';
 
-const INITIAL_PERCENTAGES = new Map([
-  ['Fundação e Estrutura', 25],
-  ['Alvenaria', 14],
-  ['Elétrica', 8],
-  ['Hidráulica', 9],
-  ['Telhado e Cobertura', 10],
-  ['Esquadrias e Vidros', 10],
-  ['Acabamento e Pintura', 24],
-  ['Mão de Obra', 0],
-  ['Taxas e Serviços', 0],
-]);
+export type AllocationError = PercentError | 'sum';
 
 @Component({
   selector: 'app-sinapi-form',
@@ -52,6 +52,12 @@ export class SinapiFormComponent {
       ],
     },
   ];
+  readonly allocationMessages: Record<AllocationError, string> = {
+    missing: 'Informe o percentual de todas as categorias.',
+    negative: 'Os percentuais devem ser não negativos.',
+    precision: 'Use no máximo duas casas decimais nos percentuais.',
+    sum: 'A soma dos percentuais deve ser 100%.',
+  };
 
   private readonly formBuilder = inject(FormBuilder);
   private readonly budgetService = inject(BudgetService);
@@ -75,23 +81,63 @@ export class SinapiFormComponent {
     initialValue: this.allocation.getRawValue(),
   });
 
-  readonly preview = computed(() => {
+  private readonly estimateInput = computed(() => {
     const area = this.areaValue();
     const references = this.references();
     const reference = references?.finishes.find(({ id }) => id === this.finishId());
     if (!references || !reference || area === null || !Number.isFinite(area) || area <= 0) return null;
+    return { source: references.source, unitCost: reference.unitCost, area };
+  });
 
-    const estimate = reference.unitCost * area;
+  /** Entrada que não tem forma decimal simples (ex.: área 0,0000001): a prévia não aparece e o motivo é mostrado. */
+  readonly estimateInvalid = computed(() => {
+    const input = this.estimateInput();
+    return input !== null && estimateCents(input.unitCost, input.area) === null;
+  });
+
+  readonly preview = computed(() => {
+    const input = this.estimateInput();
+    if (!input) return null;
+
+    const estimate = estimateCents(input.unitCost, input.area);
+    if (estimate === null) return null;
+
+    const percentages = this.percentages();
+    const entries = this.categories().flatMap(category => {
+      const control = this.allocation.controls[category.id];
+      if (!control) return [];
+      return [{ category, control, parsed: parsePercent(percentages[category.id] ?? null) }];
+    });
+
+    const sum = entries.reduce((acc, { parsed }) => (parsed.ok ? acc + parsed.hundredths : acc), 0);
+    const failed = entries.find(({ parsed }) => !parsed.ok)?.parsed;
+    const error: AllocationError | null = failed
+      ? (failed.ok ? null : failed.reason)
+      : (sum === FULL_ALLOCATION ? null : 'sum');
+
+    const amounts = new Map<string, number | null>();
+    if (error === null) {
+      const ordered = entries.slice().sort((a, b) => prdOrder(a.category.name) - prdOrder(b.category.name));
+      const parcels = allocateCents(estimate, ordered.map(({ parsed }) => (parsed.ok ? parsed.hundredths : 0)));
+      ordered.forEach(({ category }, index) => amounts.set(category.id, parcels[index]));
+    } else {
+      for (const { category, parsed } of entries) {
+        amounts.set(category.id, parsed.ok ? shareCents(estimate, parsed.hundredths) : null);
+      }
+    }
+
     return {
-      source: references.source,
-      unitCost: reference.unitCost,
-      estimate,
-      rows: this.categories().flatMap(category => {
-        const control = this.allocation.controls[category.id];
-        if (!control) return [];
-        const percentage = this.percentages()[category.id];
-        return [{ category, control, amount: percentage == null ? null : estimate * percentage / 100 }];
-      }),
+      source: input.source,
+      unitCost: input.unitCost,
+      estimateCents: estimate,
+      allocationValid: error === null,
+      allocationSum: sum,
+      allocationError: error,
+      rows: entries.map(({ category, control }) => ({
+        category,
+        control,
+        amountCents: amounts.get(category.id) ?? null,
+      })),
     };
   });
 
@@ -104,7 +150,7 @@ export class SinapiFormComponent {
       }
       for (const { id, name } of categories) {
         if (!this.allocation.contains(id)) {
-          this.allocation.addControl(id, new FormControl(INITIAL_PERCENTAGES.get(name) ?? 0), {
+          this.allocation.addControl(id, new FormControl(initialPercent(name)), {
             emitEvent: false,
           });
         }
@@ -144,7 +190,15 @@ export class SinapiFormComponent {
 
   resetAllocation(): void {
     this.allocation.reset(Object.fromEntries(this.categories().map(({ id, name }) => [
-      id, INITIAL_PERCENTAGES.get(name) ?? 0,
+      id, initialPercent(name),
     ])));
+  }
+
+  formatCents(cents: number): string {
+    return this.currency.format(cents / 100);
+  }
+
+  percentText(hundredths: number): string {
+    return String(hundredths / 100);
   }
 }

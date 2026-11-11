@@ -57,6 +57,10 @@
   }
 </div>
 
+@if (estimateInvalid()) {
+  <p role="alert" class="mt-4 text-sm font-medium text-red-700" data-testid="sinapi-estimate-error">Não foi possível calcular a estimativa com estes valores. Revise a área informada.</p>
+}
+
 @if (preview(); as result) {
   <section class="mt-5 space-y-4" data-testid="sinapi-preview" aria-labelledby="sinapi-preview-title">
     <h3 id="sinapi-preview-title" class="text-lg font-semibold text-slate-900">Prévia do rateio</h3>
@@ -71,9 +75,15 @@
       </div>
       <div>
         <dt class="text-sm text-slate-600">Estimativa</dt>
-        <dd class="font-semibold">{{ currency.format(result.estimate) }}</dd>
+        <dd class="font-semibold" data-testid="sinapi-estimate">{{ formatCents(result.estimateCents) }}</dd>
       </div>
     </dl>
+    <div class="space-y-1 text-sm">
+      <p class="text-slate-700" data-testid="sinapi-allocation-sum">Soma dos percentuais: {{ percentText(result.allocationSum) }}%</p>
+      @if (result.allocationError; as error) {
+        <p role="alert" class="font-medium text-red-700" data-testid="sinapi-allocation-error">{{ allocationMessages[error] }}</p>
+      }
+    </div>
     <table role="table" class="block w-full text-left text-sm text-slate-700 sm:table">
       <thead role="rowgroup" class="sr-only sm:not-sr-only sm:table-header-group">
         <tr role="row">
@@ -94,7 +104,7 @@
             </td>
             <td role="cell" class="text-right sm:py-2 sm:pl-2">
               <span aria-hidden="true" class="mb-1 block text-xs text-slate-600 sm:hidden">Parcela</span>
-              {{ row.amount === null ? '—' : currency.format(row.amount) }}
+              <span [attr.data-testid]="'sinapi-amount-' + row.category.id">{{ row.amountCents === null ? '—' : formatCents(row.amountCents) }}</span>
             </td>
           </tr>
         }
@@ -105,5 +115,5 @@
 
 <div class="mt-5 flex justify-end">
   <button class="btn min-h-11 rounded-md border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50" type="button"
-    (click)="cancelled.emit()">Cancelar</button>
+    data-testid="sinapi-cancel" (click)="cancelled.emit()">Cancelar</button>
 </div>

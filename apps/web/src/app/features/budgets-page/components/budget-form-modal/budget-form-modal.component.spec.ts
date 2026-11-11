@@ -244,6 +244,47 @@ describe('BudgetFormModalComponent', () => {
     expect(budgetService.setBudget).not.toHaveBeenCalled();
   });
 
+  it('drops the edited SINAPI rateio when cancelled and rebuilds it from the PRD table when reopened', () => {
+    budgetService.getSinapiReferences.and.returnValue(of({
+      source: 'SIDRA/IBGE',
+      finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
+    }));
+    function change(testId: string, value: string, event = 'change'): void {
+      const field = query<HTMLInputElement | HTMLSelectElement>(testId)!;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+    function fillSinapi(): void {
+      change('sinapi-area', '100', 'input');
+      change('sinapi-state', 'PR');
+      change('sinapi-month', '2026-09', 'input');
+      change('sinapi-project', '7101');
+      change('sinapi-finish', '787');
+    }
+    const sinapiInstance = (): Element | null => (fixture.nativeElement as HTMLElement).querySelector('app-sinapi-form');
+
+    open();
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+    fillSinapi();
+    change('sinapi-percent-cat-alvenaria', '50', 'input');
+    expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')!.value).toBe('50');
+
+    query<HTMLButtonElement>('sinapi-cancel')!.click();
+    fixture.detectChanges();
+    expect(sinapiInstance()).toBeNull();
+    expect(query('sinapi-preview')).toBeNull();
+
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+    expect(sinapiInstance()).not.toBeNull();
+    expect(query<HTMLInputElement>('sinapi-area')!.value).toBe('');
+    fillSinapi();
+    expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')!.value).toBe('14');
+    expect(budgetService.setBudget).not.toHaveBeenCalled();
+  });
+
   it('ignores stale SINAPI results and retries the current selection after an error', () => {
     const previous = new Subject<SinapiReferences>();
     const current = new Subject<SinapiReferences>();
