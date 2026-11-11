@@ -537,10 +537,11 @@
 
 ---
 
-### 🟡 US15 — Orçamento por Categoria a partir do SINAPI
+### 🟢 US15 — Orçamento por Categoria a partir do SINAPI
 
 - **História:** Como proprietário, quero usar o custo por m² de um projeto de referência do SINAPI para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
-- **Status:** Ready
+- **Status:** 🟢 Live (implementada localmente, com auditoria final e integração em `develop` pendentes)
+- **Rastreabilidade:** [Issue #48](https://github.com/utfpr-gp/obra-certa/issues/48), [especificação, plano e pareceres](../specs/48-orcamento-cub/). Oito tarefas concluídas. A Tarefa 7 preserva a confirmação ao tentar trocar de aba. A Tarefa 8 consulta a disponibilidade por UF e ano e desabilita os meses e projetos sem acabamento com preço válido.
 - **Regras de Negócio Associadas:** RN01, RN02, RN08.
 
 #### Critérios de Aceite
