@@ -54,7 +54,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: `BudgetController.java`, `BudgetService.java`, `BudgetRepository.java`, records e testes JUnit. `budget.service.ts`, página de Orçamentos, formulário SINAPI e testes.
 
-- [ ] **Tarefa 6 — Verificar o descarte dos dados da consulta**
+- [x] **Tarefa 6 — Verificar o descarte dos dados da consulta**
   - Cobre: CA8.
   - Teste primeiro: em `apps/api`, confirmar `no-store` nas respostas do fluxo e verificar, após consulta, confirmação e erro, que o banco contém somente os novos tetos e que os logs excluem os dados da consulta. Em `apps/web`, verificar que os dados deixam de existir no estado do formulário ao fechá-lo e ficam fora do armazenamento persistente do navegador.
   - Migration: nenhuma.

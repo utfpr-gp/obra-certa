@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { BudgetCategory } from '../../../../core/models/budget.model';
@@ -21,6 +22,39 @@ const PRD_ROWS = [
 
 const prdCategories: ExpenseCategory[] = PRD_ROWS.map(({ id, name }) => ({ id, name }));
 const PROJECT_IDS = ['7101', '7088', '7087', '7102', '7089', '7090', '7091', '7103'];
+
+/** Mesma destruição que o modal faz ao fechar: o `@if` remove o formulário da tela. */
+@Component({
+  standalone: true,
+  imports: [SinapiFormComponent],
+  template: `
+    @if (open) {
+      <app-sinapi-form [categories]="categories" [projectId]="'project-1'"
+        (cancelled)="open = false" />
+    }
+  `,
+})
+class SinapiFormHostComponent {
+  open = true;
+  readonly categories = prdCategories;
+}
+
+/** Conteúdo persistente do navegador, para provar que o fluxo SINAPI não grava nada. */
+function storageSnapshot(): string {
+  const collect = (storage: Storage): Record<string, string> => {
+    const entries: Record<string, string> = {};
+    for (let index = 0; index < storage.length; index++) {
+      const key = storage.key(index)!;
+      entries[key] = storage.getItem(key) ?? '';
+    }
+    return entries;
+  };
+  return JSON.stringify({
+    local: collect(localStorage),
+    session: collect(sessionStorage),
+    cookie: document.cookie,
+  });
+}
 
 describe('SinapiFormComponent — rateio editável', () => {
   let fixture: ComponentFixture<SinapiFormComponent>;
@@ -85,7 +119,7 @@ describe('SinapiFormComponent — rateio editável', () => {
   beforeEach(async () => {
     budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getSinapiReferences', 'confirmSinapi']);
     await TestBed.configureTestingModule({
-      imports: [SinapiFormComponent],
+      imports: [SinapiFormComponent, SinapiFormHostComponent],
       providers: [{ provide: BudgetService, useValue: budgetService }],
     }).compileComponents();
   });
@@ -350,5 +384,79 @@ describe('SinapiFormComponent — rateio editável', () => {
     expect(error).not.toBeNull();
     expect(error!.getAttribute('role')).toBe('alert');
     expect(text('sinapi-estimate-error')).toBe('Não foi possível calcular a estimativa com estes valores. Revise a área informada.');
+  });
+
+  it('keeps the SINAPI lookup, confirmation and failure out of browser storage', () => {
+    mount();
+    const openDatabase = spyOn(indexedDB, 'open');
+    const before = storageSnapshot();
+    serve(4321.99);
+    change('sinapi-area', '37', 'input');
+    pick();
+    expect(component.preview()).not.toBeNull();
+    expect(storageSnapshot()).toBe(before);
+
+    budgetService.confirmSinapi.and.returnValue(of({ created: [], preserved: [] }));
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+    expect(storageSnapshot()).toBe(before);
+
+    budgetService.confirmSinapi.and.returnValue(throwError(() => new HttpErrorResponse({
+      status: 500,
+      error: { message: 'Falha ao gravar' },
+    })));
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+    expect(query('sinapi-confirm-error')).not.toBeNull();
+    expect(storageSnapshot()).toBe(before);
+    expect(openDatabase).not.toHaveBeenCalled();
+  });
+
+  it('a failed lookup leaves no query data in the state nor in browser storage', () => {
+    const before = storageSnapshot();
+    mount();
+    budgetService.getSinapiReferences.and.returnValue(throwError(() => new HttpErrorResponse({
+      status: 503,
+      error: { message: 'Indisponível' },
+    })));
+
+    change('sinapi-state', 'PR');
+    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-project', '7101');
+
+    expect(component.references()).toBeNull();
+    expect(component.preview()).toBeNull();
+    expect(component.lookupFailed()).toBeTrue();
+    expect(query('sinapi-preview')).toBeNull();
+    expect(storageSnapshot()).toBe(before);
+  });
+
+  it('discards the SINAPI state from the live form when it is closed', () => {
+    const hostFixture = TestBed.createComponent(SinapiFormHostComponent);
+    hostFixture.detectChanges();
+    const root = hostFixture.nativeElement as HTMLElement;
+    const set = (testId: string, value: string, event = 'change'): void => {
+      const field = root.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-testid="${testId}"]`)!;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      hostFixture.detectChanges();
+    };
+
+    serve(4321.99);
+    set('sinapi-area', '37', 'input');
+    set('sinapi-state', 'PR');
+    set('sinapi-month', '2026-09', 'input');
+    set('sinapi-project', '7101');
+    set('sinapi-finish', '787');
+    expect(root.querySelector('[data-testid="sinapi-preview"]')).not.toBeNull();
+    const before = storageSnapshot();
+
+    root.querySelector<HTMLButtonElement>('[data-testid="sinapi-cancel"]')!.click();
+    hostFixture.detectChanges();
+
+    expect(root.querySelector('app-sinapi-form')).toBeNull();
+    expect(root.querySelector('[data-testid="sinapi-preview"]')).toBeNull();
+    expect(root.querySelector('[data-testid="sinapi-area"]')).toBeNull();
+    expect(storageSnapshot()).toBe(before);
   });
 });

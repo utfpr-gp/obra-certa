@@ -1,6 +1,11 @@
 package com.obracerta.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.core.read.ListAppender;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.enums.ProjectStatus;
 import com.obracerta.enums.ProjectType;
@@ -25,6 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
@@ -54,6 +60,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,6 +75,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BudgetSinapiConfirmationIntegrationTest {
 
     private static final String PATH = "/api/budgets/%s/sinapi/confirm";
+    private static final String REFERENCES_PATH = "/api/budgets/%s/sinapi/references";
     private static final String FINISH_ID = "787";
     private static final String SIDRA_UF = "41";
     private static final String SIDRA_MONTH = "202609";
@@ -132,6 +140,8 @@ class BudgetSinapiConfirmationIntegrationTest {
 
     @Test
     void gravaTetosSomenteDasCategoriasComParcelaPositiva() throws Exception {
+        long categoriesBefore = countAll("expense_categories");
+        long usersBefore = countAll("users");
         confirm(project, UNIT_COST, AREA, prdShares()).andExpect(status().isOk());
 
         assertThat(activeBudgets(project)).hasSize(7)
@@ -140,6 +150,31 @@ class BudgetSinapiConfirmationIntegrationTest {
                 .isEqualByComparingTo("55526.50");
         assertThat(activeBudgets(project)).doesNotContainKeys(
                 byName.get(MAO_DE_OBRA).getId(), byName.get(TAXAS).getId());
+        assertThat(countAllBudgets(project)).isEqualTo(7);
+        assertThat(countProjectRows("expenses", project)).isZero();
+        assertThat(countProjectRows("pending_payments", project)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from projects where id = ?", Long.class,
+                project.getId())).isOne();
+        assertThat(countAll("expense_categories")).isEqualTo(categoriesBefore);
+        assertThat(countAll("users")).isEqualTo(usersBefore);
+    }
+
+    @Test
+    void consultaDeReferenciasNaoPersisteNadaNoBanco() throws Exception {
+        long categoriesBefore = countAll("expense_categories");
+        long usersBefore = countAll("users");
+
+        mvc.perform(get(String.format(REFERENCES_PATH, project.getId()))
+                        .param("uf", "PR").param("month", "2026-09").param("projectType", SIDRA_PROJECT))
+                .andExpect(status().isOk());
+
+        assertThat(countAllBudgets(project)).isZero();
+        assertThat(countProjectRows("expenses", project)).isZero();
+        assertThat(countProjectRows("pending_payments", project)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from projects where id = ?", Long.class,
+                project.getId())).isOne();
+        assertThat(countAll("expense_categories")).isEqualTo(categoriesBefore);
+        assertThat(countAll("users")).isEqualTo(usersBefore);
     }
 
     @Test
@@ -151,6 +186,9 @@ class BudgetSinapiConfirmationIntegrationTest {
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("nova prévia")));
 
         assertThat(activeBudgets(project)).isEmpty();
+        assertThat(countAllBudgets(project)).isZero();
+        assertThat(countProjectRows("expenses", project)).isZero();
+        assertThat(countProjectRows("pending_payments", project)).isZero();
     }
 
     @Test
@@ -287,6 +325,9 @@ class BudgetSinapiConfirmationIntegrationTest {
         assertThat(activeBudgets(project))
                 .as("o teto de Fundação foi inserido antes da falha e precisa ser revertido")
                 .isEmpty();
+        assertThat(countAllBudgets(project)).isZero();
+        assertThat(countProjectRows("expenses", project)).isZero();
+        assertThat(countProjectRows("pending_payments", project)).isZero();
     }
 
     @Test
@@ -329,7 +370,73 @@ class BudgetSinapiConfirmationIntegrationTest {
                 """, Long.class, project.getId())).isZero();
     }
 
+    @Test
+    void logsNaoExpoemOsDadosDaConsultaNemAMemoriaDeCalculo() throws Exception {
+        BigDecimal distinctiveCost = new BigDecimal("4321.99");
+        BigDecimal distinctiveArea = new BigDecimal("37");
+        serveCost(distinctiveCost, "AcabamentoSigilosoXYZ");
+
+        String sentinel = "Sentinela de captura do fluxo SINAPI";
+        Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        Logger applicationLogger = (Logger) LoggerFactory.getLogger("com.obracerta");
+        Level previousLevel = applicationLogger.getLevel();
+        ListAppender<ILoggingEvent> captured = new ListAppender<>();
+        captured.start();
+        root.addAppender(captured);
+        try {
+            applicationLogger.setLevel(Level.TRACE);
+            applicationLogger.trace(sentinel);
+            mvc.perform(get(String.format(REFERENCES_PATH, project.getId()))
+                            .param("uf", "PR").param("month", "2026-09").param("projectType", SIDRA_PROJECT))
+                    .andExpect(status().isOk());
+
+            confirm(project, distinctiveCost, distinctiveArea, prdShares())
+                    .andExpect(status().isOk());
+
+            serveCost(new BigDecimal("5000.00"), "AcabamentoSigilosoXYZ");
+            confirm(project, distinctiveCost, distinctiveArea, prdShares())
+                    .andExpect(status().isConflict());
+        } finally {
+            applicationLogger.setLevel(previousLevel);
+            root.detachAppender(captured);
+            captured.stop();
+        }
+
+        String logs = captured.list.stream()
+                .map(event -> {
+                    IThrowableProxy throwable = event.getThrowableProxy();
+                    return throwable == null ? event.getFormattedMessage()
+                            : event.getFormattedMessage() + "\n" + throwable.getMessage();
+                })
+                .collect(Collectors.joining("\n"));
+        assertThat(logs)
+                .as("custo, resposta da fonte e memória de cálculo não podem aparecer nos logs")
+                .contains(sentinel)
+                .doesNotContain("4321.99")
+                .doesNotContain("AcabamentoSigilosoXYZ")
+                .doesNotContain("159913");
+    }
+
     // ---- auxiliares -------------------------------------------------------------------
+
+    private long countAll(String table) {
+        return jdbc.queryForObject("select count(*) from " + table, Long.class);
+    }
+
+    private long countAllBudgets(Project target) {
+        return jdbc.queryForObject("select count(*) from budgets where project_id = ?",
+                Long.class, target.getId());
+    }
+
+    private long countProjectRows(String table, Project target) {
+        if ("pending_payments".equals(table)) {
+            return jdbc.queryForObject("select count(*) from pending_payments p "
+                    + "join expenses e on e.id = p.expense_id where e.project_id = ?",
+                    Long.class, target.getId());
+        }
+        return jdbc.queryForObject("select count(*) from " + table + " where project_id = ?",
+                Long.class, target.getId());
+    }
 
     private int send(String body, CountDownLatch start) throws Exception {
         start.await();
@@ -360,8 +467,12 @@ class BudgetSinapiConfirmationIntegrationTest {
     }
 
     private void serveCost(BigDecimal cost) {
+        serveCost(cost, "Normal");
+    }
+
+    private void serveCost(BigDecimal cost, String finishName) {
         when(sidra.getFinishes(eq(SIDRA_UF), eq(SIDRA_MONTH), eq(SIDRA_PROJECT)))
-                .thenReturn(List.of(new SinapiReferencesDTO.Finish(FINISH_ID, "Normal", cost)));
+                .thenReturn(List.of(new SinapiReferencesDTO.Finish(FINISH_ID, finishName, cost)));
     }
 
     private List<Pct> prdShares() {

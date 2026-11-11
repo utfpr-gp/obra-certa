@@ -160,6 +160,37 @@ describe('BudgetService', () => {
     request.flush(result);
   });
 
+  it('keeps the SINAPI requests out of the browser persistent storage', () => {
+    const snapshot = (): string => {
+      const collect = (storage: Storage): Record<string, string> => {
+        const entries: Record<string, string> = {};
+        for (let index = 0; index < storage.length; index++) {
+          const key = storage.key(index)!;
+          entries[key] = storage.getItem(key) ?? '';
+        }
+        return entries;
+      };
+      return JSON.stringify({
+        local: collect(localStorage),
+        session: collect(sessionStorage),
+        cookie: document.cookie,
+      });
+    };
+    const openDatabase = spyOn(indexedDB, 'open');
+    const before = snapshot();
+
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe();
+    httpTesting.expectOne(() => true).flush({ source: 'SIDRA/IBGE', finishes: [] });
+    service.confirmSinapi('project-1', {
+      uf: 'PR', month: '2026-09', projectType: '7090', finishId: '787', area: 100,
+      unitCost: 4321.99, percentages: [{ categoryId: 'cat-fundacao', percentage: 100 }],
+    }).subscribe();
+    httpTesting.expectOne(() => true).flush({ created: [], preserved: [] });
+
+    expect(snapshot()).toBe(before);
+    expect(openDatabase).not.toHaveBeenCalled();
+  });
+
   it('zeroes the category budget with a POST to the /zero action and returns the recalculated category', () => {
     service.zeroBudget('project-1', 'cat-alvenaria').subscribe((response) => {
       expect(response).toEqual(zeroedCategory);

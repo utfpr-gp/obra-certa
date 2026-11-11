@@ -1,5 +1,10 @@
 package com.obracerta.controller;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.core.read.ListAppender;
 import com.obracerta.configuration.security.TokenService;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.enums.BudgetState;
@@ -7,6 +12,7 @@ import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.exception.BudgetBelowSpentException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.repository.UserRepository;
@@ -33,6 +39,9 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.math.BigDecimal;
 import java.net.SocketTimeoutException;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,6 +74,7 @@ class BudgetControllerTest {
             "/api/budgets/" + PROJECT_ID + "/categories/" + CATEGORY_ID;
     private static final String SINAPI_PATH = "/api/budgets/" + PROJECT_ID + "/sinapi/references";
     private static final String SIDRA_URL = "https://api.sidra.ibge.gov.br/values/t/647/n3/41/v/51/p/202609/c314/7090/c41/786,787,788,789";
+    private static final String SIDRA_URL_1998 = "https://api.sidra.ibge.gov.br/values/t/647/n3/41/v/51/p/199807/c314/7090/c41/786,787,788,789";
     private static final String SIDRA_HEADER =
             """
             {"NC":"Nível Territorial (Código)","NN":"Nível Territorial",
@@ -205,6 +215,76 @@ class BudgetControllerTest {
         when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("owner").build());
         when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(PROJECT_ID, "owner"))
                 .thenReturn(Optional.of(Project.builder().id(PROJECT_ID).build()));
+    }
+
+    @Test
+    void invalidSinapiParametersReturnBadRequestWithNoStore() throws Exception {
+        sidra.reset();
+
+        mockMvc.perform(get(SINAPI_PATH).param("uf", "XX").param("month", "2026-09")
+                        .param("projectType", "7090"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.status").value(400));
+        sidra.verify();
+    }
+
+    @Test
+    void foreignProjectReturnsNotFoundWithNoStore() throws Exception {
+        sidra.reset();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("owner").build());
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(PROJECT_ID, "owner"))
+                .thenReturn(Optional.empty());
+
+        requestSinapi().andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        sidra.verify();
+    }
+
+    @Test
+    void sinapiLookupDoesNotWriteTheQueryDataToTheLogs() throws Exception {
+        String sentinel = "Sentinela de captura do fluxo SINAPI";
+        Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        Logger applicationLogger = (Logger) LoggerFactory.getLogger("com.obracerta");
+        Level previousLevel = applicationLogger.getLevel();
+        ListAppender<ILoggingEvent> captured = new ListAppender<>();
+        captured.start();
+        root.addAppender(captured);
+        try {
+            applicationLogger.setLevel(Level.TRACE);
+            applicationLogger.trace(sentinel);
+            allowSinapi();
+            String body = """
+                    [%s,
+                    {"D1C":"41","D2C":"51","D3C":"199807","D4C":"7090","D5C":"787","D5N":"AcabamentoSigilosoXYZ","V":"4321.99"}]
+                    """.formatted(SIDRA_HEADER);
+            sidra.expect(requestTo(SIDRA_URL_1998)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+            mockMvc.perform(get(SINAPI_PATH).param("uf", "PR").param("month", "1998-07")
+                            .param("projectType", "7090"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.finishes[0].unitCost").value(4321.99));
+            sidra.verify();
+        } finally {
+            applicationLogger.setLevel(previousLevel);
+            root.detachAppender(captured);
+            captured.stop();
+        }
+
+        String logs = captured.list.stream()
+                .map(event -> {
+                    IThrowableProxy throwable = event.getThrowableProxy();
+                    return throwable == null ? event.getFormattedMessage()
+                            : event.getFormattedMessage() + "\n" + throwable.getMessage();
+                })
+                .collect(Collectors.joining("\n"));
+        assertThat(logs)
+                .as("a resposta da fonte e os parâmetros da consulta não podem aparecer nos logs")
+                .contains(sentinel)
+                .doesNotContain("4321.99")
+                .doesNotContain("AcabamentoSigilosoXYZ")
+                .doesNotContain("199807")
+                .doesNotContain("1998-07");
     }
 
     private ResultActions requestSinapi() throws Exception {
@@ -387,6 +467,19 @@ class BudgetControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(header().string("Cache-Control", "no-store"));
         verifyNoInteractions(budgetService);
+    }
+
+    @Test
+    void confirmSinapiSidraFailureReturnsServiceUnavailableWithNoStore() throws Exception {
+        when(budgetService.confirmSinapi(eq(PROJECT_ID), any()))
+                .thenThrow(new com.obracerta.exception.SinapiReferenceException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "O SIDRA/IBGE está temporariamente indisponível. Tente novamente."));
+
+        mockMvc.perform(post(CONFIRM_PATH).contentType(MediaType.APPLICATION_JSON).content(CONFIRM_BODY))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.status").value(503));
     }
 
     private void assertNotFoundPayload(ResultActions result, String message) throws Exception {
