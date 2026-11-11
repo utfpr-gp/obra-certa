@@ -540,7 +540,7 @@
 ### ⚪ US15 — Orçamento por Categoria a partir do CUB/m²
 
 - **História:** Como proprietário, quero usar o CUB/m² para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
-- **Status:** Rascunho.
+- **Status:** Ready
 - **Regras de Negócio Associadas:** RN01, RN02, RN08.
 
 #### Critérios de Aceite
