@@ -47,7 +47,7 @@
   - Migration: nenhuma.
   - Arquivos previstos: formulário SINAPI e seus testes em `apps/web/src/app/features/budgets-page/`, cálculo de rateio e testes JUnit em `apps/api`.
 
-- [ ] **Tarefa 5 — Confirmar os novos tetos**
+- [x] **Tarefa 5 — Confirmar os novos tetos**
   - Cobre: CA3 e CA4.
   - Teste primeiro: em `apps/api`, testar custo alterado desde a prévia, obra alheia, teto ativo com valor zero, parcela zero, repetição, concorrência real no PostgreSQL e rollback após falha durante o lote. Em `apps/web`, conferir os tetos marcados como preservados, enviar a confirmação e recarregar o painel após sucesso.
   - Decisões do autor: a confirmação responde `200 OK`; o servidor valida que a ordem das categorias recebida é a do PRD e recusa com `400` se não for; custo unitário negativo é recusado com `400` antes de chegar ao banco.
@@ -59,5 +59,11 @@
   - Teste primeiro: em `apps/api`, confirmar `no-store` nas respostas do fluxo e verificar, após consulta, confirmação e erro, que o banco contém somente os novos tetos e que os logs excluem os dados da consulta. Em `apps/web`, verificar que os dados deixam de existir no estado do formulário ao fechá-lo e ficam fora do armazenamento persistente do navegador.
   - Migration: nenhuma.
   - Arquivos previstos: testes dos endpoints SINAPI, configuração de logs do fluxo se necessária e testes do formulário.
+
+- [x] **Tarefa 7 — Preservar a confirmação SINAPI ao tentar trocar de aba**
+  - Cobre: pendência do CA4 registrada na Tarefa 5. A Tarefa 5 pode ser fechada após a verificação desta correção.
+  - Teste primeiro: em `apps/web`, manter a confirmação pendente com uma resposta controlada e tentar mudar para **Orçamento padrão** por clique e teclado. Verificar que a aba SINAPI segue ativa e que a resposta de sucesso recarrega o painel uma vez. Em caso de erro, verificar que a mensagem fica visível e que a troca de aba volta a funcionar.
+  - Migration: nenhuma.
+  - Arquivos previstos: `budget-form-modal.component.ts`, `budget-form-modal.component.html` e testes do modal e da página de Orçamentos.
 
 ## Critérios sem tarefa

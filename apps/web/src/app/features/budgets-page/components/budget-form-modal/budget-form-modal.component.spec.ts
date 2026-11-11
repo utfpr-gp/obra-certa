@@ -244,7 +244,7 @@ describe('BudgetFormModalComponent', () => {
     expect(budgetService.setBudget).not.toHaveBeenCalled();
   });
 
-  it('blocks closing while the SINAPI batch is being confirmed and reloads the panel when it succeeds', () => {
+  function startSinapiConfirmation(): Subject<{ created: []; preserved: [] }> {
     budgetService.getSinapiReferences.and.returnValue(of({
       source: 'SIDRA/IBGE',
       finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
@@ -257,11 +257,6 @@ describe('BudgetFormModalComponent', () => {
       field.dispatchEvent(new Event(event));
       fixture.detectChanges();
     }
-    let closed = 0;
-    let sinapiConfirmed = 0;
-    component.closed.subscribe(() => closed++);
-    component.sinapiConfirmed.subscribe(() => sinapiConfirmed++);
-
     fixture.componentRef.setInput('sinapiCategories', [{ id: 'cat-alvenaria', name: 'Alvenaria' }]);
     open();
     query<HTMLButtonElement>('budget-form-sinapi')!.click();
@@ -274,7 +269,15 @@ describe('BudgetFormModalComponent', () => {
     change('sinapi-percent-cat-alvenaria', '100', 'input');
     query<HTMLButtonElement>('sinapi-confirm')!.click();
     fixture.detectChanges();
+    return confirmation;
+  }
 
+  it('blocks closing while the SINAPI batch is being confirmed and forwards its success', () => {
+    let closed = 0;
+    let sinapiConfirmed = 0;
+    component.closed.subscribe(() => closed++);
+    component.sinapiConfirmed.subscribe(() => sinapiConfirmed++);
+    const confirmation = startSinapiConfirmation();
     const expectStillOpenWithSinapiForm = (): void => {
       expect(query('budget-form-modal')).not.toBeNull();
       expect(query('sinapi-confirm')).not.toBeNull();
@@ -297,6 +300,34 @@ describe('BudgetFormModalComponent', () => {
     confirmation.complete();
     fixture.detectChanges();
     expect(sinapiConfirmed).toBe(1);
+  });
+
+  it('keeps the SINAPI tab active on keyboard navigation until a failed confirmation finishes', () => {
+    const confirmation = startSinapiConfirmation();
+    const sinapiTab = query<HTMLButtonElement>('budget-form-sinapi')!;
+    const standardTab = query<HTMLButtonElement>('budget-form-standard')!;
+    sinapiTab.focus();
+
+    for (const key of ['ArrowLeft', 'ArrowRight', 'Home']) {
+      sinapiTab.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+
+      expect(sinapiTab.getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(sinapiTab);
+    }
+
+    confirmation.error(new HttpErrorResponse({ status: 500 }));
+    fixture.detectChanges();
+
+    expect(query('sinapi-confirm-error')?.getAttribute('role')).toBe('alert');
+    expect(standardTab.disabled).toBeFalse();
+
+    sinapiTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(standardTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(standardTab);
+    expect(query('budget-form-category')).not.toBeNull();
   });
 
   it('drops the edited SINAPI rateio when cancelled and rebuilds it from the PRD table when reopened', () => {

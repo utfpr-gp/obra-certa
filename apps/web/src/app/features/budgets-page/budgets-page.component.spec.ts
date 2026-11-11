@@ -550,7 +550,7 @@ describe('BudgetsPageComponent', () => {
     expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')?.value).toBe('14');
   }));
 
-  it('reloads the panel only after the SINAPI batch is confirmed', () => {
+  it('keeps SINAPI active after a standard tab click and reloads once after confirmation', () => {
     budgetService.getSinapiReferences.and.returnValue(of({
       source: 'SIDRA/IBGE',
       finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
@@ -584,6 +584,12 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.confirmSinapi).toHaveBeenCalledTimes(1);
     expect(budgetService.getOverview.calls.count()).toBe(1);
     expect(query('budget-form-modal')).not.toBeNull();
+
+    query<HTMLButtonElement>('budget-form-standard')!.click();
+    fixture.detectChanges();
+
+    expect(query('budget-form-sinapi')?.getAttribute('aria-selected')).toBe('true');
+    expect(query('sinapi-confirm')).not.toBeNull();
 
     confirmation.next({ created: [], preserved: [] });
     confirmation.complete();

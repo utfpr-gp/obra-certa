@@ -30,7 +30,7 @@
           <button #standardTab type="button" role="tab" id="budget-standard-tab"
             data-testid="budget-form-standard" aria-controls="budget-mode-panel"
             [attr.aria-selected]="!sinapiOpen()" [tabIndex]="sinapiOpen() ? -1 : 0"
-            class="budget-tab" (click)="sinapiOpen.set(false)">
+            [disabled]="sinapiSaving()" class="budget-tab" (click)="sinapiOpen.set(false)">
             Orçamento padrão
           </button>
           <button #sinapiTab type="button" role="tab" id="budget-sinapi-tab"

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, HostListener, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, computed, DestroyRef, effect, HostListener, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -56,6 +56,7 @@ export class BudgetFormModalComponent {
   readonly errorMessage = signal('');
   readonly belowSpentConflict = signal(false);
   readonly sinapiOpen = signal(false);
+  protected readonly sinapiSaving = computed(() => this.sinapiForm()?.saving() ?? false);
 
   readonly form = this.formBuilder.nonNullable.group({
     categoryId: ['', Validators.required],
@@ -108,9 +109,10 @@ export class BudgetFormModalComponent {
 
     event.preventDefault();
     const next = event.key === 'End' || (event.key !== 'Home' && !this.sinapiOpen());
-    if (next && sinapiTab.disabled) return;
+    const nextTab = next ? sinapiTab : standardTab;
+    if (nextTab.disabled) return;
     this.sinapiOpen.set(next);
-    (next ? sinapiTab : standardTab).focus();
+    nextTab.focus();
   }
 
   showCategoryError(): boolean {
@@ -203,7 +205,7 @@ export class BudgetFormModalComponent {
 
   close(): void {
     // Durante o envio do lote SINAPI, fechar é bloqueado: a resposta ainda precisa chegar ao painel.
-    if (this.sinapiForm()?.saving()) return;
+    if (this.sinapiSaving()) return;
     this.contextId++;
     this.sinapiOpen.set(false);
     this.closed.emit();
