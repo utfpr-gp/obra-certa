@@ -1,14 +1,10 @@
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { EMPTY, map, switchMap, timer } from 'rxjs';
+import { catchError, EMPTY, merge, Subject, switchMap } from 'rxjs';
+import { SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
-
-interface FinishReference {
-  id: string;
-  name: string;
-  unitCost: number;
-}
+import { BudgetService } from '../../../../core/services/budget.service';
 
 const INITIAL_PERCENTAGES = new Map([
   ['Fundação e Estrutura', 25],
@@ -30,6 +26,7 @@ const INITIAL_PERCENTAGES = new Map([
 })
 export class SinapiFormComponent {
   readonly categories = input.required<ExpenseCategory[]>();
+  readonly projectId = input.required<string>();
   readonly cancelled = output<void>();
   readonly states = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
@@ -57,10 +54,11 @@ export class SinapiFormComponent {
   ];
 
   private readonly formBuilder = inject(FormBuilder);
+  private readonly budgetService = inject(BudgetService);
   readonly currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   readonly selection = this.formBuilder.nonNullable.group({
     state: ['', Validators.required],
-    month: ['', [Validators.required, Validators.pattern(/^\d{4}-(0[1-9]|1[0-2])$/)]],
+    month: ['', [Validators.required, Validators.pattern(/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/)]],
     project: ['', Validators.required],
   });
   readonly area = new FormControl<number | null>(null);
@@ -68,7 +66,9 @@ export class SinapiFormComponent {
   private readonly allocation = this.formBuilder.record<FormControl<number | null>>({});
 
   readonly loading = signal(false);
-  readonly references = signal<FinishReference[] | null>(null);
+  readonly lookupFailed = signal(false);
+  readonly references = signal<SinapiReferences | null>(null);
+  private readonly retryLookup = new Subject<void>();
   private readonly areaValue = toSignal(this.area.valueChanges, { initialValue: null });
   private readonly finishId = toSignal(this.finish.valueChanges, { initialValue: '' });
   private readonly percentages = toSignal(this.allocation.valueChanges, {
@@ -77,11 +77,13 @@ export class SinapiFormComponent {
 
   readonly preview = computed(() => {
     const area = this.areaValue();
-    const reference = this.references()?.find(({ id }) => id === this.finishId());
-    if (!reference || area === null || !Number.isFinite(area) || area <= 0) return null;
+    const references = this.references();
+    const reference = references?.finishes.find(({ id }) => id === this.finishId());
+    if (!references || !reference || area === null || !Number.isFinite(area) || area <= 0) return null;
 
     const estimate = reference.unitCost * area;
     return {
+      source: references.source,
       unitCost: reference.unitCost,
       estimate,
       rows: this.categories().flatMap(category => {
@@ -110,25 +112,34 @@ export class SinapiFormComponent {
       this.allocation.updateValueAndValidity();
     });
 
-    this.selection.valueChanges.pipe(
-      switchMap(({ state }) => {
+    merge(this.selection.valueChanges, this.retryLookup).pipe(
+      switchMap(() => {
         this.finish.reset({ value: '', disabled: true });
         this.resetAllocation();
         this.references.set(null);
+        this.lookupFailed.set(false);
         this.loading.set(this.selection.valid);
         if (this.selection.invalid) return EMPTY;
 
-        // TODO #48: substituir a amostra local pela consulta ao SIDRA via BudgetService.
-        return timer(350).pipe(map((): FinishReference[] => state === 'PR'
-          ? [{ id: 'normal', name: 'Normal', unitCost: 1800 }]
-          : []));
+        const { state, month, project } = this.selection.getRawValue();
+        return this.budgetService.getSinapiReferences(this.projectId(), state, month, project).pipe(
+          catchError(() => {
+            this.loading.set(false);
+            this.lookupFailed.set(true);
+            return EMPTY;
+          }),
+        );
       }),
       takeUntilDestroyed(),
     ).subscribe(references => {
       this.references.set(references);
       this.loading.set(false);
-      if (references.length) this.finish.enable();
+      if (references.finishes.length) this.finish.enable();
     });
+  }
+
+  retry(): void {
+    this.retryLookup.next();
   }
 
   resetAllocation(): void {

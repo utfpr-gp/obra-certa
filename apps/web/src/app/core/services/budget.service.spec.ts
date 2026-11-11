@@ -3,8 +3,8 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { Observable } from 'rxjs';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { Observable, TimeoutError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BudgetCategory, BudgetOverview } from '../models/budget.model';
 import { BudgetService } from './budget.service';
@@ -56,6 +56,19 @@ describe('BudgetService', () => {
 
   afterEach(() => httpTesting.verify());
 
+  it('requests references for the selected work and SINAPI dimensions', () => {
+    const references = { source: 'SIDRA/IBGE', finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }] };
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe(result => {
+      expect(result).toEqual(references);
+    });
+
+    const request = httpTesting.expectOne({
+      method: 'GET',
+      url: `${environment.apiUrl}/api/budgets/project-1/sinapi/references?uf=PR&month=2026-09&projectType=7090`,
+    });
+    request.flush(references);
+  });
+
   for (const operation of ['read', 'save', 'zero'] as const) {
     for (const failure of ['error', 'timeout', 'server'] as const) {
       it(`preserves the ${failure} status and payload from ${operation}`, () => {
@@ -77,6 +90,20 @@ describe('BudgetService', () => {
       });
     }
   }
+
+  it('ends a SINAPI lookup without response at 15 seconds with a retryable error', fakeAsync(() => {
+    let failure: unknown;
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe({
+      error: (error) => { failure = error; },
+    });
+    const req = httpTesting.expectOne(() => true);
+    tick(14999);
+    expect(failure).toBeUndefined();
+    tick(1);
+    expect(failure).toBeInstanceOf(TimeoutError);
+    expect(req.cancelled).toBeTrue();
+    httpTesting.expectNone(() => true);
+  }));
 
   it('reads the overview with projectId as a query parameter', () => {
     service.getOverview('project-1').subscribe((response) => {

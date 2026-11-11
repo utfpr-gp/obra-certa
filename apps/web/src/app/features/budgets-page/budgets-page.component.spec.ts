@@ -1,4 +1,4 @@
-import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -151,6 +151,7 @@ describe('BudgetsPageComponent', () => {
     localStorage.clear();
     budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', [
       'getOverview',
+      'getSinapiReferences',
       'setBudget',
       'zeroBudget',
     ]);
@@ -517,6 +518,10 @@ describe('BudgetsPageComponent', () => {
   });
 
   it('shows the full SINAPI rateio while the standard form filters categories with a ceiling', fakeAsync(() => {
+    budgetService.getSinapiReferences.and.returnValue(of({
+      source: 'SIDRA/IBGE',
+      finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
+    }));
     render(project);
     query<HTMLButtonElement>('add-budget')!.click();
     fixture.detectChanges();
@@ -536,9 +541,7 @@ describe('BudgetsPageComponent', () => {
     change('sinapi-state', 'PR', 'change');
     change('sinapi-month', '2026-09', 'input');
     change('sinapi-project', '7101', 'change');
-    tick(350);
-    fixture.detectChanges();
-    change('sinapi-finish', 'normal', 'change');
+    change('sinapi-finish', '787', 'change');
 
     for (const item of categories) {
       expect(query(`sinapi-percent-${item.id}`)).not.toBeNull();

@@ -3,8 +3,12 @@ package com.obracerta.controller;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
+import com.obracerta.model.dto.budget.SinapiReferencesDTO;
 import com.obracerta.service.BudgetService;
+import com.obracerta.service.SinapiReferenceService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,9 +24,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class BudgetController {
 
     private final BudgetService budgetService;
+    private final SinapiReferenceService sinapiReferences;
 
-    public BudgetController(BudgetService budgetService) {
+    public BudgetController(BudgetService budgetService, SinapiReferenceService sinapiReferences) {
         this.budgetService = budgetService;
+        this.sinapiReferences = sinapiReferences;
+    }
+
+    @GetMapping("/{projectId}/sinapi/references")
+    public ResponseEntity<SinapiReferencesDTO> getSinapiReferences(
+            @PathVariable String projectId,
+            @RequestParam(defaultValue = "") String uf,
+            @RequestParam(defaultValue = "") String month,
+            @RequestParam(defaultValue = "") String projectType,
+            HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        return ResponseEntity.ok(sinapiReferences.getReferences(projectId, uf, month, projectType));
     }
 
     @GetMapping

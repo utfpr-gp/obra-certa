@@ -29,25 +29,31 @@
   - Migration: nenhuma.
   - Arquivos previstos: `apps/web/src/app/features/budgets-page/` e seus testes de componente.
 
-- [ ] **Tarefa 2 — Consultar referências do SIDRA**
+- [x] **Tarefa 2 — Consultar referências do SIDRA**
   - Cobre: CA1, CA5 e CA7.
   - Teste primeiro: em `apps/api`, validar parâmetros, titularidade, leitura das dimensões e custos positivos, ausência de combinações e timeout. Em `apps/web`, provar que a seleção consulta o serviço, que o custo aparece na prévia e que respostas atrasadas de uma seleção anterior ficam fora da tela. Cobrir erro e nova tentativa.
   - Migration: nenhuma.
   - Arquivos previstos: `apps/api/src/main/java/com/obracerta/controller/BudgetController.java`, cliente SIDRA, records e testes JUnit. `apps/web/src/app/core/services/budget.service.ts`, formulário SINAPI e testes.
 
-- [ ] **Tarefa 3 — Calcular o rateio editável**
+- [x] **Tarefa 3 — Corrigir o timeout da consulta SINAPI no front**
+  - Cobre: CA5 (tempo limite da consulta na interface). Corrige o apontamento aceito na rodada 2 da tarefa 2 (`reviews/tarefa-02-codigo-r2.md`). Ao concluir, marcar também a tarefa 2 como feita.
+  - Teste primeiro: em `apps/web`, provar em `budget.service.spec.ts` que uma consulta sem resposta vira erro após 15 s, e no formulário SINAPI que o tempo limite exibe o estado de erro com nova tentativa. Trocar a opção `timeout` do `HttpClient` por `.pipe(timeout(15000))`, como em `payment.service.ts`.
+  - Migration: nenhuma.
+  - Arquivos previstos: `apps/web/src/app/core/services/budget.service.ts` e `budget.service.spec.ts`; `budget-form-modal.component.spec.ts` se necessário.
+
+- [ ] **Tarefa 4 — Calcular o rateio editável**
   - Cobre: CA2 e CA6.
   - Teste primeiro: em `apps/web`, verificar os percentuais do PRD para qualquer modelo, edição, soma de 100%, desempate e conservação dos centavos, além de cancelamento e reabertura. Em `apps/api`, testar a mesma regra de cálculo com os mesmos casos de centavos e percentuais inválidos.
   - Migration: nenhuma.
   - Arquivos previstos: formulário SINAPI e seus testes em `apps/web/src/app/features/budgets-page/`, cálculo de rateio e testes JUnit em `apps/api`.
 
-- [ ] **Tarefa 4 — Confirmar os novos tetos**
+- [ ] **Tarefa 5 — Confirmar os novos tetos**
   - Cobre: CA3 e CA4.
   - Teste primeiro: em `apps/api`, testar custo alterado desde a prévia, obra alheia, teto ativo com valor zero, parcela zero, repetição, concorrência real no PostgreSQL e rollback após falha durante o lote. Em `apps/web`, conferir os tetos marcados como preservados, enviar a confirmação e recarregar o painel após sucesso.
   - Migration: nenhuma.
   - Arquivos previstos: `BudgetController.java`, `BudgetService.java`, `BudgetRepository.java`, records e testes JUnit. `budget.service.ts`, página de Orçamentos, formulário SINAPI e testes.
 
-- [ ] **Tarefa 5 — Verificar o descarte dos dados da consulta**
+- [ ] **Tarefa 6 — Verificar o descarte dos dados da consulta**
   - Cobre: CA8.
   - Teste primeiro: em `apps/api`, confirmar `no-store` nas respostas do fluxo e verificar, após consulta, confirmação e erro, que o banco contém somente os novos tetos e que os logs excluem os dados da consulta. Em `apps/web`, verificar que os dados deixam de existir no estado do formulário ao fechá-lo e ficam fora do armazenamento persistente do navegador.
   - Migration: nenhuma.

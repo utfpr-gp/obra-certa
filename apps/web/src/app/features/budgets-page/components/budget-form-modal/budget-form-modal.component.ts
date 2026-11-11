@@ -1,6 +1,6 @@
-import { CommonModule, DOCUMENT } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, HostListener, inject, input, isDevMode, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, HostListener, inject, input, output, signal } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -51,8 +51,6 @@ export class BudgetFormModalComponent {
   readonly errorMessage = signal('');
   readonly belowSpentConflict = signal(false);
   readonly sinapiOpen = signal(false);
-  readonly sinapiDemoAvailable = isDevMode() &&
-    ['localhost', '127.0.0.1', '[::1]'].includes(inject(DOCUMENT).location.hostname);
 
   readonly form = this.formBuilder.nonNullable.group({
     categoryId: ['', Validators.required],
@@ -93,7 +91,7 @@ export class BudgetFormModalComponent {
   }
 
   showBudgetTabs(): boolean {
-    return this.sinapiDemoAvailable && !this.isEditing() && !this.preselectedCategoryId();
+    return !!this.projectId() && !this.isEditing() && !this.preselectedCategoryId();
   }
 
   onBudgetTabKeydown(

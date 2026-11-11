@@ -1,6 +1,11 @@
 import { ExpenseCategory } from './expense-category.model';
 import { User } from './user.model';
 
+export interface SinapiReferences {
+  source: string;
+  finishes: { id: string; name: string; unitCost: number }[];
+}
+
 export interface Budget {
   id: string;
   userId: string;

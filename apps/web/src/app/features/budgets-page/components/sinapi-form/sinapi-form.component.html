@@ -1,7 +1,3 @@
-<p class="mb-4 text-sm text-slate-600">
-  Demonstração com valores de exemplo. Selecione PR para conferir a prévia.
-</p>
-
 <div class="grid gap-4 sm:grid-cols-2">
   <label class="field">
     Área da obra (m²)
@@ -19,7 +15,7 @@
   </label>
   <label class="field">
     Mês de referência
-    <input class="input" type="month" [formControl]="selection.controls.month"
+    <input class="input" type="month" required [formControl]="selection.controls.month"
       data-testid="sinapi-month" />
   </label>
   <label class="field sm:col-span-2">
@@ -39,7 +35,7 @@
     Padrão de acabamento
     <select class="select" [formControl]="finish" (change)="resetAllocation()" data-testid="sinapi-finish">
       <option value="">Selecione o acabamento</option>
-      @for (reference of references() ?? []; track reference.id) {
+      @for (reference of references()?.finishes ?? []; track reference.id) {
         <option [value]="reference.id">{{ reference.name }}</option>
       }
     </select>
@@ -49,8 +45,15 @@
 <div aria-live="polite" class="text-sm text-slate-600">
   @if (loading()) {
     <p class="mt-4" data-testid="sinapi-loading">Consultando acabamentos…</p>
-  } @else if (references()?.length === 0) {
+  } @else if (lookupFailed()) {
+    <p class="mt-4" data-testid="sinapi-error">Não foi possível consultar o SIDRA/IBGE.</p>
+  } @else if (references()?.finishes?.length === 0) {
     <p class="mt-4" data-testid="sinapi-unavailable">Nenhum acabamento disponível para esta seleção.</p>
+  }
+  @if (lookupFailed() || references()?.finishes?.length === 0) {
+    <button class="btn mt-2" type="button" data-testid="sinapi-retry" (click)="retry()">
+      Tentar novamente
+    </button>
   }
 </div>
 
@@ -60,10 +63,10 @@
     <dl class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
       <div class="sm:col-span-2">
         <dt class="text-sm text-slate-600">Fonte de referência</dt>
-        <dd>SIDRA/IBGE, tabela 647, variável 51</dd>
+        <dd>{{ result.source }}, tabela 647, variável 51</dd>
       </div>
       <div>
-        <dt class="text-sm text-slate-600">Custo por m² (exemplo)</dt>
+        <dt class="text-sm text-slate-600">Custo por m²</dt>
         <dd class="font-semibold">{{ currency.format(result.unitCost) }}</dd>
       </div>
       <div>

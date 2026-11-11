@@ -1,6 +1,7 @@
 package com.obracerta.controller;
 
 import com.obracerta.configuration.security.TokenService;
+import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.enums.BudgetState;
 import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.exception.BudgetBelowSpentException;
@@ -9,17 +10,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.repository.UserRepository;
+import com.obracerta.repository.ProjectRepository;
+import com.obracerta.model.entity.Project;
+import com.obracerta.model.entity.User;
+import com.obracerta.service.SinapiReferenceService;
+import com.obracerta.service.SidraClient;
 import com.obracerta.service.BudgetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
+import java.util.Optional;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,9 +40,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 
 /**
  * Teste de contrato da fatia MVC do orcamento: o {@code BudgetService} esta mockado e os
@@ -38,12 +56,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(BudgetController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import({SinapiReferenceService.class, BudgetControllerTest.SidraTestConfiguration.class})
 class BudgetControllerTest {
 
     private static final String PROJECT_ID = "project-1";
     private static final String CATEGORY_ID = "cat-alvenaria";
     private static final String BUDGET_PATH =
             "/api/budgets/" + PROJECT_ID + "/categories/" + CATEGORY_ID;
+    private static final String SINAPI_PATH = "/api/budgets/" + PROJECT_ID + "/sinapi/references";
+    private static final String SIDRA_URL = "https://api.sidra.ibge.gov.br/values/t/647/n3/41/v/51/p/202609/c314/7090/c41/786,787,788,789";
+    private static final String SIDRA_HEADER =
+            """
+            {"NC":"Nível Territorial (Código)","NN":"Nível Territorial",
+            "MC":"Unidade de Medida (Código)","MN":"Unidade de Medida","V":"Valor",
+            "D1C":"Unidade da Federação (Código)","D1N":"Unidade da Federação",
+            "D2C":"Variável (Código)","D2N":"Variável","D3C":"Mês (Código)","D3N":"Mês",
+            "D4C":"Projeto (Código)","D4N":"Projeto",
+            "D5C":"Padrão de acabamento (Código)","D5N":"Padrão de acabamento"}
+            """;
     private static final String VALID_BODY = """
             {"estimatedAmount":1500.00}
             """;
@@ -59,6 +89,128 @@ class BudgetControllerTest {
 
     @MockBean
     private UserRepository userRepository;
+
+    @MockBean
+    private ProjectRepository projectRepository;
+
+    @MockBean
+    private UserContextHelper userContextHelper;
+
+    @Autowired
+    private MockRestServiceServer sidra;
+
+    @TestConfiguration
+    static class SidraTestConfiguration {
+        private final RestClient.Builder builder = RestClient.builder();
+
+        @Bean
+        MockRestServiceServer sidra() {
+            return MockRestServiceServer.bindTo(builder).build();
+        }
+
+        @Bean
+        SidraClient sidraClient(MockRestServiceServer sidra) {
+            return new SidraClient(builder.build());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"uf=XX&month=2026-09&projectType=7090",
+            "uf=PR&month=2026-13&projectType=7090", "uf=PR&month=2026-9&projectType=7090",
+            "uf=PR&month=2026-09&projectType=9999", "uf=PR&month=2026-09"})
+    void rejectsInvalidSinapiParameters(String query) throws Exception {
+        sidra.reset();
+        mockMvc.perform(get(SINAPI_PATH + "?" + query))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(projectRepository);
+        sidra.verify();
+    }
+
+    @Test
+    void hidesForeignProjectBeforeCallingSidra() throws Exception {
+        sidra.reset();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("owner").build());
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(PROJECT_ID, "owner"))
+                .thenReturn(Optional.empty());
+
+        requestSinapi().andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Projeto não encontrado"));
+        sidra.verify();
+    }
+
+    @Test
+    void readsOnlyMatchingDimensionsAndPositiveCosts() throws Exception {
+        allowSinapi();
+        String body = """
+                [%s,
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"787","D5N":"Normal","V":"2221.06"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"786","D5N":"Baixo","V":"-"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"788","D5N":"Alto","V":"0"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"789","D5N":"Mínimo","V":"-10.01"},
+                {"D1C":"35","D2C":"51","D3C":"202609","D4C":"7090","D5C":"786","D5N":"Baixo","V":"100"},
+                {"D1C":"41","D2C":"50","D3C":"202609","D4C":"7090","D5C":"786","D5N":"Baixo","V":"100"},
+                {"D1C":"41","D2C":"51","D3C":"202610","D4C":"7090","D5C":"786","D5N":"Baixo","V":"100"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7089","D5C":"786","D5N":"Baixo","V":"100"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"123","D5N":"Outro","V":"100"}]
+                """.formatted(SIDRA_HEADER);
+        sidra.expect(requestTo(SIDRA_URL)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        requestSinapi().andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.source").value("SIDRA/IBGE"))
+                .andExpect(jsonPath("$.finishes.length()").value(1))
+                .andExpect(jsonPath("$.finishes[0].id").value("787"))
+                .andExpect(jsonPath("$.finishes[0].name").value("Normal"))
+                .andExpect(jsonPath("$.finishes[0].unitCost").value(2221.06));
+        sidra.verify();
+    }
+
+    @Test
+    void returnsEmptyFinishesWithoutSidraData() throws Exception {
+        allowSinapi();
+        sidra.expect(requestTo(SIDRA_URL))
+                .andRespond(withSuccess("[" + SIDRA_HEADER + "]", MediaType.APPLICATION_JSON));
+
+        requestSinapi().andExpect(status().isOk()).andExpect(jsonPath("$.finishes").isEmpty());
+        sidra.verify();
+    }
+
+    @Test
+    void turnsSidraTimeoutIntoTemporaryError() throws Exception {
+        allowSinapi();
+        sidra.expect(requestTo(SIDRA_URL)).andRespond(withException(new SocketTimeoutException("read timed out")));
+
+        requestSinapi().andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.status").value(503));
+        sidra.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[]", "[{\"error\":\"temporarily unavailable\"}]",
+            "[{\"V\":\"Valor\",\"D5N\":\"Padrão de acabamento\"}]"})
+    void turnsIncompatibleSidraResponseIntoTemporaryError(String body) throws Exception {
+        allowSinapi();
+        sidra.expect(requestTo(SIDRA_URL)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        requestSinapi().andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.status").value(503));
+        sidra.verify();
+    }
+
+    private void allowSinapi() {
+        sidra.reset();
+        when(userContextHelper.getAuthenticatedUser()).thenReturn(User.builder().id("owner").build());
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(PROJECT_ID, "owner"))
+                .thenReturn(Optional.of(Project.builder().id(PROJECT_ID).build()));
+    }
+
+    private ResultActions requestSinapi() throws Exception {
+        return mockMvc.perform(get(SINAPI_PATH).param("uf", "PR")
+                .param("month", "2026-09").param("projectType", "7090"));
+    }
 
     @Test
     void returnsTheRecalculatedCategoryOnPut() throws Exception {

@@ -1,7 +1,7 @@
-import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
-import { of, Subject, throwError } from 'rxjs';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of, Subject, throwError, TimeoutError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
-import { BudgetCategory } from '../../../../core/models/budget.model';
+import { BudgetCategory, SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import { BudgetFormModalComponent } from './budget-form-modal.component';
@@ -69,7 +69,7 @@ describe('BudgetFormModalComponent', () => {
   }
 
   beforeEach(async () => {
-    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['setBudget']);
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['setBudget', 'getSinapiReferences']);
     budgetService.setBudget.and.returnValue(of(recalculated));
 
     await TestBed.configureTestingModule({
@@ -166,7 +166,9 @@ describe('BudgetFormModalComponent', () => {
     expect(query('budget-form-tabs')).toBeNull();
   });
 
-  it('opens the local SINAPI preview, edits an allocation and discards it when closed', fakeAsync(() => {
+  it('consults SINAPI and discards the preview and edits when closed', () => {
+    const references = new Subject<SinapiReferences>();
+    budgetService.getSinapiReferences.and.returnValues(references, of({ source: 'SIDRA/IBGE', finishes: [] }));
     function change(testId: string, value: string, event = 'change'): void {
       const field = query<HTMLInputElement | HTMLSelectElement>(testId)!;
       field.value = value;
@@ -199,28 +201,28 @@ describe('BudgetFormModalComponent', () => {
     change('sinapi-month', '2026-09', 'input');
     change('sinapi-project', '7101');
     expect(query('sinapi-loading')).not.toBeNull();
-    tick(350);
+    expect(budgetService.getSinapiReferences).toHaveBeenCalledOnceWith('project-1', 'PR', '2026-09', '7101');
+    references.next({ source: 'SIDRA/IBGE', finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }] });
     fixture.detectChanges();
     const finishes = query<HTMLSelectElement>('sinapi-finish')!;
-    expect(Array.from(finishes.options).map(option => option.value)).toEqual(['', 'normal']);
-    change('sinapi-finish', 'normal');
+    expect(Array.from(finishes.options).map(option => option.value)).toEqual(['', '787']);
+    change('sinapi-finish', '787');
     expect(query('sinapi-preview')).toBeNull();
     change('sinapi-area', '100', 'input');
     const preview = query('sinapi-preview')!;
     expect(preview.textContent).toContain('SIDRA/IBGE');
-    expect(preview.textContent?.replace(/\s/g, ' ')).toContain('R$ 180.000,00');
+    expect(preview.textContent?.replace(/\s/g, ' ')).toContain('R$ 2.221,06');
+    expect(preview.textContent?.replace(/\s/g, ' ')).toContain('R$ 222.106,00');
     expect(Array.from(preview.querySelectorAll('tbody th'), cell => cell.textContent?.trim()))
       .toEqual(['Alvenaria', 'Hidráulica', 'Categoria do catálogo']);
     expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')?.value).toBe('14');
     expect(query<HTMLInputElement>('sinapi-percent-cat-hidraulica')?.value).toBe('9');
     expect(query<HTMLInputElement>('sinapi-percent-cat-local')?.value).toBe('0');
     change('sinapi-percent-cat-alvenaria', '15', 'input');
-    expect(preview.textContent?.replace(/\s/g, ' ')).toContain('R$ 27.000,00');
+    expect(preview.textContent?.replace(/\s/g, ' ')).toContain('R$ 33.315,90');
 
     change('sinapi-state', 'SP');
     expect(query('sinapi-preview')).toBeNull();
-    tick(350);
-    fixture.detectChanges();
     expect(query('sinapi-unavailable')).not.toBeNull();
 
     standard.click();
@@ -240,7 +242,86 @@ describe('BudgetFormModalComponent', () => {
     expect(query<HTMLInputElement>('sinapi-area')!.value).toBe('');
     expect(query('sinapi-preview')).toBeNull();
     expect(budgetService.setBudget).not.toHaveBeenCalled();
-  }));
+  });
+
+  it('ignores stale SINAPI results and retries the current selection after an error', () => {
+    const previous = new Subject<SinapiReferences>();
+    const current = new Subject<SinapiReferences>();
+    const retry = new Subject<SinapiReferences>();
+    budgetService.getSinapiReferences.and.returnValues(previous, current, retry);
+    open();
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+
+    function change(testId: string, value: string, event = 'change'): void {
+      const control = query<HTMLInputElement | HTMLSelectElement>(testId)!;
+      control.value = value;
+      control.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+
+    change('sinapi-area', '50', 'input');
+    change('sinapi-state', 'PR');
+    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-project', '7101');
+    change('sinapi-project', '7090');
+    previous.next({ source: 'SIDRA/IBGE', finishes: [{ id: '786', name: 'Antigo', unitCost: 10 }] });
+    fixture.detectChanges();
+    expect(query<HTMLSelectElement>('sinapi-finish')!.disabled).toBeTrue();
+    expect(query('sinapi-loading')).not.toBeNull();
+    current.error(new HttpErrorResponse({ status: 503 }));
+    fixture.detectChanges();
+    expect(query('sinapi-error')).not.toBeNull();
+    expect(query('sinapi-preview')).toBeNull();
+
+    query<HTMLButtonElement>('sinapi-retry')!.click();
+    fixture.detectChanges();
+    expect(budgetService.getSinapiReferences).toHaveBeenCalledTimes(3);
+    expect(budgetService.getSinapiReferences.calls.mostRecent().args).toEqual(['project-1', 'PR', '2026-09', '7090']);
+    retry.next({ source: 'SIDRA/IBGE', finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }] });
+    fixture.detectChanges();
+    expect(query('sinapi-error')).toBeNull();
+    const finishes = query<HTMLSelectElement>('sinapi-finish')!;
+    expect(Array.from(finishes.options, ({ value }) => value)).toEqual(['', '787']);
+    change('sinapi-finish', '787');
+    expect(query('sinapi-preview')!.textContent?.replace(/\s/g, ' ')).toContain('R$ 111.053,00');
+  });
+
+  it('shows the retryable error when the SINAPI lookup times out and keeps the preview hidden until a retry succeeds', () => {
+    budgetService.getSinapiReferences.and.returnValues(
+      throwError(() => new TimeoutError()),
+      of({ source: 'SIDRA/IBGE', finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }] }),
+    );
+    function change(testId: string, value: string, event = 'change'): void {
+      const field = query<HTMLInputElement | HTMLSelectElement>(testId)!;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+
+    open();
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+    change('sinapi-state', 'PR');
+    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-project', '7101');
+
+    expect(budgetService.getSinapiReferences).toHaveBeenCalledOnceWith('project-1', 'PR', '2026-09', '7101');
+    expect(query('sinapi-loading')).toBeNull();
+    expect(query('sinapi-error')).not.toBeNull();
+    expect(query('sinapi-retry')).not.toBeNull();
+    expect(query('sinapi-preview')).toBeNull();
+    expect(query<HTMLSelectElement>('sinapi-finish')!.disabled).toBeTrue();
+
+    query<HTMLButtonElement>('sinapi-retry')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.getSinapiReferences).toHaveBeenCalledTimes(2);
+    expect(budgetService.getSinapiReferences.calls.mostRecent().args).toEqual(['project-1', 'PR', '2026-09', '7101']);
+    expect(query('sinapi-error')).toBeNull();
+    expect(query<HTMLSelectElement>('sinapi-finish')!.disabled).toBeFalse();
+    expect(query<HTMLSelectElement>('sinapi-finish')!.options.length).toBe(2);
+  });
 
   it('submits the typed value for the category and emits the recalculated category', () => {
     spyOn(component.saved, 'emit');

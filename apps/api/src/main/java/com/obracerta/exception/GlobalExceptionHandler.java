@@ -3,6 +3,7 @@ package com.obracerta.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -15,6 +16,15 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(SinapiReferenceException.class)
+    public ResponseEntity<ApiErrorResponse> handleSinapiReference(
+            SinapiReferenceException exception, HttpServletRequest request) {
+        HttpStatus status = exception.status();
+        return ResponseEntity.status(status).body(new ApiErrorResponse(
+                Instant.now(), status.value(), status.getReasonPhrase(),
+                exception.getMessage(), request.getRequestURI(), List.of()));
+    }
+
     @ExceptionHandler(ReportPdfException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiErrorResponse handleReportPdf(ReportPdfException exception, HttpServletRequest request) {
