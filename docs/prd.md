@@ -537,36 +537,54 @@
 
 ---
 
-### ⚪ US15 — Orçamento por Categoria a partir do CUB/m²
+### 🟡 US15 — Orçamento por Categoria a partir do SINAPI
 
-- **História:** Como proprietário, quero usar o CUB/m² para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
+- **História:** Como proprietário, quero usar o custo por m² de um projeto de referência do SINAPI para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
 - **Status:** Ready
 - **Regras de Negócio Associadas:** RN01, RN02, RN08.
 
 #### Critérios de Aceite
 
-1. Em **Orçamentos → Adicionar orçamento**, o proprietário pode escolher **Usar CUB**, informar a área equivalente e selecionar a UF, o mês de referência e um dos projetos-padrão R-1 Baixo, Normal ou Alto. O sistema consulta o índice na autoCUB API e apresenta a fonte, o valor em R$/m² e a estimativa calculada pela multiplicação do índice pela área equivalente.
-2. O sistema carrega os percentuais iniciais do projeto-padrão selecionado. O proprietário pode ajustar o rateio e conferir o valor de cada teto antes de salvar. Os percentuais devem ser não negativos e somar 100%. A soma dos valores em centavos deve corresponder ao total exibido.
+1. Em **Orçamentos → Adicionar orçamento**, o proprietário escolhe **Usar SINAPI**, informa a área da obra e seleciona UF, mês, projeto de referência e padrão de acabamento. O sistema consulta o custo por m² da combinação na tabela 647 do SIDRA/IBGE e exibe a fonte, o custo unitário e a estimativa calculada pela multiplicação desse custo pela área informada. Somente acabamentos com valor disponível são oferecidos para a seleção.
+2. O sistema carrega uma tabela inicial de percentuais por categoria. O proprietário pode ajustar o rateio e conferir o valor de cada teto antes de salvar. Os percentuais devem ser não negativos e somar 100%. A soma dos valores em centavos deve corresponder ao total exibido.
 3. Na prévia, o sistema identifica as categorias que já têm teto e exibe os valores existentes. As parcelas calculadas para essas categorias ficam fora da gravação e não são redistribuídas automaticamente.
 4. Ao confirmar, o sistema cria tetos somente nas categorias sem teto e com parcela positiva na obra selecionada. A verificação é feita na gravação, inclusive para categorias que receberam um teto após a prévia. Se a gravação falhar, nenhum teto desse rateio é aplicado.
-5. Se a consulta falhar ou o índice selecionado estiver indisponível, o sistema informa a situação e impede a gravação pelo fluxo CUB até obter um índice válido.
+5. Se a consulta falhar ou o custo por m² selecionado estiver indisponível, o sistema informa a situação e impede a gravação pelo fluxo SINAPI até obter um valor válido.
+6. O Obra Certa consulta o SIDRA sob demanda. O custo por m², os parâmetros da consulta, a resposta da fonte e a memória do cálculo são usados temporariamente e descartados ao encerrar o fluxo. Ao confirmar, o sistema persiste somente os tetos resultantes no orçamento da obra.
 
-#### Percentuais iniciais por projeto-padrão
+#### Projetos de referência
 
-| Categoria | R-1 Baixo | R-1 Normal | R-1 Alto |
-|---|---:|---:|---:|
-| Fundação e Estrutura | 25% | 24% | 22% |
-| Alvenaria | 15% | 12% | 10% |
-| Elétrica | 7% | 8% | 9% |
-| Hidráulica | 8% | 9% | 9% |
-| Telhado e Cobertura | 12% | 10% | 8% |
-| Esquadrias e Vidros | 8% | 11% | 14% |
-| Acabamento e Pintura | 25% | 26% | 28% |
-| Mão de Obra | 0% | 0% | 0% |
-| Taxas e Serviços | 0% | 0% | 0% |
-| **Total** | **100%** | **100%** | **100%** |
+| Grupo | Modelo | Código SIDRA |
+|---|---|---:|
+| Casa popular | Térrea de 1 quarto | 7101 |
+| Casa popular | Térrea de 2 quartos | 7088 |
+| Casa popular | Térrea de 2 quartos com varanda | 7087 |
+| Casa popular | Sobrado de 3 quartos | 7102 |
+| Casa residencial | Térrea de 2 quartos | 7089 |
+| Casa residencial | Térrea de 3 quartos | 7090 |
+| Casa residencial | Térrea de 4 quartos | 7091 |
+| Casa residencial | Sobrado geminado de 2 quartos | 7103 |
 
-Os percentuais são sugestões do Obra Certa. O rateio inicial inclui a mão de obra no valor de cada etapa. A parcela de **Fundação e Estrutura** representa a estrutura contemplada pelo CUB. O proprietário estima fundações e taxas separadamente.
+Os códigos identificam os projetos na classificação 314 da tabela 647. A seleção de acabamento é independente do projeto e depende dos valores disponíveis para a UF e o mês.
+
+#### Percentuais iniciais
+
+Os oito projetos de referência usam a mesma tabela inicial de rateio, independentemente do acabamento selecionado. O proprietário pode ajustar os percentuais antes da confirmação.
+
+| Categoria | Percentual inicial |
+|---|---:|
+| Fundação e Estrutura | 25% |
+| Alvenaria | 14% |
+| Elétrica | 8% |
+| Hidráulica | 9% |
+| Telhado e Cobertura | 10% |
+| Esquadrias e Vidros | 10% |
+| Acabamento e Pintura | 24% |
+| Mão de Obra | 0% |
+| Taxas e Serviços | 0% |
+| **Total** | **100%** |
+
+O rateio inicial inclui materiais e mão de obra no teto de cada etapa. Quem lança a mão de obra separadamente pode transferir parte dos percentuais das etapas para a categoria **Mão de Obra**.
 
 ---
 
