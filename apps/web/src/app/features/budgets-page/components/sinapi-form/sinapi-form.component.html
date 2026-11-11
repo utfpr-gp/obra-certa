@@ -14,9 +14,20 @@
     </select>
   </label>
   <label class="field">
+    Ano de referência
+    <input class="input" type="text" inputmode="numeric" maxlength="4" required
+      [formControl]="selection.controls.year" data-testid="sinapi-year" />
+  </label>
+  <label class="field">
     Mês de referência
-    <input class="input" type="month" required [formControl]="selection.controls.month"
-      data-testid="sinapi-month" />
+    <select class="select" required [formControl]="selection.controls.month" data-testid="sinapi-month">
+      <option value="">Selecione o mês</option>
+      @for (month of months; track month.code) {
+        @let id = selection.controls.year.value + '-' + month.code;
+        @let unavailable = !(availability()?.months?.[id]?.length);
+        <option [value]="id" [disabled]="unavailable">{{ month.name }}{{ availability() && unavailable ? ' (indisponível)' : '' }}</option>
+      }
+    </select>
   </label>
   <label class="field sm:col-span-2">
     Projeto de referência
@@ -25,7 +36,8 @@
       @for (group of projectGroups; track group.name) {
         <optgroup [label]="group.name">
           @for (project of group.projects; track project.id) {
-            <option [value]="project.id">{{ project.name }}</option>
+            @let unavailable = !availableProjects().includes(project.id);
+            <option [value]="project.id" [disabled]="unavailable">{{ project.name }}{{ selection.controls.month.value && unavailable ? ' (indisponível)' : '' }}</option>
           }
         </optgroup>
       }
@@ -43,7 +55,14 @@
 </div>
 
 <div aria-live="polite" class="text-sm text-slate-600">
-  @if (loading()) {
+  @if (availabilityLoading()) {
+    <p class="mt-4" data-testid="sinapi-availability-loading">Consultando meses e projetos disponíveis…</p>
+  } @else if (availabilityFailed()) {
+    <p class="mt-4" data-testid="sinapi-availability-error">Não foi possível consultar a disponibilidade no SIDRA/IBGE.</p>
+    <button class="btn mt-2" type="button" data-testid="sinapi-availability-retry" (click)="retryAvailability()">
+      Tentar novamente
+    </button>
+  } @else if (loading()) {
     <p class="mt-4" data-testid="sinapi-loading">Consultando acabamentos…</p>
   } @else if (lookupFailed()) {
     <p class="mt-4" data-testid="sinapi-error">Não foi possível consultar o SIDRA/IBGE.</p>

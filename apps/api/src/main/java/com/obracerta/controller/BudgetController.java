@@ -3,6 +3,7 @@ package com.obracerta.controller;
 import com.obracerta.model.dto.budget.BudgetCategoryDTO;
 import com.obracerta.model.dto.budget.BudgetOverviewDTO;
 import com.obracerta.model.dto.budget.BudgetSetDTO;
+import com.obracerta.model.dto.budget.SinapiAvailabilityDTO;
 import com.obracerta.model.dto.budget.SinapiReferencesDTO;
 import com.obracerta.service.BudgetService;
 import com.obracerta.service.SinapiReferenceService;
@@ -36,6 +37,14 @@ public class BudgetController {
             @RequestParam(defaultValue = "") String month,
             @RequestParam(defaultValue = "") String projectType) {
         return ResponseEntity.ok(sinapiReferences.getReferences(projectId, uf, month, projectType));
+    }
+
+    @GetMapping("/{projectId}/sinapi/availability")
+    public ResponseEntity<SinapiAvailabilityDTO> getSinapiAvailability(
+            @PathVariable String projectId,
+            @RequestParam(defaultValue = "") String uf,
+            @RequestParam(defaultValue = "") String year) {
+        return ResponseEntity.ok(sinapiReferences.getAvailability(projectId, uf, year));
     }
 
     @GetMapping

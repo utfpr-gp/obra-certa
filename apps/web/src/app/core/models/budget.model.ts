@@ -6,6 +6,10 @@ export interface SinapiReferences {
   finishes: { id: string; name: string; unitCost: number }[];
 }
 
+export interface SinapiAvailability {
+  months: Record<string, string[]>;
+}
+
 export interface Budget {
   id: string;
   userId: string;

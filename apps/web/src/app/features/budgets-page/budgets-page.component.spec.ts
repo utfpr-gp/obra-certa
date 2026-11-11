@@ -151,6 +151,7 @@ describe('BudgetsPageComponent', () => {
     localStorage.clear();
     budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', [
       'getOverview',
+      'getSinapiAvailability',
       'getSinapiReferences',
       'confirmSinapi',
       'setBudget',
@@ -519,6 +520,7 @@ describe('BudgetsPageComponent', () => {
   });
 
   it('shows the full SINAPI rateio while the standard form filters categories with a ceiling', fakeAsync(() => {
+    budgetService.getSinapiAvailability.and.returnValue(of({ months: { '2026-09': ['7101'] } }));
     budgetService.getSinapiReferences.and.returnValue(of({
       source: 'SIDRA/IBGE',
       finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
@@ -539,8 +541,9 @@ describe('BudgetsPageComponent', () => {
     }
 
     change('sinapi-area', '100', 'input');
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR', 'change');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09', 'change');
     change('sinapi-project', '7101', 'change');
     change('sinapi-finish', '787', 'change');
 
@@ -551,6 +554,7 @@ describe('BudgetsPageComponent', () => {
   }));
 
   it('keeps SINAPI active after a standard tab click and reloads once after confirmation', () => {
+    budgetService.getSinapiAvailability.and.returnValue(of({ months: { '2026-09': ['7101'] } }));
     budgetService.getSinapiReferences.and.returnValue(of({
       source: 'SIDRA/IBGE',
       finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
@@ -569,8 +573,9 @@ describe('BudgetsPageComponent', () => {
       fixture.detectChanges();
     }
     change('sinapi-area', '100', 'input');
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR', 'change');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09', 'change');
     change('sinapi-project', '7101', 'change');
     change('sinapi-finish', '787', 'change');
     // O fixture traz só algumas categorias: a Alvenaria recebe o que falta para somar 100%.

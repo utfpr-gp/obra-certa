@@ -1,9 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, EMPTY, merge, Subject, switchMap } from 'rxjs';
-import { BudgetCategory, SinapiReferences } from '../../../../core/models/budget.model';
+import { BudgetCategory, SinapiAvailability, SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import {
@@ -37,6 +37,10 @@ export class SinapiFormComponent {
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
     'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
   ];
+  readonly months = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+  ].map((name, index) => ({ name, code: String(index + 1).padStart(2, '0') }));
   readonly projectGroups = [
     {
       name: 'Casa popular',
@@ -69,19 +73,27 @@ export class SinapiFormComponent {
   readonly currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   readonly selection = this.formBuilder.nonNullable.group({
     state: ['', Validators.required],
-    month: ['', [Validators.required, Validators.pattern(/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/)]],
-    project: ['', Validators.required],
+    year: [String(new Date().getFullYear()), [Validators.required, Validators.pattern(/^(?!0000)\d{4}$/)]],
+    month: [{ value: '', disabled: true }, Validators.required],
+    project: [{ value: '', disabled: true }, Validators.required],
   });
   readonly area = new FormControl<number | null>(null);
   readonly finish = new FormControl({ value: '', disabled: true }, { nonNullable: true });
   private readonly allocation = this.formBuilder.record<FormControl<number | null>>({});
 
   readonly loading = signal(false);
+  readonly availability = signal<SinapiAvailability | null>(null);
+  readonly availabilityLoading = signal(false);
+  readonly availabilityFailed = signal(false);
+  private readonly selectedMonth = signal('');
+  readonly availableProjects = computed(() => this.availability()?.months[this.selectedMonth()] ?? []);
   readonly lookupFailed = signal(false);
   readonly references = signal<SinapiReferences | null>(null);
   readonly saving = signal(false);
   readonly confirmError = signal<'stale' | 'failed' | null>(null);
   private readonly retryLookup = new Subject<void>();
+  private readonly availabilityContextChanged = new Subject<string>();
+  private readonly retryAvailabilityLookup = new Subject<void>();
   private readonly areaValue = toSignal(this.area.valueChanges, { initialValue: null });
   private readonly finishId = toSignal(this.finish.valueChanges, { initialValue: '' });
   private readonly percentages = toSignal(this.allocation.valueChanges, {
@@ -174,18 +186,20 @@ export class SinapiFormComponent {
       this.allocation.updateValueAndValidity();
     });
 
-    merge(this.selection.valueChanges, this.retryLookup).pipe(
+    const { state, year, month, project } = this.selection.controls;
+
+    merge(project.valueChanges, this.retryLookup).pipe(
       switchMap(() => {
         this.finish.reset({ value: '', disabled: true });
         this.resetAllocation();
         this.references.set(null);
         this.lookupFailed.set(false);
         this.confirmError.set(null);
-        this.loading.set(this.selection.valid);
-        if (this.selection.invalid) return EMPTY;
+        const canLookUp = this.availableProjects().includes(project.value);
+        this.loading.set(canLookUp);
+        if (!canLookUp) return EMPTY;
 
-        const { state, month, project } = this.selection.getRawValue();
-        return this.budgetService.getSinapiReferences(this.projectId(), state, month, project).pipe(
+        return this.budgetService.getSinapiReferences(this.projectId(), state.value, month.value, project.value).pipe(
           catchError(() => {
             this.loading.set(false);
             this.lookupFailed.set(true);
@@ -199,6 +213,44 @@ export class SinapiFormComponent {
       this.loading.set(false);
       if (references.finishes.length) this.finish.enable();
     });
+
+    month.valueChanges.pipe(takeUntilDestroyed()).subscribe(value => {
+      this.selectedMonth.set(value);
+      project.reset({ value: '', disabled: this.availableProjects().length === 0 });
+    });
+
+    merge(state.valueChanges, year.valueChanges, this.availabilityContextChanged, this.retryAvailabilityLookup).pipe(
+      switchMap(() => {
+        this.availability.set(null);
+        month.reset({ value: '', disabled: true });
+        this.availabilityFailed.set(false);
+        const canLookUp = state.valid && year.valid;
+        this.availabilityLoading.set(canLookUp);
+        if (!canLookUp) return EMPTY;
+
+        return this.budgetService.getSinapiAvailability(this.projectId(), state.value, year.value).pipe(
+          catchError(() => {
+            this.availabilityLoading.set(false);
+            this.availabilityFailed.set(true);
+            return EMPTY;
+          }),
+        );
+      }),
+      takeUntilDestroyed(),
+    ).subscribe(availability => {
+      this.availability.set(availability);
+      this.availabilityLoading.set(false);
+      month.enable({ emitEvent: false });
+    });
+
+    effect(() => {
+      const projectId = this.projectId();
+      untracked(() => this.availabilityContextChanged.next(projectId));
+    });
+  }
+
+  retryAvailability(): void {
+    this.retryAvailabilityLookup.next();
   }
 
   retry(): void {

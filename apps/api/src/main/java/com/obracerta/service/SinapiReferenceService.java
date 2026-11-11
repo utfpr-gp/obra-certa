@@ -3,6 +3,7 @@ package com.obracerta.service;
 import com.obracerta.configuration.security.UserContextHelper;
 import com.obracerta.exception.ResourceNotFoundException;
 import com.obracerta.exception.SinapiReferenceException;
+import com.obracerta.model.dto.budget.SinapiAvailabilityDTO;
 import com.obracerta.model.dto.budget.SinapiReferencesDTO;
 import com.obracerta.repository.ProjectRepository;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ public class SinapiReferenceService {
     private static final Set<String> PROJECT_TYPES =
             Set.of("7101", "7088", "7087", "7102", "7089", "7090", "7091", "7103");
     private static final Pattern MONTH = Pattern.compile("(?!0000)[0-9]{4}-(0[1-9]|1[0-2])");
+    private static final Pattern YEAR = Pattern.compile("(?!0000)[0-9]{4}");
 
     private final ProjectRepository projects;
     private final UserContextHelper userContext;
@@ -45,10 +47,24 @@ public class SinapiReferenceService {
                     "Informe uma UF, um mês e um projeto de referência válidos.");
         }
 
+        requireOwnedProject(projectId);
+        return new SinapiReferencesDTO("SIDRA/IBGE",
+                sidra.getFinishes(ufCode, month.replace("-", ""), projectType));
+    }
+
+    public SinapiAvailabilityDTO getAvailability(String projectId, String uf, String year) {
+        String ufCode = UF_CODES.get(uf);
+        if (ufCode == null || !YEAR.matcher(year).matches()) {
+            throw new SinapiReferenceException(HttpStatus.BAD_REQUEST, "Informe uma UF e um ano válidos.");
+        }
+
+        requireOwnedProject(projectId);
+        return new SinapiAvailabilityDTO(sidra.getAvailability(ufCode, year, PROJECT_TYPES));
+    }
+
+    private void requireOwnedProject(String projectId) {
         String userId = userContext.getAuthenticatedUser().getId();
         projects.findByIdAndUserIdAndDeletedAtIsNull(projectId, userId)
                 .orElseThrow(ResourceNotFoundException::new);
-        return new SinapiReferencesDTO("SIDRA/IBGE",
-                sidra.getFinishes(ufCode, month.replace("-", ""), projectType));
     }
 }

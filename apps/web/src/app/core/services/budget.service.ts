@@ -6,6 +6,7 @@ import {
   BudgetCategory,
   BudgetOverview,
   BudgetSetDTO,
+  SinapiAvailability,
   SinapiConfirmation,
   SinapiConfirmDTO,
   SinapiReferences,
@@ -32,6 +33,13 @@ export class BudgetService {
     const params = new HttpParams().set('uf', uf).set('month', month).set('projectType', projectType);
     return this.http
       .get<SinapiReferences>(`${this.endpoint}/${projectId}/sinapi/references`, { params })
+      .pipe(timeout(15000));
+  }
+
+  getSinapiAvailability(projectId: string, uf: string, year: string): Observable<SinapiAvailability> {
+    const params = new HttpParams().set('uf', uf).set('year', year);
+    return this.http
+      .get<SinapiAvailability>(`${this.endpoint}/${projectId}/sinapi/availability`, { params })
       .pipe(timeout(15000));
   }
 

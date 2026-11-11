@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
-import { BudgetCategory } from '../../../../core/models/budget.model';
+import { BudgetCategory, SinapiAvailability } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import { SinapiFormComponent } from './sinapi-form.component';
@@ -110,18 +110,62 @@ describe('SinapiFormComponent — rateio editável', () => {
   }
 
   function pick(project = '7101'): void {
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', project);
     change('sinapi-finish', '787');
   }
 
   beforeEach(async () => {
-    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getSinapiReferences', 'confirmSinapi']);
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService',
+      ['getSinapiAvailability', 'getSinapiReferences', 'confirmSinapi']);
+    budgetService.getSinapiAvailability.and.returnValue(of({ months: { '2026-09': PROJECT_IDS } }));
     await TestBed.configureTestingModule({
       imports: [SinapiFormComponent, SinapiFormHostComponent],
       providers: [{ provide: BudgetService, useValue: budgetService }],
     }).compileComponents();
+  });
+
+  it('disables months and projects with no positive reference', () => {
+    mount();
+    budgetService.getSinapiAvailability.and.returnValue(of({
+      months: { '2026-09': ['7090'], '2026-11': [] },
+    }));
+    change('sinapi-year', '2026', 'input');
+    change('sinapi-state', 'PR');
+    const months = query<HTMLSelectElement>('sinapi-month')!;
+    expect(months.querySelector<HTMLOptionElement>('option[value="2026-11"]')!.disabled).toBeTrue();
+    expect(months.querySelector<HTMLOptionElement>('option[value="2026-11"]')!.textContent)
+      .toContain('indisponível');
+    change('sinapi-month', '2026-09');
+    const projects = query<HTMLSelectElement>('sinapi-project')!;
+    expect(projects.querySelector<HTMLOptionElement>('option[value="7101"]')!.disabled).toBeTrue();
+    expect(projects.querySelector<HTMLOptionElement>('option[value="7090"]')!.disabled).toBeFalse();
+  });
+
+  it('retries availability and ignores the previous UF response', () => {
+    const old = new Subject<SinapiAvailability>();
+    const latest = new Subject<SinapiAvailability>();
+    budgetService.getSinapiAvailability.and.returnValues(
+      old, throwError(() => new Error('SIDRA indisponível')), latest,
+    );
+    mount();
+    change('sinapi-year', '2025', 'input');
+    change('sinapi-state', 'PR');
+    change('sinapi-state', 'SP');
+    expect(query('sinapi-availability-error')).not.toBeNull();
+    query<HTMLButtonElement>('sinapi-availability-retry')!.click();
+    latest.next({ months: { '2025-08': ['7090'] } });
+    old.next({ months: { '2025-09': ['7101'] } });
+    fixture.detectChanges();
+
+    expect(budgetService.getSinapiAvailability.calls.mostRecent().args)
+      .toEqual(['project-1', 'SP', '2025']);
+    expect(query<HTMLInputElement>('sinapi-year')!.value).toBe('2025');
+    const months = query<HTMLSelectElement>('sinapi-month')!;
+    expect(months.querySelector<HTMLOptionElement>('option[value="2025-08"]')!.disabled).toBeFalse();
+    expect(months.querySelector<HTMLOptionElement>('option[value="2025-09"]')!.disabled).toBeTrue();
   });
 
   for (const project of PROJECT_IDS) {
@@ -420,8 +464,9 @@ describe('SinapiFormComponent — rateio editável', () => {
       error: { message: 'Indisponível' },
     })));
 
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', '7101');
 
     expect(component.references()).toBeNull();
@@ -444,8 +489,9 @@ describe('SinapiFormComponent — rateio editável', () => {
 
     serve(4321.99);
     set('sinapi-area', '37', 'input');
+    set('sinapi-year', '2026', 'input');
     set('sinapi-state', 'PR');
-    set('sinapi-month', '2026-09', 'input');
+    set('sinapi-month', '2026-09');
     set('sinapi-project', '7101');
     set('sinapi-finish', '787');
     expect(root.querySelector('[data-testid="sinapi-preview"]')).not.toBeNull();

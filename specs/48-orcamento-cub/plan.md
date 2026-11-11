@@ -66,4 +66,12 @@
   - Migration: nenhuma.
   - Arquivos previstos: `budget-form-modal.component.ts`, `budget-form-modal.component.html` e testes do modal e da página de Orçamentos.
 
+- [x] **Tarefa 8 — Desabilitar meses e projetos sem referência SINAPI**
+  - Cobre: extensão da disponibilidade prevista no CA7, solicitada pelo autor. Para a UF selecionada, desabilitar os meses em que nenhum dos oito projetos tem preço positivo. Para um mês disponível, desabilitar cada projeto que não tenha pelo menos um acabamento com preço positivo.
+  - Contrato: consulta de disponibilidade por obra, UF e ano. A API valida a titularidade e consulta os oito projetos da tabela 647 em lote, agrupando os resultados por mês e projeto. A consulta existente fornece os preços dos acabamentos após a seleção do projeto. A disponibilidade é consultada sob demanda e mantida em memória durante o fluxo.
+  - Interface: permitir a seleção de ano e exibir os meses em uma lista com opções desabilitáveis. Identificar as opções sem dados como indisponíveis. Ao trocar UF, ano ou mês, limpar as seleções dependentes e a prévia anterior. Em caso de falha, informar o erro e permitir nova tentativa.
+  - Teste primeiro: em `apps/api`, verificar que uma resposta com um mês sem linhas e outro com preços apenas para parte dos projetos retorna o mapa correto. Cobrir titularidade e falha do SIDRA. Em `apps/web`, verificar que novembro sem preços fica desabilitado, que um projeto sem preço fica desabilitado em mês disponível e que uma resposta antiga não altera a seleção atual. Exercitar nova tentativa após falha.
+  - Migration: nenhuma.
+  - Arquivos previstos: `BudgetController.java`, `SinapiReferenceService.java`, `SidraClient.java`, DTO e testes da API. Modelo e serviço de Orçamentos, formulário SINAPI e testes Angular.
+
 ## Critérios sem tarefa

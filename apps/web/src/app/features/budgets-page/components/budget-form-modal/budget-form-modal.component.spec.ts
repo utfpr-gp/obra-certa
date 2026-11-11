@@ -69,7 +69,9 @@ describe('BudgetFormModalComponent', () => {
   }
 
   beforeEach(async () => {
-    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['setBudget', 'getSinapiReferences', 'confirmSinapi']);
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService',
+      ['setBudget', 'getSinapiAvailability', 'getSinapiReferences', 'confirmSinapi']);
+    budgetService.getSinapiAvailability.and.returnValue(of({ months: { '2026-09': ['7101', '7090'] } }));
     budgetService.setBudget.and.returnValue(of(recalculated));
 
     await TestBed.configureTestingModule({
@@ -197,8 +199,9 @@ describe('BudgetFormModalComponent', () => {
     ]);
     expect(query<HTMLSelectElement>('sinapi-finish')!.disabled).toBeTrue();
     change('sinapi-area', '0', 'input');
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', '7101');
     expect(query('sinapi-loading')).not.toBeNull();
     expect(budgetService.getSinapiReferences).toHaveBeenCalledOnceWith('project-1', 'PR', '2026-09', '7101');
@@ -223,6 +226,10 @@ describe('BudgetFormModalComponent', () => {
 
     change('sinapi-state', 'SP');
     expect(query('sinapi-preview')).toBeNull();
+    expect(query<HTMLSelectElement>('sinapi-month')!.value).toBe('');
+    expect(query<HTMLSelectElement>('sinapi-project')!.value).toBe('');
+    change('sinapi-month', '2026-09');
+    change('sinapi-project', '7101');
     expect(query('sinapi-unavailable')).not.toBeNull();
 
     standard.click();
@@ -261,8 +268,9 @@ describe('BudgetFormModalComponent', () => {
     open();
     query<HTMLButtonElement>('budget-form-sinapi')!.click();
     fixture.detectChanges();
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', '7101');
     change('sinapi-finish', '787');
     change('sinapi-area', '100', 'input');
@@ -343,8 +351,9 @@ describe('BudgetFormModalComponent', () => {
     }
     function fillSinapi(): void {
       change('sinapi-area', '100', 'input');
+      change('sinapi-year', '2026', 'input');
       change('sinapi-state', 'PR');
-      change('sinapi-month', '2026-09', 'input');
+      change('sinapi-month', '2026-09');
       change('sinapi-project', '7101');
       change('sinapi-finish', '787');
     }
@@ -388,8 +397,9 @@ describe('BudgetFormModalComponent', () => {
     }
 
     change('sinapi-area', '50', 'input');
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', '7101');
     change('sinapi-project', '7090');
     previous.next({ source: 'SIDRA/IBGE', finishes: [{ id: '786', name: 'Antigo', unitCost: 10 }] });
@@ -429,8 +439,9 @@ describe('BudgetFormModalComponent', () => {
     open();
     query<HTMLButtonElement>('budget-form-sinapi')!.click();
     fixture.detectChanges();
+    change('sinapi-year', '2026', 'input');
     change('sinapi-state', 'PR');
-    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-month', '2026-09');
     change('sinapi-project', '7101');
 
     expect(budgetService.getSinapiReferences).toHaveBeenCalledOnceWith('project-1', 'PR', '2026-09', '7101');

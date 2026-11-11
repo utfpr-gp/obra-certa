@@ -73,8 +73,11 @@ class BudgetControllerTest {
     private static final String BUDGET_PATH =
             "/api/budgets/" + PROJECT_ID + "/categories/" + CATEGORY_ID;
     private static final String SINAPI_PATH = "/api/budgets/" + PROJECT_ID + "/sinapi/references";
-    private static final String SIDRA_URL = "https://api.sidra.ibge.gov.br/values/t/647/n3/41/v/51/p/202609/c314/7090/c41/786,787,788,789";
-    private static final String SIDRA_URL_1998 = "https://api.sidra.ibge.gov.br/values/t/647/n3/41/v/51/p/199807/c314/7090/c41/786,787,788,789";
+    private static final String AVAILABILITY_PATH = "/api/budgets/" + PROJECT_ID + "/sinapi/availability";
+    private static final String SIDRA_YEAR_URL = "https://apisidra.ibge.gov.br/values/t/647/n3/41/v/51"
+            + "/p/202601-202612/c314/7087,7088,7089,7090,7091,7101,7102,7103/c41/786,787,788,789";
+    private static final String SIDRA_URL = "https://apisidra.ibge.gov.br/values/t/647/n3/41/v/51/p/202609/c314/7090/c41/786,787,788,789";
+    private static final String SIDRA_URL_1998 = "https://apisidra.ibge.gov.br/values/t/647/n3/41/v/51/p/199807/c314/7090/c41/786,787,788,789";
     private static final String SIDRA_HEADER =
             """
             {"NC":"Nível Territorial (Código)","NN":"Nível Territorial",
@@ -208,6 +211,70 @@ class BudgetControllerTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.status").value(503));
         sidra.verify();
+    }
+
+    @Test
+    void returnsOnlyProjectsWithPositivePricesGroupedByMonthFromOneSidraRequest() throws Exception {
+        allowSinapi();
+        String body = """
+                [%s,
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"787","D5N":"Normal","V":"2221.06"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7090","D5C":"788","D5N":"Alto","V":"3100"},
+                {"D1C":"41","D2C":"51","D3C":"202609","D4C":"7089","D5C":"786","D5N":"Baixo","V":"0"},
+                {"D1C":"41","D2C":"51","D3C":"202610","D4C":"7103","D5C":"789","D5N":"Mínimo","V":"1500"},
+                {"D1C":"41","D2C":"51","D3C":"202610","D4C":"7091","D5C":"788","D5N":"Alto","V":"-"},
+                {"D1C":"41","D2C":"51","D3C":"202610","D4C":"7091","D5C":"123","D5N":"Outro","V":"1500"},
+                {"D1C":"41","D2C":"51","D3C":"202511","D4C":"7091","D5C":"788","D5N":"Alto","V":"1500"},
+                {"D1C":"35","D2C":"51","D3C":"202611","D4C":"7091","D5C":"788","D5N":"Alto","V":"1500"},
+                {"D1C":"41","D2C":"51","D3C":"202612","D4C":"7091","D5C":"788","V":"1500"}]
+                """.formatted(SIDRA_HEADER);
+        sidra.expect(requestTo(SIDRA_YEAR_URL)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        requestAvailability().andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.months['2026-09'].length()").value(1))
+                .andExpect(jsonPath("$.months['2026-09'][0]").value("7090"))
+                .andExpect(jsonPath("$.months['2026-10'][0]").value("7103"))
+                .andExpect(jsonPath("$.months['2026-11']").isEmpty())
+                .andExpect(jsonPath("$.months['2026-12']").isEmpty())
+                .andExpect(jsonPath("$.months.length()").value(12));
+        sidra.verify();
+    }
+
+    @Test
+    void refusesForeignProjectBeforeConsultingAvailability() throws Exception {
+        allowSinapi();
+        when(projectRepository.findByIdAndUserIdAndDeletedAtIsNull(PROJECT_ID, "owner"))
+                .thenReturn(Optional.empty());
+
+        requestAvailability().andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        sidra.verify();
+    }
+
+    @Test
+    void handlesAvailabilityProviderFailure() throws Exception {
+        allowSinapi();
+        sidra.expect(requestTo(SIDRA_YEAR_URL)).andRespond(withException(new SocketTimeoutException("read timed out")));
+
+        requestAvailability().andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        sidra.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0000", "202", "2026-09", ""})
+    void refusesInvalidAvailabilityYear(String year) throws Exception {
+        sidra.reset();
+        mockMvc.perform(get(AVAILABILITY_PATH).param("uf", "PR").param("year", year))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        verifyNoInteractions(projectRepository);
+        sidra.verify();
+    }
+
+    private ResultActions requestAvailability() throws Exception {
+        return mockMvc.perform(get(AVAILABILITY_PATH).param("uf", "PR").param("year", "2026"));
     }
 
     private void allowSinapi() {
