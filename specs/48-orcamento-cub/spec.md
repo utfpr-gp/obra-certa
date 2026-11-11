@@ -1,6 +1,6 @@
 ---
 issue: 48
-status: rascunho
+status: aprovada
 ---
 
 # US15 — Orçamento por Categoria a partir do SINAPI
