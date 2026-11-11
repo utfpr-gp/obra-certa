@@ -327,6 +327,68 @@ class BudgetControllerTest {
                 .andExpect(jsonPath("$.fieldErrors").isEmpty());
     }
 
+    private static final String CONFIRM_PATH = "/api/budgets/" + PROJECT_ID + "/sinapi/confirm";
+    private static final String CONFIRM_BODY = """
+            {"uf":"PR","month":"2026-09","projectType":"7090","finishId":"787","area":100,
+             "unitCost":2221.06,"percentages":[{"categoryId":"cat-alvenaria","percentage":14}]}
+            """;
+
+    @Test
+    void confirmSinapiReturnsOkWithNoStore() throws Exception {
+        when(budgetService.confirmSinapi(eq(PROJECT_ID), any()))
+                .thenReturn(new com.obracerta.model.dto.budget.SinapiConfirmationDTO(
+                        java.util.List.of(new com.obracerta.model.dto.budget.SinapiConfirmationDTO.Created(
+                                CATEGORY_ID, "Alvenaria", new BigDecimal("310.97"))),
+                        java.util.List.of()));
+
+        mockMvc.perform(post(CONFIRM_PATH).contentType(MediaType.APPLICATION_JSON).content(CONFIRM_BODY))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.created[0].categoryId").value(CATEGORY_ID))
+                .andExpect(jsonPath("$.created[0].amount").value(310.97));
+    }
+
+    @Test
+    void confirmSinapiInvalidBodyReturnsBadRequestWithNoStoreBeforeService() throws Exception {
+        mockMvc.perform(post(CONFIRM_PATH).contentType(MediaType.APPLICATION_JSON)
+                        .content(CONFIRM_BODY.replace("2221.06", "-1")))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("unitCost"));
+        verifyNoInteractions(budgetService);
+    }
+
+    @Test
+    void confirmSinapiConflictReturnsConflictWithNoStore() throws Exception {
+        when(budgetService.confirmSinapi(eq(PROJECT_ID), any()))
+                .thenThrow(new com.obracerta.exception.SinapiReferenceException(
+                        org.springframework.http.HttpStatus.CONFLICT, "O custo mudou desde a prévia."));
+
+        mockMvc.perform(post(CONFIRM_PATH).contentType(MediaType.APPLICATION_JSON).content(CONFIRM_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.message").value("O custo mudou desde a prévia."));
+    }
+
+    @Test
+    void putInvalidBodyKeepsItsResponseWithoutNoStore() throws Exception {
+        mockMvc.perform(put(BUDGET_PATH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"estimatedAmount\":-1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().doesNotExist("Cache-Control"));
+        verifyNoInteractions(budgetService);
+    }
+
+    @Test
+    void confirmSinapiMalformedJsonReturnsBadRequestWithNoStore() throws Exception {
+        mockMvc.perform(post(CONFIRM_PATH).contentType(MediaType.APPLICATION_JSON).content("{\"uf\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        verifyNoInteractions(budgetService);
+    }
+
     private void assertNotFoundPayload(ResultActions result, String message) throws Exception {
         assertNotFoundPayload(result, message, BUDGET_PATH);
     }

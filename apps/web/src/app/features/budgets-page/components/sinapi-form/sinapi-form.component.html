@@ -95,7 +95,12 @@
       <tbody role="rowgroup" class="grid gap-2 sm:table-row-group">
         @for (row of result.rows; track row.category.id) {
           <tr role="row" class="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:table-row sm:rounded-none sm:border-x-0 sm:border-b-0 sm:p-0">
-            <th role="rowheader" class="col-span-2 font-medium sm:py-2 sm:pr-2" scope="row">{{ row.category.name }}</th>
+            <th role="rowheader" class="col-span-2 font-medium sm:py-2 sm:pr-2" scope="row">
+              {{ row.category.name }}
+              @if (row.existingAmount !== null) {
+                <span class="block text-xs font-normal text-slate-600" [attr.data-testid]="'sinapi-preserved-' + row.category.id">Teto atual {{ currency.format(row.existingAmount) }} preservado</span>
+              }
+            </th>
             <td role="cell" class="sm:py-2 sm:text-center">
               <span aria-hidden="true" class="mb-1 block text-xs text-slate-600 sm:hidden">Percentual</span>
               <input class="input percentage-input w-16" type="number" min="0" step="any" inputmode="decimal"
@@ -110,6 +115,20 @@
         }
       </tbody>
     </table>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <button class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
+        type="button" data-testid="sinapi-confirm" [disabled]="!canConfirm()" (click)="confirm()">Confirmar rateio</button>
+    </div>
+    @if (confirmError(); as failure) {
+      <div role="alert" class="text-sm font-medium text-red-700" data-testid="sinapi-confirm-error">
+        @if (failure === 'stale') {
+          <p>O custo por m² mudou desde a prévia. Atualize a consulta para gerar uma nova prévia.</p>
+          <button class="btn mt-2" type="button" data-testid="sinapi-retry-preview" (click)="retry()">Atualizar prévia</button>
+        } @else {
+          <p>Não foi possível confirmar o orçamento. Confira o painel antes de tentar novamente.</p>
+        }
+      </div>
+    }
   </section>
 }
 

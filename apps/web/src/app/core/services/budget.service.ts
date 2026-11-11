@@ -2,7 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { BudgetCategory, BudgetOverview, BudgetSetDTO, SinapiReferences } from '../models/budget.model';
+import {
+  BudgetCategory,
+  BudgetOverview,
+  BudgetSetDTO,
+  SinapiConfirmation,
+  SinapiConfirmDTO,
+  SinapiReferences,
+} from '../models/budget.model';
 
 @Injectable({
   providedIn: 'root',
@@ -26,6 +33,10 @@ export class BudgetService {
     return this.http
       .get<SinapiReferences>(`${this.endpoint}/${projectId}/sinapi/references`, { params })
       .pipe(timeout(15000));
+  }
+
+  confirmSinapi(projectId: string, dto: SinapiConfirmDTO): Observable<SinapiConfirmation> {
+    return this.http.post<SinapiConfirmation>(`${this.endpoint}/${projectId}/sinapi/confirm`, dto);
   }
 
   setBudget(

@@ -46,7 +46,8 @@
         [attr.aria-labelledby]="showBudgetTabs() ? (sinapiOpen() ? 'budget-sinapi-tab' : 'budget-standard-tab') : null">
       @if (showBudgetTabs() && sinapiOpen()) {
         <app-sinapi-form [projectId]="projectId()!"
-          [categories]="sinapiCategories() ?? categories()" (cancelled)="close()" />
+          [categories]="sinapiCategories() ?? categories()" [existingBudgets]="budgetRows()"
+          (cancelled)="close()" (confirmed)="sinapiConfirmed.emit()" />
       } @else {
       <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
         <label class="block text-sm font-medium text-slate-700">

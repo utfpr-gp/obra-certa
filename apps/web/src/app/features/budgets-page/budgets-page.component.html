@@ -226,8 +226,10 @@
       [preselectedCategoryId]="modalPreselectedCategoryId()"
       [categories]="modalCategories()"
       [sinapiCategories]="categories()"
+      [budgetRows]="overview()?.categories ?? []"
       (closed)="closeBudgetForm()"
       (saved)="onBudgetSaved()"
+      (sinapiConfirmed)="onBudgetSaved()"
     />
 
     @if (zeroModalOpen() && zeroError()) {

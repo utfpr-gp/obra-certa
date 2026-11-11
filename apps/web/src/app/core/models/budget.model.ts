@@ -34,6 +34,22 @@ export interface BudgetSetDTO {
   estimatedAmount: number;
 }
 
+/** Confirmação do lote SINAPI: custo exibido na prévia e percentuais em ordem do PRD. */
+export interface SinapiConfirmDTO {
+  uf: string;
+  month: string;
+  projectType: string;
+  finishId: string;
+  area: number;
+  unitCost: number;
+  percentages: { categoryId: string; percentage: number }[];
+}
+
+export interface SinapiConfirmation {
+  created: { categoryId: string; categoryName: string; amount: number }[];
+  preserved: { categoryId: string; categoryName: string }[];
+}
+
 export interface BudgetOverview {
   projectId: string;
   totalPlanned: number;

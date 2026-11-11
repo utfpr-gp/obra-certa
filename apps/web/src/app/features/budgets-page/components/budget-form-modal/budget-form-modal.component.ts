@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, HostListener, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, HostListener, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -29,6 +29,7 @@ export class BudgetFormModalComponent {
   private readonly budgetService = inject(BudgetService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sinapiForm = viewChild(SinapiFormComponent);
   private contextId = 0;
   private readonly amountFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -43,9 +44,13 @@ export class BudgetFormModalComponent {
   readonly preselectedCategoryId = input<string | null>(null);
   readonly categories = input<ExpenseCategory[]>([]);
   readonly sinapiCategories = input<ExpenseCategory[]>();
+  /** Tetos ativos da obra, usados pela prévia SINAPI para marcar os preservados. */
+  readonly budgetRows = input<BudgetCategory[]>([]);
 
   readonly closed = output<void>();
   readonly saved = output<BudgetCategory>();
+  /** Lote SINAPI confirmado pelo servidor. */
+  readonly sinapiConfirmed = output<void>();
 
   readonly saving = signal(false);
   readonly errorMessage = signal('');
@@ -197,6 +202,8 @@ export class BudgetFormModalComponent {
   }
 
   close(): void {
+    // Durante o envio do lote SINAPI, fechar é bloqueado: a resposta ainda precisa chegar ao painel.
+    if (this.sinapiForm()?.saving()) return;
     this.contextId++;
     this.sinapiOpen.set(false);
     this.closed.emit();

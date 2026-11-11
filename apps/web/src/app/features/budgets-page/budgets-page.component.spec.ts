@@ -152,6 +152,7 @@ describe('BudgetsPageComponent', () => {
     budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', [
       'getOverview',
       'getSinapiReferences',
+      'confirmSinapi',
       'setBudget',
       'zeroBudget',
     ]);
@@ -548,6 +549,49 @@ describe('BudgetsPageComponent', () => {
     }
     expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')?.value).toBe('14');
   }));
+
+  it('reloads the panel only after the SINAPI batch is confirmed', () => {
+    budgetService.getSinapiReferences.and.returnValue(of({
+      source: 'SIDRA/IBGE',
+      finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }],
+    }));
+    const confirmation = new Subject<{ created: []; preserved: [] }>();
+    budgetService.confirmSinapi.and.returnValue(confirmation.asObservable());
+    render(project);
+    query<HTMLButtonElement>('add-budget')!.click();
+    fixture.detectChanges();
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+    function change(testId: string, value: string, event: string): void {
+      const field = query<HTMLInputElement | HTMLSelectElement>(testId)!;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+    change('sinapi-area', '100', 'input');
+    change('sinapi-state', 'PR', 'change');
+    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-project', '7101', 'change');
+    change('sinapi-finish', '787', 'change');
+    // O fixture traz só algumas categorias: a Alvenaria recebe o que falta para somar 100%.
+    const others = categories.filter(({ id }) => id !== 'cat-alvenaria')
+      .reduce((sum, { id }) => sum + Number(query<HTMLInputElement>(`sinapi-percent-${id}`)!.value), 0);
+    change('sinapi-percent-cat-alvenaria', String(100 - others), 'input');
+
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.confirmSinapi).toHaveBeenCalledTimes(1);
+    expect(budgetService.getOverview.calls.count()).toBe(1);
+    expect(query('budget-form-modal')).not.toBeNull();
+
+    confirmation.next({ created: [], preserved: [] });
+    confirmation.complete();
+    fixture.detectChanges();
+
+    expect(budgetService.getOverview.calls.count()).toBe(2);
+    expect(query('budget-form-modal')).toBeNull();
+  });
 
   it('opens the edit form with the row category locked and the current amount', () => {
     render(project);

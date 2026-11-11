@@ -6,9 +6,7 @@ import com.obracerta.model.dto.budget.BudgetSetDTO;
 import com.obracerta.model.dto.budget.SinapiReferencesDTO;
 import com.obracerta.service.BudgetService;
 import com.obracerta.service.SinapiReferenceService;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,9 +34,7 @@ public class BudgetController {
             @PathVariable String projectId,
             @RequestParam(defaultValue = "") String uf,
             @RequestParam(defaultValue = "") String month,
-            @RequestParam(defaultValue = "") String projectType,
-            HttpServletResponse response) {
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+            @RequestParam(defaultValue = "") String projectType) {
         return ResponseEntity.ok(sinapiReferences.getReferences(projectId, uf, month, projectType));
     }
 
@@ -53,6 +49,13 @@ public class BudgetController {
             @PathVariable String categoryId,
             @Valid @RequestBody BudgetSetDTO request) {
         return ResponseEntity.ok(budgetService.setBudget(projectId, categoryId, request));
+    }
+
+    @PostMapping("/{projectId}/sinapi/confirm")
+    public ResponseEntity<com.obracerta.model.dto.budget.SinapiConfirmationDTO> confirmSinapi(
+            @PathVariable String projectId,
+            @Valid @RequestBody com.obracerta.model.dto.budget.SinapiConfirmDTO request) {
+        return ResponseEntity.ok(budgetService.confirmSinapi(projectId, request));
     }
 
     @PostMapping("/{projectId}/categories/{categoryId}/zero")

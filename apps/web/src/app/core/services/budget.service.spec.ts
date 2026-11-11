@@ -135,6 +135,31 @@ describe('BudgetService', () => {
     request.flush(updatedCategory);
   });
 
+  it('confirms the SINAPI batch with a POST and returns the created and preserved categories', () => {
+    const body = {
+      uf: 'PR',
+      month: '2026-09',
+      projectType: '7090',
+      finishId: '787',
+      area: 100,
+      unitCost: 2221.06,
+      percentages: [{ categoryId: 'cat-fundacao', percentage: 25 }],
+    };
+    const result = {
+      created: [{ categoryId: 'cat-fundacao', categoryName: 'Fundação e Estrutura', amount: 55526.5 }],
+      preserved: [{ categoryId: 'cat-alvenaria', categoryName: 'Alvenaria' }],
+    };
+    service.confirmSinapi('project-1', body).subscribe((response) => {
+      expect(response).toEqual(result);
+    });
+
+    const request = httpTesting.expectOne(`${environment.apiUrl}/api/budgets/project-1/sinapi/confirm`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush(result);
+  });
+
   it('zeroes the category budget with a POST to the /zero action and returns the recalculated category', () => {
     service.zeroBudget('project-1', 'cat-alvenaria').subscribe((response) => {
       expect(response).toEqual(zeroedCategory);

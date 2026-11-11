@@ -120,6 +120,33 @@ class SinapiAllocationCalculatorTest {
     }
 
     @Test
+    void refusesTotalsAboveTheNumeric15_2LimitWithOwnMessage() {
+        List<Share> shares = List.of(new Share("cat-a", new BigDecimal("100")));
+
+        assertThatThrownBy(() -> SinapiAllocationCalculator.allocate(new BigDecimal("10000000000000.00"), shares))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("O total ultrapassa o limite de R$ 9.999.999.999.999,99.");
+    }
+
+    @Test
+    void refusesAHugeEstimateInsteadOfOverflowing() {
+        List<Share> shares = List.of(new Share("cat-a", new BigDecimal("100")));
+        BigDecimal total = SinapiAllocationCalculator.estimate(new BigDecimal("1E17"), BigDecimal.ONE);
+
+        assertThatThrownBy(() -> SinapiAllocationCalculator.allocate(total, shares))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void acceptsTheLargestTotalThatFitsNumeric15_2() {
+        List<Parcel> parcels = SinapiAllocationCalculator.allocate(
+                new BigDecimal("9999999999999.99"), List.of(new Share("cat-a", new BigDecimal("100"))));
+
+        assertThat(parcels).singleElement()
+                .satisfies(parcel -> assertThat(parcel.amount()).isEqualByComparingTo("9999999999999.99"));
+    }
+
+    @Test
     void refusesAPercentageSumDifferentFrom100() {
         assertThatThrownBy(() -> SinapiAllocationCalculator.allocate(
                 new BigDecimal("0.10"), List.of(share("a", "33"), share("b", "33"), share("c", "33"))))

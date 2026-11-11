@@ -50,6 +50,7 @@
 - [ ] **Tarefa 5 — Confirmar os novos tetos**
   - Cobre: CA3 e CA4.
   - Teste primeiro: em `apps/api`, testar custo alterado desde a prévia, obra alheia, teto ativo com valor zero, parcela zero, repetição, concorrência real no PostgreSQL e rollback após falha durante o lote. Em `apps/web`, conferir os tetos marcados como preservados, enviar a confirmação e recarregar o painel após sucesso.
+  - Decisões do autor: a confirmação responde `200 OK`; o servidor valida que a ordem das categorias recebida é a do PRD e recusa com `400` se não for; custo unitário negativo é recusado com `400` antes de chegar ao banco.
   - Migration: nenhuma.
   - Arquivos previstos: `BudgetController.java`, `BudgetService.java`, `BudgetRepository.java`, records e testes JUnit. `budget.service.ts`, página de Orçamentos, formulário SINAPI e testes.
 

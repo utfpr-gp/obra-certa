@@ -1,8 +1,9 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, EMPTY, merge, Subject, switchMap } from 'rxjs';
-import { SinapiReferences } from '../../../../core/models/budget.model';
+import { BudgetCategory, SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import {
@@ -27,7 +28,11 @@ export type AllocationError = PercentError | 'sum';
 export class SinapiFormComponent {
   readonly categories = input.required<ExpenseCategory[]>();
   readonly projectId = input.required<string>();
+  /** Tetos ativos da obra (inclusive zerados): entram na prévia como preservados. */
+  readonly existingBudgets = input<BudgetCategory[]>([]);
   readonly cancelled = output<void>();
+  /** Emitido somente depois que o servidor confirma a gravação do lote. */
+  readonly confirmed = output<void>();
   readonly states = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
     'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
@@ -74,6 +79,8 @@ export class SinapiFormComponent {
   readonly loading = signal(false);
   readonly lookupFailed = signal(false);
   readonly references = signal<SinapiReferences | null>(null);
+  readonly saving = signal(false);
+  readonly confirmError = signal<'stale' | 'failed' | null>(null);
   private readonly retryLookup = new Subject<void>();
   private readonly areaValue = toSignal(this.area.valueChanges, { initialValue: null });
   private readonly finishId = toSignal(this.finish.valueChanges, { initialValue: '' });
@@ -115,6 +122,9 @@ export class SinapiFormComponent {
       ? (failed.ok ? null : failed.reason)
       : (sum === FULL_ALLOCATION ? null : 'sum');
 
+    const existing = new Map(
+      this.existingBudgets().filter(row => row.hasBudget).map(row => [row.categoryId, row.plannedAmount]),
+    );
     const amounts = new Map<string, number | null>();
     if (error === null) {
       const ordered = entries.slice().sort((a, b) => prdOrder(a.category.name) - prdOrder(b.category.name));
@@ -137,8 +147,14 @@ export class SinapiFormComponent {
         category,
         control,
         amountCents: amounts.get(category.id) ?? null,
+        existingAmount: existing.get(category.id) ?? null,
       })),
     };
+  });
+
+  readonly canConfirm = computed(() => {
+    const result = this.preview();
+    return result !== null && result.allocationValid && !this.saving();
   });
 
   constructor() {
@@ -164,6 +180,7 @@ export class SinapiFormComponent {
         this.resetAllocation();
         this.references.set(null);
         this.lookupFailed.set(false);
+        this.confirmError.set(null);
         this.loading.set(this.selection.valid);
         if (this.selection.invalid) return EMPTY;
 
@@ -186,6 +203,43 @@ export class SinapiFormComponent {
 
   retry(): void {
     this.retryLookup.next();
+  }
+
+  /** Envia a seleção, o custo exibido e os percentuais em ordem do PRD. Só confirma após resposta do servidor. */
+  confirm(): void {
+    const preview = this.preview();
+    const input = this.estimateInput();
+    if (!preview || !input || !preview.allocationValid || this.saving()) return;
+
+    const percentages: { categoryId: string; percentage: number }[] = [];
+    const ordered = preview.rows.slice().sort((a, b) => prdOrder(a.category.name) - prdOrder(b.category.name));
+    for (const row of ordered) {
+      const parsed = parsePercent(row.control.value);
+      if (!parsed.ok) return;
+      percentages.push({ categoryId: row.category.id, percentage: parsed.hundredths / 100 });
+    }
+
+    const { state, month, project } = this.selection.getRawValue();
+    this.saving.set(true);
+    this.confirmError.set(null);
+    this.budgetService.confirmSinapi(this.projectId(), {
+      uf: state,
+      month,
+      projectType: project,
+      finishId: this.finishId(),
+      area: input.area,
+      unitCost: input.unitCost,
+      percentages,
+    }).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.confirmed.emit();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.confirmError.set(error instanceof HttpErrorResponse && error.status === 409 ? 'stale' : 'failed');
+      },
+    });
   }
 
   resetAllocation(): void {

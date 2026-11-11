@@ -19,6 +19,8 @@ public final class SinapiAllocationCalculator {
 
     private static final BigDecimal FULL = new BigDecimal("100");
     private static final int CENTS = 2;
+    /** Maior valor de NUMERIC(15,2), a coluna de estimated_amount. Acima disso o teto não cabe. */
+    private static final BigDecimal MAX_TOTAL = new BigDecimal("9999999999999.99");
 
     private SinapiAllocationCalculator() {
     }
@@ -46,7 +48,11 @@ public final class SinapiAllocationCalculator {
         }
         validate(shares);
 
-        long totalCents = total.setScale(CENTS, RoundingMode.HALF_UP).unscaledValue().longValueExact();
+        BigDecimal rounded = total.setScale(CENTS, RoundingMode.HALF_UP);
+        if (rounded.compareTo(MAX_TOTAL) > 0) {
+            throw new IllegalArgumentException("O total ultrapassa o limite de R$ 9.999.999.999.999,99.");
+        }
+        long totalCents = rounded.unscaledValue().longValueExact();
         int size = shares.size();
         long[] parcels = new long[size];
         BigDecimal[] fractions = new BigDecimal[size];

@@ -1,5 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { BudgetCategory } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import { SinapiFormComponent } from './sinapi-form.component';
@@ -44,12 +46,26 @@ describe('SinapiFormComponent — rateio editável', () => {
     return query<HTMLInputElement>(`sinapi-percent-${id}`)!;
   }
 
-  function mount(categories: ExpenseCategory[] = prdCategories): void {
+  function mount(categories: ExpenseCategory[] = prdCategories, existing: BudgetCategory[] = []): void {
     fixture = TestBed.createComponent(SinapiFormComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('categories', categories);
     fixture.componentRef.setInput('projectId', 'project-1');
+    fixture.componentRef.setInput('existingBudgets', existing);
     fixture.detectChanges();
+  }
+
+  function existingBudget(categoryId: string, categoryName: string, plannedAmount: number): BudgetCategory {
+    return {
+      categoryId,
+      categoryName,
+      plannedAmount,
+      spentAmount: 0,
+      balanceAmount: plannedAmount,
+      percentage: null,
+      state: plannedAmount === 0 ? 'NO_BUDGET' : 'ON_TRACK',
+      hasBudget: true,
+    };
   }
 
   function serve(unitCost: number): void {
@@ -67,7 +83,7 @@ describe('SinapiFormComponent — rateio editável', () => {
   }
 
   beforeEach(async () => {
-    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getSinapiReferences']);
+    budgetService = jasmine.createSpyObj<BudgetService>('BudgetService', ['getSinapiReferences', 'confirmSinapi']);
     await TestBed.configureTestingModule({
       imports: [SinapiFormComponent],
       providers: [{ provide: BudgetService, useValue: budgetService }],
@@ -215,6 +231,111 @@ describe('SinapiFormComponent — rateio editável', () => {
 
     expect(cancelled).toBe(1);
     expect(budgetService.getSinapiReferences.calls.count()).toBe(callsBefore);
+  });
+
+  it('shows the preserved budgets in the preview, including a zeroed one, without changing them', () => {
+    mount(prdCategories, [
+      existingBudget('cat-alvenaria', 'Alvenaria', 0),
+      existingBudget('cat-eletrica', 'Elétrica', 1500),
+    ]);
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+
+    expect(text('sinapi-preserved-cat-alvenaria')).toContain('Teto atual R$ 0,00 preservado');
+    expect(text('sinapi-preserved-cat-eletrica')).toContain('Teto atual R$ 1.500,00 preservado');
+    expect(query('sinapi-preserved-cat-fundacao')).toBeNull();
+  });
+
+  it('does not mark as preserved a category that only has expenses and no active budget', () => {
+    mount(prdCategories, [
+      {
+        categoryId: 'cat-eletrica',
+        categoryName: 'Categoria com despesa',
+        plannedAmount: 0,
+        spentAmount: 300,
+        balanceAmount: -300,
+        percentage: null,
+        state: 'NO_BUDGET',
+        hasBudget: false,
+      },
+    ]);
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+
+    expect(query('sinapi-preserved-cat-eletrica')).toBeNull();
+    expect(component.preview()!.rows.find(row => row.category.id === 'cat-eletrica')!.existingAmount).toBeNull();
+  });
+
+  it('confirms with the displayed unit cost, the selection and the percentages in PRD order', () => {
+    mount([...prdCategories].reverse());
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick('7090');
+    budgetService.confirmSinapi.and.returnValue(of({ created: [], preserved: [] }));
+
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+
+    expect(budgetService.confirmSinapi).toHaveBeenCalledOnceWith('project-1', {
+      uf: 'PR',
+      month: '2026-09',
+      projectType: '7090',
+      finishId: '787',
+      area: 100,
+      unitCost: 2221.06,
+      percentages: PRD_ROWS.map(({ id, percent }) => ({ categoryId: id, percentage: Number(percent) })),
+    });
+  });
+
+  it('emits confirmed only after the server accepts the batch', () => {
+    mount();
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+    const response = new Subject<{ created: []; preserved: [] }>();
+    budgetService.confirmSinapi.and.returnValue(response.asObservable());
+    let confirmed = 0;
+    component.confirmed.subscribe(() => confirmed++);
+
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+    expect(confirmed).toBe(0);
+
+    response.next({ created: [], preserved: [] });
+    response.complete();
+    expect(confirmed).toBe(1);
+  });
+
+  it('asks for a new preview when the cost changed since the preview (409)', () => {
+    mount();
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+    budgetService.confirmSinapi.and.returnValue(throwError(() => new HttpErrorResponse({
+      status: 409,
+      error: { message: 'O custo por m² mudou desde a prévia.' },
+    })));
+    let confirmed = 0;
+    component.confirmed.subscribe(() => confirmed++);
+
+    query<HTMLButtonElement>('sinapi-confirm')!.click();
+    fixture.detectChanges();
+
+    expect(confirmed).toBe(0);
+    expect(text('sinapi-confirm-error')).toContain('Atualize a consulta para gerar uma nova prévia');
+    expect(query('sinapi-retry-preview')).not.toBeNull();
+  });
+
+  it('blocks confirmation while the rateio is invalid', () => {
+    mount();
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+    change('sinapi-percent-cat-alvenaria', '15', 'input');
+
+    expect(query<HTMLButtonElement>('sinapi-confirm')!.disabled).toBeTrue();
   });
 
   it('shows an explicit error instead of the preview when the estimate has no plain decimal form', () => {
