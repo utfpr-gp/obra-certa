@@ -95,12 +95,13 @@ class ExpenseRegistrationIntegrationTest {
         assertThat(suppliers.count()).isEqualTo(supplierCount); assertThat(expenses.count()).isEqualTo(expenseCount);
     }
     @Test void normalizesFilledCnpjAndReusesOnlyItsOwnersMatchingSupplier() throws Exception {
+        long suppliersBefore = suppliers.count();
         String first = create(body());
         var payload = body(); ((ObjectNode) payload.get("newSupplier")).put("document","12345678000190");
         String second = create(payload); expenses.flush();
         assertThat(jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,first))
                 .isEqualTo(jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,second));
-        assertThat(suppliers.count()).isEqualTo(1);
+        assertThat(suppliers.count()).isEqualTo(suppliersBefore + 1);
     }
     @Test void persistsInTheValidatedPayloadProjectWhenAnotherProjectIsSelectedForTheNextOperation() throws Exception {
         Project original = project;
@@ -186,6 +187,7 @@ class ExpenseRegistrationIntegrationTest {
                 .andExpect(jsonPath("$.categories[0].spentAmount").value(100.25));
     }
     @Test void persistsInlineSupplierExpenseAndBudgetAggregateThenReadsActualIndividualResource() throws Exception {
+        long suppliersBefore = suppliers.count();
         String id = create(body());
         mvc.perform(get("/api/expenses/"+id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value("Cimento"))
@@ -199,7 +201,7 @@ class ExpenseRegistrationIntegrationTest {
         var existing = body(); existing.remove("newSupplier");
         existing.put("supplierId",jdbc.queryForObject("select supplier_id from expenses where id=?",String.class,id));
         create(existing);
-        assertThat(suppliers.count()).isEqualTo(1);
+        assertThat(suppliers.count()).isEqualTo(suppliersBefore + 1);
     }
     @Test void calculatesRoundedTotalAndAcceptsPastDate() throws Exception {
         var body = body().put("valueMode","CALCULATED").put("quantity",1.5).put("unitPrice",1.01)
@@ -209,18 +211,24 @@ class ExpenseRegistrationIntegrationTest {
     }
     @ParameterizedTest @ValueSource(strings={"description","categoryId","purchaseDate","newSupplier","totalPrice"})
     void rejectsMissingFieldsWithoutOrphanSupplier(String field) throws Exception {
-        long count = suppliers.count(); var body = body(); body.remove(field);
+        long suppliersBefore = suppliers.count();
+        long expensesBefore = expenses.count();
+        var body = body(); body.remove(field);
         mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
-        assertThat(suppliers.count()).isEqualTo(count); assertThat(expenses.count()).isZero();
+        assertThat(suppliers.count()).isEqualTo(suppliersBefore);
+        assertThat(expenses.count()).isEqualTo(expensesBefore);
     }
     @Test void invalidCategoryOrForeignProjectNeverCreatesInlineSupplier() throws Exception {
+        long suppliersBefore = suppliers.count();
+        long expensesBefore = expenses.count();
         for (String field : java.util.List.of("categoryId","projectId")) {
             var body = body().put(field,"unknown");
             mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body.toString()))
                     .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value(
                             field.equals("categoryId") ? "Categoria não encontrada" : "Projeto não encontrado"));
         }
-        assertThat(suppliers.count()).isZero(); assertThat(expenses.count()).isZero();
+        assertThat(suppliers.count()).isEqualTo(suppliersBefore);
+        assertThat(expenses.count()).isEqualTo(expensesBefore);
     }
     @Test void ownerFiltersForeignSupplierExpenseAndDeletedProjectAndExpense() throws Exception {
         String id = create(body());
@@ -240,9 +248,12 @@ class ExpenseRegistrationIntegrationTest {
         mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body().toString())).andExpect(status().isNotFound());
     }
     @Test void rejectsAmbiguousSupplierAndUnpaidWithoutDueDate() throws Exception {
+        long suppliersBefore = suppliers.count();
+        long expensesBefore = expenses.count();
         for (var body : java.util.List.of(body().put("supplierId","any"),body().put("paid",false))) {
             mvc.perform(post("/api/expenses").contentType(APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
         }
-        assertThat(suppliers.count()).isZero();
+        assertThat(suppliers.count()).isEqualTo(suppliersBefore);
+        assertThat(expenses.count()).isEqualTo(expensesBefore);
     }
 }

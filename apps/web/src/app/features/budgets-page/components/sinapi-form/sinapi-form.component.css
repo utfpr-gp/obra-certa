@@ -1,0 +1,33 @@
+.field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  color: var(--color-slate-700);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.field > :is(.input, .select) {
+  width: 100%;
+  min-width: 0;
+}
+
+.field > :is(.input, .select),
+.percentage-input {
+  min-height: 44px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.375rem;
+  background-color: white;
+  color: var(--color-slate-700);
+}
+
+.field > :is(.input, .select):focus,
+.percentage-input:focus {
+  outline: 2px solid #007a80;
+  outline-offset: -1px;
+}
+
+.field > .select:disabled {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-500);
+}

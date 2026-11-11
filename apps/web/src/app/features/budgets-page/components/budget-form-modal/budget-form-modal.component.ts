@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, HostListener, inject, input, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, HostListener, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -11,6 +11,7 @@ import {
 import { BudgetCategory } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
+import { SinapiFormComponent } from '../sinapi-form/sinapi-form.component';
 
 /**
  * Formulario de criacao/edicao do teto de uma categoria. O modal recebe o
@@ -20,7 +21,7 @@ import { BudgetService } from '../../../../core/services/budget.service';
 @Component({
   selector: 'app-budget-form-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, SinapiFormComponent],
   templateUrl: './budget-form-modal.component.html',
   styleUrl: './budget-form-modal.component.css',
 })
@@ -28,6 +29,7 @@ export class BudgetFormModalComponent {
   private readonly budgetService = inject(BudgetService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sinapiForm = viewChild(SinapiFormComponent);
   private contextId = 0;
   private readonly amountFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -41,13 +43,20 @@ export class BudgetFormModalComponent {
   /** Categoria ja escolhida ao abrir por "Definir teto". */
   readonly preselectedCategoryId = input<string | null>(null);
   readonly categories = input<ExpenseCategory[]>([]);
+  readonly sinapiCategories = input<ExpenseCategory[]>();
+  /** Tetos ativos da obra, usados pela prévia SINAPI para marcar os preservados. */
+  readonly budgetRows = input<BudgetCategory[]>([]);
 
   readonly closed = output<void>();
   readonly saved = output<BudgetCategory>();
+  /** Lote SINAPI confirmado pelo servidor. */
+  readonly sinapiConfirmed = output<void>();
 
   readonly saving = signal(false);
   readonly errorMessage = signal('');
   readonly belowSpentConflict = signal(false);
+  readonly sinapiOpen = signal(false);
+  protected readonly sinapiSaving = computed(() => this.sinapiForm()?.saving() ?? false);
 
   readonly form = this.formBuilder.nonNullable.group({
     categoryId: ['', Validators.required],
@@ -60,6 +69,8 @@ export class BudgetFormModalComponent {
   constructor() {
     effect(() => {
       this.contextId++;
+      this.projectId();
+      this.sinapiOpen.set(false);
       if (!this.isOpen()) {
         this.saving.set(false);
         this.form.reset();
@@ -83,6 +94,25 @@ export class BudgetFormModalComponent {
 
   isEditing(): boolean {
     return this.editingCategory() !== null;
+  }
+
+  showBudgetTabs(): boolean {
+    return !!this.projectId() && !this.isEditing() && !this.preselectedCategoryId();
+  }
+
+  onBudgetTabKeydown(
+    event: KeyboardEvent,
+    standardTab: HTMLButtonElement,
+    sinapiTab: HTMLButtonElement,
+  ): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+
+    event.preventDefault();
+    const next = event.key === 'End' || (event.key !== 'Home' && !this.sinapiOpen());
+    const nextTab = next ? sinapiTab : standardTab;
+    if (nextTab.disabled) return;
+    this.sinapiOpen.set(next);
+    nextTab.focus();
   }
 
   showCategoryError(): boolean {
@@ -174,7 +204,10 @@ export class BudgetFormModalComponent {
   }
 
   close(): void {
+    // Durante o envio do lote SINAPI, fechar é bloqueado: a resposta ainda precisa chegar ao painel.
+    if (this.sinapiSaving()) return;
     this.contextId++;
+    this.sinapiOpen.set(false);
     this.closed.emit();
   }
 

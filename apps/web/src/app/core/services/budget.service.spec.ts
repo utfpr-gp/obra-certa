@@ -3,8 +3,8 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { Observable } from 'rxjs';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { Observable, TimeoutError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BudgetCategory, BudgetOverview } from '../models/budget.model';
 import { BudgetService } from './budget.service';
@@ -56,6 +56,19 @@ describe('BudgetService', () => {
 
   afterEach(() => httpTesting.verify());
 
+  it('requests references for the selected work and SINAPI dimensions', () => {
+    const references = { source: 'SIDRA/IBGE', finishes: [{ id: '787', name: 'Normal', unitCost: 2221.06 }] };
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe(result => {
+      expect(result).toEqual(references);
+    });
+
+    const request = httpTesting.expectOne({
+      method: 'GET',
+      url: `${environment.apiUrl}/api/budgets/project-1/sinapi/references?uf=PR&month=2026-09&projectType=7090`,
+    });
+    request.flush(references);
+  });
+
   for (const operation of ['read', 'save', 'zero'] as const) {
     for (const failure of ['error', 'timeout', 'server'] as const) {
       it(`preserves the ${failure} status and payload from ${operation}`, () => {
@@ -77,6 +90,20 @@ describe('BudgetService', () => {
       });
     }
   }
+
+  it('ends a SINAPI lookup without response at 15 seconds with a retryable error', fakeAsync(() => {
+    let failure: unknown;
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe({
+      error: (error) => { failure = error; },
+    });
+    const req = httpTesting.expectOne(() => true);
+    tick(14999);
+    expect(failure).toBeUndefined();
+    tick(1);
+    expect(failure).toBeInstanceOf(TimeoutError);
+    expect(req.cancelled).toBeTrue();
+    httpTesting.expectNone(() => true);
+  }));
 
   it('reads the overview with projectId as a query parameter', () => {
     service.getOverview('project-1').subscribe((response) => {
@@ -106,6 +133,62 @@ describe('BudgetService', () => {
     expect(request.request.body).toEqual({ estimatedAmount: 1500 });
     expect(request.request.params.keys()).toEqual([]);
     request.flush(updatedCategory);
+  });
+
+  it('confirms the SINAPI batch with a POST and returns the created and preserved categories', () => {
+    const body = {
+      uf: 'PR',
+      month: '2026-09',
+      projectType: '7090',
+      finishId: '787',
+      area: 100,
+      unitCost: 2221.06,
+      percentages: [{ categoryId: 'cat-fundacao', percentage: 25 }],
+    };
+    const result = {
+      created: [{ categoryId: 'cat-fundacao', categoryName: 'Fundação e Estrutura', amount: 55526.5 }],
+      preserved: [{ categoryId: 'cat-alvenaria', categoryName: 'Alvenaria' }],
+    };
+    service.confirmSinapi('project-1', body).subscribe((response) => {
+      expect(response).toEqual(result);
+    });
+
+    const request = httpTesting.expectOne(`${environment.apiUrl}/api/budgets/project-1/sinapi/confirm`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush(result);
+  });
+
+  it('keeps the SINAPI requests out of the browser persistent storage', () => {
+    const snapshot = (): string => {
+      const collect = (storage: Storage): Record<string, string> => {
+        const entries: Record<string, string> = {};
+        for (let index = 0; index < storage.length; index++) {
+          const key = storage.key(index)!;
+          entries[key] = storage.getItem(key) ?? '';
+        }
+        return entries;
+      };
+      return JSON.stringify({
+        local: collect(localStorage),
+        session: collect(sessionStorage),
+        cookie: document.cookie,
+      });
+    };
+    const openDatabase = spyOn(indexedDB, 'open');
+    const before = snapshot();
+
+    service.getSinapiReferences('project-1', 'PR', '2026-09', '7090').subscribe();
+    httpTesting.expectOne(() => true).flush({ source: 'SIDRA/IBGE', finishes: [] });
+    service.confirmSinapi('project-1', {
+      uf: 'PR', month: '2026-09', projectType: '7090', finishId: '787', area: 100,
+      unitCost: 4321.99, percentages: [{ categoryId: 'cat-fundacao', percentage: 100 }],
+    }).subscribe();
+    httpTesting.expectOne(() => true).flush({ created: [], preserved: [] });
+
+    expect(snapshot()).toBe(before);
+    expect(openDatabase).not.toHaveBeenCalled();
   });
 
   it('zeroes the category budget with a POST to the /zero action and returns the recalculated category', () => {

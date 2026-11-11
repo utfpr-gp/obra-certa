@@ -112,13 +112,15 @@ flowchart TD
         Backend -->|"Upload e Leitura de Comprovantes<br/>receipt_key"| Storage
     end
 
-    subgraph ServicosExternos["🌐 Integrações Fiscais"]
+    subgraph ServicosExternos["🌐 Serviços externos"]
         SEFAZ["🏛️ SEFAZ / Provedor Fiscal<br/>(Consulta via chave de 44 dígitos)"]
+        SIDRA["SIDRA/IBGE<br/>SINAPI — tabela 647"]
     end
 
     Visitor -->|"Acessa páginas públicas e cadastro"| Frontend
     User -->|"Gerencia obras, despesas e orçamentos"| Frontend
     Backend -->|"Consulta remota de NF-e (Fase 2)"| SEFAZ
+    Backend -->|"Consulta HTTPS sob demanda (US15)"| SIDRA
 ```
 
 ---
@@ -497,6 +499,22 @@ flowchart LR
 - Os cálculos somam apenas despesas com `deleted_at IS NULL`, incluindo pagas e pendentes. Saldo pode ser negativo; percentual é nulo quando o teto é zero, evitando divisão por zero.
 - `BudgetState`: `ON_TRACK` abaixo de 90%, `WARNING` de 90% até abaixo de 100%, `EXCEEDED` a partir de 100% e `NO_BUDGET` quando o teto é zero. O estado usa a razão exata; o percentual exibido é arredondado para uma casa decimal. `hasBudget` informa a existência do registro ativo, mesmo zerado.
 - `BudgetOverviewDTO` reúne `projectId`, `totalPlanned`, `totalSpent`, `available`, `globalPercentage`, `exceededCategories`, `budgetedCategories` e `categories`. Cada `BudgetCategoryDTO` informa categoria, planejado, gasto, saldo, percentual, estado e `hasBudget`.
+
+### Contrato implementado da US15 — orçamento por categoria a partir do SINAPI
+
+| Rota | Entrada | Resposta de sucesso |
+| --- | --- | --- |
+| `GET /api/budgets/{projectId}/sinapi/availability` | `uf` e `year` (`AAAA`) | `200 OK`, `SinapiAvailabilityDTO` com os 12 meses (`AAAA-MM`) e os IDs de projetos com pelo menos um acabamento válido por mês. |
+| `GET /api/budgets/{projectId}/sinapi/references` | `uf`, `month` (`AAAA-MM`) e `projectType` | `200 OK`, `SinapiReferencesDTO` com fonte e acabamentos com custo positivo por m². Uma seleção válida sem dados retorna a lista vazia. |
+| `POST /api/budgets/{projectId}/sinapi/confirm` | `SinapiConfirmDTO` com UF, mês, projeto, acabamento, área, custo unitário da prévia e percentuais por categoria | `200 OK`, `SinapiConfirmationDTO` com os tetos criados e as categorias preservadas entre as parcelas positivas. |
+
+- `SinapiReferenceService` verifica a titularidade da obra e `SidraClient` consulta a tabela 647, variável 51, com as classificações 314 (projeto) e 41 (acabamento). O cliente valida o cabeçalho e as dimensões da resposta. Os limites de conexão e leitura são de cinco segundos cada. O `BudgetService` do Angular aplica um limite de quinze segundos à consulta de referências.
+- O cliente consulta diretamente `apisidra.ibge.gov.br`. A disponibilidade anual consulta os oito projetos em lote e usa a mesma validação da consulta de acabamentos, incluindo nome e preço positivo. O formulário desabilita meses sem projetos válidos e projetos sem acabamento disponível no mês selecionado. Uma troca de UF ou ano invalida as seleções dependentes e descarta respostas antigas. Em caso de falha, o formulário oferece uma nova tentativa.
+- A API retorna `400` para entradas inválidas, `404` para obra inacessível, `503` para falha ou resposta incompatível do SIDRA e `409` se o acabamento deixou de estar disponível ou o custo mudou entre a prévia e a confirmação. O `SinapiNoStoreConfiguration` aplica `Cache-Control: no-store` às respostas tratadas pelas rotas SINAPI, inclusive erros de validação.
+- A confirmação valida a ordem das categorias conforme o PRD e recalcula o rateio em centavos. O total usa arredondamento `HALF_UP`. Os centavos restantes vão para as maiores frações, com desempate pela ordem das categorias no PRD. A referência é reconsultada antes da transação de gravação.
+- A transação preserva tetos ativos, inclusive zerados, e insere apenas parcelas positivas sem teto ativo. O `ON CONFLICT DO NOTHING` usa o índice único parcial existente por obra e categoria para preservar um teto gravado concorrentemente. Uma falha de gravação reverte o lote. A US15 reutiliza `budgets` e as categorias existentes.
+- Na página de Orçamentos, a aba SINAPI usa o catálogo completo da obra e mantém a consulta e o rateio em memória. Uma mudança de seleção invalida a prévia antiga. Durante a confirmação, o modal bloqueia o fechamento e a troca de aba por clique ou teclado. Após sucesso, a página recarrega os tetos. Após falha, o formulário exibe o erro e libera a troca de aba.
+- Os testes verificam o descarte da prévia e a ausência de dados da consulta e do cálculo no banco, no armazenamento persistente do navegador e nas mensagens de log capturadas. A confirmação persiste os novos tetos.
 - O alerta de despesas sem teto oferece “Definir teto”. Os atalhos de despesas permanecem visíveis e desabilitados por contrato da spec 09, com a dependência informada no tooltip.
 
 ---

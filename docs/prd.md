@@ -537,6 +537,58 @@
 
 ---
 
+### 🟢 US15 — Orçamento por Categoria a partir do SINAPI
+
+- **História:** Como proprietário, quero usar o custo por m² de um projeto de referência do SINAPI para estimar o custo da minha obra e distribuir esse valor entre as categorias, para salvar os tetos de gastos a partir de uma referência mensal.
+- **Status:** 🟢 Live (implementada localmente, com auditoria final e integração em `develop` pendentes)
+- **Rastreabilidade:** [Issue #48](https://github.com/utfpr-gp/obra-certa/issues/48), [especificação, plano e pareceres](../specs/48-orcamento-cub/). Oito tarefas concluídas. A Tarefa 7 preserva a confirmação ao tentar trocar de aba. A Tarefa 8 consulta a disponibilidade por UF e ano e desabilita os meses e projetos sem acabamento com preço válido.
+- **Regras de Negócio Associadas:** RN01, RN02, RN08.
+
+#### Critérios de Aceite
+
+1. Em **Orçamentos → Adicionar orçamento**, o proprietário escolhe **Usar SINAPI**, informa a área da obra e seleciona UF, mês, projeto de referência e padrão de acabamento. O sistema consulta o custo por m² da combinação na tabela 647 do SIDRA/IBGE e exibe a fonte, o custo unitário e a estimativa calculada pela multiplicação desse custo pela área informada. Somente acabamentos com valor disponível são oferecidos para a seleção.
+2. O sistema carrega uma tabela inicial de percentuais por categoria. O proprietário pode ajustar o rateio e conferir o valor de cada teto antes de salvar. Os percentuais devem ser não negativos e somar 100%. A soma dos valores em centavos deve corresponder ao total exibido.
+3. Na prévia, o sistema identifica as categorias que já têm teto e exibe os valores existentes. As parcelas calculadas para essas categorias ficam fora da gravação e não são redistribuídas automaticamente.
+4. Ao confirmar, o sistema cria tetos somente nas categorias sem teto e com parcela positiva na obra selecionada. A verificação é feita na gravação, inclusive para categorias que receberam um teto após a prévia. Se a gravação falhar, nenhum teto desse rateio é aplicado.
+5. Se a consulta falhar ou o custo por m² selecionado estiver indisponível, o sistema informa a situação e impede a gravação pelo fluxo SINAPI até obter um valor válido.
+6. O Obra Certa consulta o SIDRA sob demanda. O custo por m², os parâmetros da consulta, a resposta da fonte e a memória do cálculo são usados temporariamente e descartados ao encerrar o fluxo. Ao confirmar, o sistema persiste somente os tetos resultantes no orçamento da obra.
+
+#### Projetos de referência
+
+| Grupo | Modelo | Código SIDRA |
+|---|---|---:|
+| Casa popular | Térrea de 1 quarto | 7101 |
+| Casa popular | Térrea de 2 quartos | 7088 |
+| Casa popular | Térrea de 2 quartos com varanda | 7087 |
+| Casa popular | Sobrado de 3 quartos | 7102 |
+| Casa residencial | Térrea de 2 quartos | 7089 |
+| Casa residencial | Térrea de 3 quartos | 7090 |
+| Casa residencial | Térrea de 4 quartos | 7091 |
+| Casa residencial | Sobrado geminado de 2 quartos | 7103 |
+
+Os códigos identificam os projetos na classificação 314 da tabela 647. A seleção de acabamento é independente do projeto e depende dos valores disponíveis para a UF e o mês.
+
+#### Percentuais iniciais
+
+Os oito projetos de referência usam a mesma tabela inicial de rateio, independentemente do acabamento selecionado. O proprietário pode ajustar os percentuais antes da confirmação.
+
+| Categoria | Percentual inicial |
+|---|---:|
+| Fundação e Estrutura | 25% |
+| Alvenaria | 14% |
+| Elétrica | 8% |
+| Hidráulica | 9% |
+| Telhado e Cobertura | 10% |
+| Esquadrias e Vidros | 10% |
+| Acabamento e Pintura | 24% |
+| Mão de Obra | 0% |
+| Taxas e Serviços | 0% |
+| **Total** | **100%** |
+
+O rateio inicial inclui materiais e mão de obra no teto de cada etapa. Quem lança a mão de obra separadamente pode transferir parte dos percentuais das etapas para a categoria **Mão de Obra**.
+
+---
+
 ## 🛡️ 5. Regras de Negócio (Constraints)
 
 - **RN01 — Isolamento de Dados por Usuário e Obra (Anti-IDOR):** Um usuário só tem acesso a obras, despesas, orçamentos, fornecedores e pagamentos de sua própria titularidade. Qualquer tentativa de acesso a dados de terceiros deve ser tratada como recurso inexistente (não encontrado), sem expor a existência do registro.  
