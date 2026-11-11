@@ -23,7 +23,7 @@
 
 ## Tarefas
 
-- [ ] **Tarefa 1 — Apresentar o formulário SINAPI**
+- [x] **Tarefa 1 — Apresentar o formulário SINAPI**
   - Cobre: passo técnico de revisão visual. Os critérios que dependem da API são fechados nas tarefas seguintes.
   - Teste primeiro: em `apps/web`, abrir **Usar SINAPI** pelo modal de orçamento, exercitar a seleção agrupada e a prévia com dados de exemplo e verificar que fechar descarta os ajustes. Conferir os estados inicial, carregando, sem acabamento e com prévia em viewport móvel e desktop.
   - Migration: nenhuma.

@@ -5,7 +5,8 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="budget-form-title"
-      class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"
+      class="bg-white rounded-2xl w-full max-w-lg p-4 sm:p-6 shadow-2xl"
+      [class.sinapi-dialog]="sinapiOpen()"
     >
       <div class="flex items-center justify-between mb-5">
         <h2 id="budget-form-title" class="text-xl font-bold text-slate-900">
@@ -22,6 +23,30 @@
         </button>
       </div>
 
+      @if (showBudgetTabs()) {
+        <div role="tablist" aria-label="Modo de orçamento" data-testid="budget-form-tabs"
+          class="mb-4 grid grid-cols-2 border-b border-slate-200"
+          (keydown)="onBudgetTabKeydown($event, standardTab, sinapiTab)">
+          <button #standardTab type="button" role="tab" id="budget-standard-tab"
+            data-testid="budget-form-standard" aria-controls="budget-mode-panel"
+            [attr.aria-selected]="!sinapiOpen()" [tabIndex]="sinapiOpen() ? -1 : 0"
+            class="budget-tab" (click)="sinapiOpen.set(false)">
+            Orçamento padrão
+          </button>
+          <button #sinapiTab type="button" role="tab" id="budget-sinapi-tab"
+            data-testid="budget-form-sinapi" aria-controls="budget-mode-panel"
+            [attr.aria-selected]="sinapiOpen()" [tabIndex]="sinapiOpen() ? 0 : -1"
+            [disabled]="saving()" class="budget-tab" (click)="sinapiOpen.set(true)">
+            SINAPI
+          </button>
+        </div>
+      }
+
+      <div id="budget-mode-panel" [attr.role]="showBudgetTabs() ? 'tabpanel' : null"
+        [attr.aria-labelledby]="showBudgetTabs() ? (sinapiOpen() ? 'budget-sinapi-tab' : 'budget-standard-tab') : null">
+      @if (showBudgetTabs() && sinapiOpen()) {
+        <app-sinapi-form [categories]="sinapiCategories() ?? categories()" (cancelled)="close()" />
+      } @else {
       <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
         <label class="block text-sm font-medium text-slate-700">
           Categoria
@@ -86,7 +111,7 @@
           </button>
         }
 
-        <div class="flex justify-end gap-2 pt-3">
+        <div class="flex flex-wrap justify-end gap-2 pt-3">
           <button
             type="button"
             data-testid="budget-form-cancel"
@@ -105,6 +130,8 @@
           </button>
         </div>
       </form>
+      }
+      </div>
     </section>
   </div>
 }

@@ -1,0 +1,106 @@
+<p class="mb-4 text-sm text-slate-600">
+  Demonstração com valores de exemplo. Selecione PR para conferir a prévia.
+</p>
+
+<div class="grid gap-4 sm:grid-cols-2">
+  <label class="field">
+    Área da obra (m²)
+    <input class="input" type="number" min="0" step="any" inputmode="decimal"
+      required [formControl]="area" data-testid="sinapi-area" />
+  </label>
+  <label class="field">
+    UF
+    <select class="select" [formControl]="selection.controls.state" data-testid="sinapi-state">
+      <option value="">Selecione a UF</option>
+      @for (state of states; track state) {
+        <option [value]="state">{{ state }}</option>
+      }
+    </select>
+  </label>
+  <label class="field">
+    Mês de referência
+    <input class="input" type="month" [formControl]="selection.controls.month"
+      data-testid="sinapi-month" />
+  </label>
+  <label class="field sm:col-span-2">
+    Projeto de referência
+    <select class="select" [formControl]="selection.controls.project" data-testid="sinapi-project">
+      <option value="">Selecione o projeto</option>
+      @for (group of projectGroups; track group.name) {
+        <optgroup [label]="group.name">
+          @for (project of group.projects; track project.id) {
+            <option [value]="project.id">{{ project.name }}</option>
+          }
+        </optgroup>
+      }
+    </select>
+  </label>
+  <label class="field sm:col-span-2">
+    Padrão de acabamento
+    <select class="select" [formControl]="finish" (change)="resetAllocation()" data-testid="sinapi-finish">
+      <option value="">Selecione o acabamento</option>
+      @for (reference of references() ?? []; track reference.id) {
+        <option [value]="reference.id">{{ reference.name }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+<div aria-live="polite" class="text-sm text-slate-600">
+  @if (loading()) {
+    <p class="mt-4" data-testid="sinapi-loading">Consultando acabamentos…</p>
+  } @else if (references()?.length === 0) {
+    <p class="mt-4" data-testid="sinapi-unavailable">Nenhum acabamento disponível para esta seleção.</p>
+  }
+</div>
+
+@if (preview(); as result) {
+  <section class="mt-5 space-y-4" data-testid="sinapi-preview" aria-labelledby="sinapi-preview-title">
+    <h3 id="sinapi-preview-title" class="text-lg font-semibold text-slate-900">Prévia do rateio</h3>
+    <dl class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <dt class="text-sm text-slate-600">Fonte de referência</dt>
+        <dd>SIDRA/IBGE, tabela 647, variável 51</dd>
+      </div>
+      <div>
+        <dt class="text-sm text-slate-600">Custo por m² (exemplo)</dt>
+        <dd class="font-semibold">{{ currency.format(result.unitCost) }}</dd>
+      </div>
+      <div>
+        <dt class="text-sm text-slate-600">Estimativa</dt>
+        <dd class="font-semibold">{{ currency.format(result.estimate) }}</dd>
+      </div>
+    </dl>
+    <table role="table" class="block w-full text-left text-sm text-slate-700 sm:table">
+      <thead role="rowgroup" class="sr-only sm:not-sr-only sm:table-header-group">
+        <tr role="row">
+          <th role="columnheader" class="pb-2" scope="col">Categoria</th>
+          <th role="columnheader" class="pb-2 text-center" scope="col">%</th>
+          <th role="columnheader" class="pb-2 text-right" scope="col">Parcela</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup" class="grid gap-2 sm:table-row-group">
+        @for (row of result.rows; track row.category.id) {
+          <tr role="row" class="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:table-row sm:rounded-none sm:border-x-0 sm:border-b-0 sm:p-0">
+            <th role="rowheader" class="col-span-2 font-medium sm:py-2 sm:pr-2" scope="row">{{ row.category.name }}</th>
+            <td role="cell" class="sm:py-2 sm:text-center">
+              <span aria-hidden="true" class="mb-1 block text-xs text-slate-600 sm:hidden">Percentual</span>
+              <input class="input percentage-input w-16" type="number" min="0" step="any" inputmode="decimal"
+                [formControl]="row.control" [attr.aria-label]="'Percentual de ' + row.category.name"
+                [attr.data-testid]="'sinapi-percent-' + row.category.id" />
+            </td>
+            <td role="cell" class="text-right sm:py-2 sm:pl-2">
+              <span aria-hidden="true" class="mb-1 block text-xs text-slate-600 sm:hidden">Parcela</span>
+              {{ row.amount === null ? '—' : currency.format(row.amount) }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+}
+
+<div class="mt-5 flex justify-end">
+  <button class="btn min-h-11 rounded-md border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50" type="button"
+    (click)="cancelled.emit()">Cancelar</button>
+</div>

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -515,6 +515,36 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.getOverview.calls.count()).toBe(2);
     expect(query('budget-form-modal')).toBeNull();
   });
+
+  it('shows the full SINAPI rateio while the standard form filters categories with a ceiling', fakeAsync(() => {
+    render(project);
+    query<HTMLButtonElement>('add-budget')!.click();
+    fixture.detectChanges();
+    const standardOptions = query<HTMLSelectElement>('budget-form-category')!.options;
+    expect(Array.from(standardOptions, option => option.value)).toEqual(['', 'cat-hidraulica']);
+
+    query<HTMLButtonElement>('budget-form-sinapi')!.click();
+    fixture.detectChanges();
+    function change(testId: string, value: string, event: string): void {
+      const field = query<HTMLInputElement | HTMLSelectElement>(testId)!;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    }
+
+    change('sinapi-area', '100', 'input');
+    change('sinapi-state', 'PR', 'change');
+    change('sinapi-month', '2026-09', 'input');
+    change('sinapi-project', '7101', 'change');
+    tick(350);
+    fixture.detectChanges();
+    change('sinapi-finish', 'normal', 'change');
+
+    for (const item of categories) {
+      expect(query(`sinapi-percent-${item.id}`)).not.toBeNull();
+    }
+    expect(query<HTMLInputElement>('sinapi-percent-cat-alvenaria')?.value).toBe('14');
+  }));
 
   it('opens the edit form with the row category locked and the current amount', () => {
     render(project);
