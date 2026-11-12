@@ -8,11 +8,12 @@ import { AuthenticatedIdentityService } from '../../../core/services/authenticat
 import { Auth } from '../../../core/services/auth';
 import { ProjectService } from '../../../core/services/project.service';
 import { ProjectModalComponent } from '../project-modal/project-modal.component';
+import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, ProjectModalComponent, LucideCheck, LucideChevronDown, LucideHome, LucideLogOut, LucideMenu, LucidePlus],
+  imports: [CommonModule, ProjectModalComponent, ConfirmModalComponent, LucideCheck, LucideChevronDown, LucideHome, LucideLogOut, LucideMenu, LucidePlus],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css',
 })
@@ -33,9 +34,15 @@ export class NavbarComponent {
   });
   readonly deskDropdownOpen = signal(false);
   readonly mobileSheetOpen = signal(false);
-  readonly userMenuOpen = signal(false);
   readonly projectModalOpen = signal(false);
   readonly projectBeingEdited = signal<Project | null>(null);
+  readonly deleteModalOpen = signal(false);
+  readonly deleteConfirmationMessage = computed(() => {
+    const project = this.activeProject();
+    return project
+      ? `Tem certeza que deseja excluir a obra "${project.name}"? Esta ação não poderá ser desfeita.`
+      : '';
+  });
 
   constructor() {
     this.loadProjects();
@@ -51,13 +58,6 @@ export class NavbarComponent {
     const willOpen = !this.deskDropdownOpen();
     this.deskDropdownOpen.set(willOpen);
     if (willOpen) this.loadProjects();
-    this.userMenuOpen.set(false);
-  }
-
-  toggleUserMenu(event?: Event): void {
-    event?.stopPropagation();
-    this.userMenuOpen.update((open) => !open);
-    this.deskDropdownOpen.set(false);
   }
 
   openMobileSheet(): void { this.mobileSheetOpen.set(true); }
@@ -66,7 +66,6 @@ export class NavbarComponent {
   closeAll(): void {
     this.deskDropdownOpen.set(false);
     this.mobileSheetOpen.set(false);
-    this.userMenuOpen.set(false);
   }
 
   selectProject(project: Project, event?: Event): void {
@@ -100,6 +99,29 @@ export class NavbarComponent {
 
   retryLoadProjects(): void {
     this.loadProjects();
+  }
+
+  openDeleteModal(): void {
+    this.closeProjectModal();
+    this.deleteModalOpen.set(true);
+  }
+
+  closeDeleteModal(): void {
+    this.deleteModalOpen.set(false);
+  }
+
+  confirmDeleteProject(): void {
+    const project = this.activeProject();
+    if (!project) return;
+    this.projectService.deleteProject(project.id).subscribe({
+      next: () => {
+        const remaining = this.projects().filter((p) => p.id !== project.id);
+        this.projects.set(remaining);
+        this.activeProjectService.initialize(remaining, this.userId);
+        this.closeDeleteModal();
+      },
+      error: () => this.closeDeleteModal(),
+    });
   }
 
   onMenuClick(): void { this.toggleSidebar.emit(); }

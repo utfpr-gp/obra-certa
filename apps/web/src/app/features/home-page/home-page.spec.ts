@@ -501,7 +501,8 @@ describe('HomePage', () => {
     it('shows an actionable delete error, closes the modal and keeps the project when deletion fails', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -518,7 +519,8 @@ describe('HomePage', () => {
 
     it('reopens the delete confirmation from the error retry action', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(query('confirm-confirmation')).toBeNull();
@@ -529,7 +531,8 @@ describe('HomePage', () => {
     });
 
     it('names the project in the delete confirmation', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       const content = query<HTMLElement>('confirm-modal-content');
       expect(content).not.toBeNull();
@@ -538,7 +541,8 @@ describe('HomePage', () => {
 
     it('does not show the deletion error of a project after another project becomes active', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       const error = query<HTMLElement>('delete-project-error');
@@ -561,7 +565,8 @@ describe('HomePage', () => {
 
     it('keeps the retry bound to the project that failed when it becomes active again', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       activeProjectState.set(anotherProject);
@@ -588,7 +593,8 @@ describe('HomePage', () => {
     it('activates and persists the remaining project returned by the server after deletion', () => {
       projectService.getProjects.and.returnValue(of([anotherProject]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -610,7 +616,8 @@ describe('HomePage', () => {
 
       projectService.getProjects.and.returnValue(of([anotherProject]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
@@ -624,7 +631,8 @@ describe('HomePage', () => {
     it('falls back to the local optimistic list when the refresh after deletion fails', () => {
       projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
@@ -642,7 +650,8 @@ describe('HomePage', () => {
 
       projectService.getProjects.and.returnValue(of([]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -655,7 +664,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when exclusion is cancelled by button', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       click('cancel-confirmation');
 
@@ -665,7 +675,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when exclusion is cancelled with Escape', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       fixture.detectChanges();
@@ -676,7 +687,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when the exclusion modal is closed', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       click('close-confirmation');
 

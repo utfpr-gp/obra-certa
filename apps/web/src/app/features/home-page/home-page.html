@@ -124,14 +124,6 @@
             <span>Lançar Nova Despesa</span>
           </a>
         }
-        <button
-          type="button"
-          data-testid="open-delete-project"
-          class="btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium px-4 py-2"
-          (click)="openDeleteModal()"
-        >
-          Excluir obra
-        </button>
         </div>
       </div>
 
@@ -318,6 +310,7 @@
   [isOpen]="projectModalOpen()"
   (closed)="closeProjectModal()"
   (saved)="onProjectSaved()"
+  (deleteRequested)="openDeleteModal()"
 />
 
 @if (selectedPayment(); as selection) {
