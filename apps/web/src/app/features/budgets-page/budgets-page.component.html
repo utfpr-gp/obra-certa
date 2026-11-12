@@ -128,7 +128,7 @@
                         [attr.data-testid]="'budget-audit-' + category.categoryId"
                         role="note"
                         class="mt-2 min-w-48 max-w-xs whitespace-normal text-sm font-normal text-rose-700"
-                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.</p>
+                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou consulte as despesas.</p>
                     }
                   </td>
                   <td class="text-right tabular-nums">{{ formatBrl(category.plannedAmount) }}</td>
@@ -198,17 +198,14 @@
                       </button>
                     }
                     @if (hasUnbudgetedExpenses(category)) {
-                      <!-- TODO #6: habilitar a reclassificação de despesas após US04. -->
-                      <!-- TODO #7: integrar o atalho à listagem de despesas de US05. -->
-                      <button
-                        type="button"
-                        [attr.data-testid]="'reclassify-expense-' + category.categoryId"
-                        disabled
-                        title="Disponível após a implementação da tela de despesas (US04/US05)"
-                        class="mt-2 block ml-auto text-sm font-semibold text-slate-400 cursor-not-allowed"
+                      <a
+                        routerLink="/contas"
+                        [queryParams]="{ projectId: data.projectId, categoryId: category.categoryId }"
+                        [attr.data-testid]="'view-category-expenses-' + category.categoryId"
+                        class="mt-2 block text-right text-sm font-semibold text-teal-700 hover:underline"
                       >
-                        Reclassificar despesa
-                      </button>
+                        Ver despesas da categoria
+                      </a>
                     }
                   </td>
                 </tr>

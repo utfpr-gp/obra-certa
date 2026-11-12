@@ -100,17 +100,15 @@
             {{ errorMessage() }}
           </p>
         }
-        @if (belowSpentConflict()) {
-          <!-- TODO #7: habilitar a consulta das despesas desta categoria após US05. -->
-          <button
-            type="button"
+        @if (conflictCategoryId(); as categoryId) {
+          <a
+            routerLink="/contas"
+            [queryParams]="{ projectId: projectId(), categoryId }"
             data-testid="budget-form-view-expenses"
-            disabled
-            title="Disponível após a implementação da tela de despesas (US05)"
-            class="text-sm font-semibold text-slate-500 cursor-not-allowed"
+            class="text-sm font-semibold text-teal-700 hover:underline"
           >
             Ver despesas desta categoria
-          </button>
+          </a>
         }
 
         <div class="flex flex-wrap justify-end gap-2 pt-3">

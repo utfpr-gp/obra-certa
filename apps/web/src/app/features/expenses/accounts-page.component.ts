@@ -6,7 +6,7 @@ import { forkJoin, timeout } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
 import { SupplierService } from '../../core/services/supplier.service';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
@@ -284,6 +284,8 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
 })
 export class AccountsPageComponent {
   private readonly activeProject = inject(ActiveProjectService);
+  private readonly route = inject(ActivatedRoute);
+  private expenseShortcutPending = true;
   private readonly destroyRef = inject(DestroyRef);
   readonly hasActiveProject = computed(() => !!this.activeProject.activeProject());
   private readonly expenseService = inject(ExpenseService);
@@ -390,7 +392,19 @@ export class AccountsPageComponent {
         this.nfeImportRefreshPending = false;
         this.loading.set(false);
         const project = this.activeProject.activeProject();
-        if (project) this.loadPage(0, { projectId: project.id });
+        if (project) {
+          if (this.expenseShortcutPending) {
+            this.expenseShortcutPending = false;
+            const params = this.route.snapshot.queryParamMap;
+            const categoryId = params.get('categoryId');
+            if (categoryId && params.get('projectId') === project.id) {
+              const categoryIds = [categoryId];
+              this.filterForm.controls.categoryIds.setValue(categoryIds);
+              this.filters.set({ categoryIds });
+            }
+          }
+          this.loadPage(0, { projectId: project.id });
+        }
       });
     });
   }

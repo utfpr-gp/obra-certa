@@ -76,7 +76,7 @@ describe('BudgetFormModalComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [BudgetFormModalComponent],
-      providers: [{ provide: BudgetService, useValue: budgetService }],
+      providers: [provideRouter([]), { provide: BudgetService, useValue: budgetService }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(BudgetFormModalComponent);
@@ -611,3 +611,4 @@ describe('BudgetFormModalComponent', () => {
     expect(component.closed.emit).not.toHaveBeenCalled();
   });
 });
+import { provideRouter } from '@angular/router';

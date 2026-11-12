@@ -759,16 +759,14 @@ describe('BudgetsPageComponent', () => {
       const alert = query<HTMLElement>('budget-audit-cat-alvenaria');
       expect(alert).not.toBeNull();
       expect(alert?.textContent?.trim()).toBe(
-        'Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.',
+        'Há despesas nesta categoria sem orçamento definido. Defina um teto ou consulte as despesas.',
       );
       expect(query('budget-row-cat-alvenaria')?.contains(alert!)).toBeTrue();
-      const reclassify = query<HTMLButtonElement>('reclassify-expense-cat-alvenaria');
-      expect(reclassify).not.toBeNull();
-      expect(reclassify?.textContent?.trim()).toBe('Reclassificar despesa');
-      expect(reclassify?.disabled).toBeTrue();
-      expect(reclassify?.title).toBe(
-        'Disponível após a implementação da tela de despesas (US04/US05)',
-      );
+      const shortcut = query<HTMLAnchorElement>('view-category-expenses-cat-alvenaria');
+      expect(shortcut?.textContent?.trim()).toBe('Ver despesas da categoria');
+      expect(shortcut?.pathname).toBe('/contas');
+      expect(new URLSearchParams(shortcut?.search).get('categoryId')).toBe(row.categoryId);
+      expect(new URLSearchParams(shortcut?.search).get('projectId')).toBe(project.id);
 
       const define = query<HTMLButtonElement>('define-ceiling-cat-alvenaria');
       expect(define).not.toBeNull();
@@ -799,9 +797,9 @@ describe('BudgetsPageComponent', () => {
     render(project);
 
     expect(query('budget-audit-cat-alvenaria')).toBeNull();
-    expect(query('reclassify-expense-cat-alvenaria')).toBeNull();
+    expect(query('view-category-expenses-cat-alvenaria')).toBeNull();
     expect(query('budget-audit-cat-eletrica')).toBeNull();
-    expect(query('reclassify-expense-cat-eletrica')).toBeNull();
+    expect(query('view-category-expenses-cat-eletrica')).toBeNull();
   });
 
   it('closes the zero confirmation without calling the API when the owner cancels', () => {
@@ -831,7 +829,7 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 
-  it('offers the disabled expense shortcut with the US05 title after a conflict', () => {
+  it('links to the edited category expenses after a conflict', () => {
     const message = 'O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 1.125,00';
     budgetService.setBudget.and.returnValue(throwError(() => new HttpErrorResponse({
       status: 409, error: { message },
@@ -844,11 +842,12 @@ describe('BudgetsPageComponent', () => {
     query<HTMLButtonElement>('budget-form-submit')!.click();
     fixture.detectChanges();
 
-    const shortcut = query<HTMLButtonElement>('budget-form-view-expenses');
+    const shortcut = query<HTMLAnchorElement>('budget-form-view-expenses');
     expect(shortcut).not.toBeNull();
-    expect(shortcut!.disabled).toBeTrue();
     expect(shortcut!.textContent).toContain('Ver despesas desta categoria');
-    expect(shortcut!.title).toBe('Disponível após a implementação da tela de despesas (US05)');
+    expect(shortcut?.pathname).toBe('/contas');
+    expect(new URLSearchParams(shortcut?.search).get('categoryId')).toBe('cat-alvenaria');
+    expect(new URLSearchParams(shortcut?.search).get('projectId')).toBe(project.id);
     expect(text('budget-form-error')).toContain(message);
     expect(query('budget-form-modal')).not.toBeNull();
     expect(query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ')).toBe('R$ 1.100,00');

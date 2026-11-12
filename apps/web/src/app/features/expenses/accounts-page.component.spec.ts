@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AccountsPageComponent } from './accounts-page.component';
 import { ActiveProjectService } from '../../core/services/active-project.service';
@@ -22,6 +23,34 @@ const expense: ExpenseResponse = {
 
 describe('AccountsPageComponent', () => {
   beforeAll(() => registerLocaleData(localePt));
+
+  for (const categoryId of ['hidraulica', 'mao-de-obra']) {
+    it(`applies the ${categoryId} shortcut on the first request for the active project`, async () => {
+      TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting(),
+          provideRouter([{ path: 'contas', component: AccountsPageComponent }])],
+      });
+      const active = TestBed.inject(ActiveProjectService);
+      const project: Project = { id: 'project', name: 'Casa', type: ProjectType.RENOVATION,
+        status: ProjectStatus.IN_PROGRESS, location: null, createdAt: '', updatedAt: '' };
+      active.setActiveProject(project, 'owner');
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl(
+        `/contas?projectId=${project.id}&categoryId=${categoryId}`, AccountsPageComponent,
+      );
+      const http = TestBed.inject(HttpTestingController);
+      const initial = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(initial.request.params.getAll('categoryIds')).toEqual([categoryId]);
+      expect(component.filterForm.controls.categoryIds.value).toEqual([categoryId]);
+
+      active.setActiveProject({ ...project, id: 'other-project' }, 'owner');
+      harness.detectChanges();
+      const next = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(next.request.params.get('projectId')).toBe('other-project');
+      expect(next.request.params.has('categoryIds')).toBeFalse();
+      expect(component.filterForm.controls.categoryIds.value).toEqual([]);
+    });
+  }
   it('keeps all four situation tabs available, changes tab and resets to first page', () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
