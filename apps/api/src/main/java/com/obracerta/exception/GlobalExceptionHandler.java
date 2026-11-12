@@ -80,6 +80,14 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    @ExceptionHandler(DuplicateEmailException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleDuplicateEmail(DuplicateEmailException exception, HttpServletRequest request) {
+        return new ApiErrorResponse(
+                Instant.now(), HttpStatus.CONFLICT.value(), HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(), request.getRequestURI(), List.of());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleDataIntegrityViolation(HttpServletRequest request) {

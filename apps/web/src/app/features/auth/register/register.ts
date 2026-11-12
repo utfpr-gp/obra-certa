@@ -67,8 +67,11 @@ export class Register {
     this.authService.register(name!, email!, password!).subscribe({
       next: () => this.router.navigate(['/']),
       error: (err) => {
+        const message = err.error?.message;
         this.errorMessage =
-          err.error?.erro ?? 'Erro ao registrar usuário. Tente novamente.';
+          err.status === 409 && typeof message === 'string' && message.trim()
+            ? message
+            : 'Erro ao registrar usuário. Tente novamente.';
         this.isLoading = false;
       },
     });
