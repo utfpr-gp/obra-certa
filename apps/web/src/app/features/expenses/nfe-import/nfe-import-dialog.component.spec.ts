@@ -502,7 +502,8 @@ describe('NfeImportDialogComponent', () => {
     fixture.detectChanges();
 
     expect(request.cancelled).toBeTrue();
-    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-error')?.textContent).toContain('O servidor não respondeu no prazo.');
+    expect(el('nfe-confirm-error')?.textContent).toContain('Confira a lista de despesas antes de tentar novamente.');
     expect(el('nfe-confirm-retry')).not.toBeNull();
 
     click('nfe-confirm-retry');
@@ -850,7 +851,8 @@ describe('NfeImportDialogComponent', () => {
     http.expectOne(importsUrl).flush({}, { status: 503, statusText: 'Service Unavailable' });
     fixture.detectChanges();
 
-    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-error')?.textContent).toContain('O servidor está temporariamente indisponível.');
+    expect(el('nfe-confirm-error')?.textContent).toContain('Confira a lista de despesas antes de tentar novamente.');
     expect(el('nfe-confirm-retry')).not.toBeNull();
     expect(el('nfe-result')).toBeNull();
 
