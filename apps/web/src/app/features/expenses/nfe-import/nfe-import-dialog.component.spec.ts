@@ -1,3 +1,4 @@
+import { assertReadableTable } from '../../../shared/utils/assert-readable-table.testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
@@ -895,5 +896,21 @@ describe('NfeImportDialogComponent', () => {
       ],
     });
     request.flush(created);
+  });
+
+  it('keeps invoice fields in view on mobile cards and in the desktop table', async () => {
+    send();
+    http.expectOne(url).flush({
+      ...preview,
+      items: preview.items.map((item) => ({ ...item, description: 'Material'.repeat(20) })),
+    });
+    fixture.detectChanges();
+    const longName = 'Instalações elétricas e serviços complementares de acabamento';
+    http.expectOne(categoriesUrl).flush([{ id: 'cat-1', name: longName }]);
+    fixture.detectChanges();
+    selectCategory(1, 'cat-1');
+    expect(el('nfe-item-1')?.querySelector('p[aria-hidden]')?.textContent).toContain(longName);
+    await assertReadableTable(fixture.nativeElement, [320, 768], '[data-testid="nfe-items"] ul');
+    await assertReadableTable(fixture.nativeElement, [1280, 1440]);
   });
 });

@@ -286,7 +286,7 @@ describe('AccountsPageComponent', () => {
     });
   });
 
-  for (const width of [360, 1280]) {
+  for (const width of [360, 768, 1024, 1280]) {
   it(`renders every CA1 field per expense and keeps actions usable in a real ${width}px viewport`, async () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
@@ -381,11 +381,12 @@ describe('AccountsPageComponent', () => {
       filtered.flush({content,page:0,size:15,totalElements:2,totalPages:1,
         totals:{totalPaid:125.5,totalPending:2345.67,totalGeneral:2471.17}});
       fixture.detectChanges();
-      const rows = root.querySelector(width < 640 ? '[data-testid="expense-cards"]' : 'table');
+      const useCards = width <= 1024;
+      const rows = root.querySelector(useCards ? '[data-testid="expense-cards"]' : 'table');
       expect(rows).not.toBeNull();
       if (rows) {
         visible(rows);
-        const records = rows.querySelectorAll(width < 640 ? 'article' : 'tbody tr');
+        const records = rows.querySelectorAll(useCards ? 'article' : 'tbody tr');
         expect(records.length).toBe(2);
         const expectedRecords = [
           { id: 'expense-1', description: 'Cimento', category: 'Material', supplier: 'Loja',
@@ -413,7 +414,7 @@ describe('AccountsPageComponent', () => {
           visible(record);
           const fields = [expected.category, expected.supplier, expected.purchase,
             expected.due, expected.price, expected.status];
-          if (width < 640) {
+          if (useCards) {
             expect(text(record.querySelector('h3'))).toBe(expected.description);
             expect(Array.from(record.querySelectorAll('dt'), text))
               .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);

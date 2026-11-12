@@ -151,7 +151,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         @if (nfeImportNotice(); as notice) {
           <p data-testid="nfe-import-notice" role="status" class="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{{ notice }}</p>
         }
-        <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
+        <div #expenseResults class="relative @container" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
           <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
             Carregando despesas... Dados indisponíveis durante a atualização.
@@ -188,11 +188,11 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         }
         <ng-template #cellPlaceholder><span aria-hidden="true" class="account-skeleton account-cell-placeholder"></span></ng-template>
         @if (hasActiveProject() && !error() && (loading() || expenses().length)) {
-          <div data-testid="expense-cards" class="space-y-4 p-4 sm:hidden">
+          <div data-testid="expense-cards" class="space-y-4 p-4 @min-[64rem]:hidden">
             @for (expense of displayedRows(); track $index) {
               <article [style.height.px]="loading() ? rowDimensions()[$index]?.mobile : null" class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                <h3 class="break-words font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
-                <dl class="mt-3 space-y-2 break-words">
+                <h3 class="[overflow-wrap:anywhere] font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
+                <dl class="mt-3 space-y-2 [overflow-wrap:anywhere]">
                   <div><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Compra</dt><dd>@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
@@ -201,7 +201,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                   <div><dt class="font-medium">Situação</dt><dd>@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                 </dl>
                 @if (expense) {
-                  <div class="mt-2 flex flex-nowrap items-center gap-2">
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
                     <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                     @if (!expense.paid) {
                       <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -212,8 +212,8 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               </article>
             }
           </div>
-          <div class="hidden overflow-x-auto sm:block">
-            <table [style.table-layout]="loading() ? 'fixed' : null" class="w-full min-w-[900px] text-left text-sm">
+          <div class="hidden overflow-x-auto @min-[64rem]:block">
+            <table [style.table-layout]="loading() ? 'fixed' : null" class="w-full text-left text-sm [overflow-wrap:anywhere]">
               <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
                 <tr>
                   @for (heading of columnHeadings; track heading; let index = $index) {
@@ -233,7 +233,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                     <td class="px-4 py-3">@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">
                       @if (expense) {
-                        <div class="flex flex-nowrap items-center gap-2 whitespace-nowrap">
+                        <div class="flex flex-wrap items-center gap-2">
                           <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                           @if (!expense.paid) {
                             <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>

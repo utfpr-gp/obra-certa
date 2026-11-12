@@ -1,3 +1,4 @@
+import { assertReadableTable } from '../../shared/utils/assert-readable-table.testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -86,6 +87,11 @@ describe('ReportsPageComponent real report', () => {
     });
     fixture.detectChanges();
   }
+
+  it('keeps category detail and totals inside the available width', async () => {
+    loadComparison();
+    await assertReadableTable(root(), [320, 768, 1024, 1440]);
+  });
 
   it('downloads the consolidated PDF once, indicates generation and revokes its URL', async () => {
     loadComparison();

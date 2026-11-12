@@ -1,3 +1,4 @@
+import { assertReadableTable } from '../../../../shared/utils/assert-readable-table.testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -194,6 +195,14 @@ describe('SinapiFormComponent — rateio editável', () => {
     expect(text('sinapi-amount-cat-alvenaria')).toBe('R$ 0,03');
     expect(text('sinapi-amount-cat-eletrica')).toBe('R$ 0,03');
     expect(text('sinapi-amount-cat-hidraulica')).toBe('R$ 0,04');
+  });
+
+  it('keeps category, percentage and parcel inside narrow and wide layouts', async () => {
+    mount(prdCategories);
+    serve(2221.06);
+    change('sinapi-area', '100', 'input');
+    pick();
+    await assertReadableTable(fixture.nativeElement, [320, 768, 1280]);
   });
 
   it('breaks equal fractions by the PRD order, not by the order of the categories', () => {

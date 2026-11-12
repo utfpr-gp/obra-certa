@@ -66,6 +66,11 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   readonly categoriesLoading = signal(false);
   readonly categoriesError = signal<string | null>(null);
   readonly selectedCategories = signal<Record<number, string | undefined>>({});
+
+  selectedCategoryName(itemNumber: number): string | undefined {
+    const categoryId = this.selectedCategories()[itemNumber];
+    return this.categoryOptions().find((category) => category.id === categoryId)?.name;
+  }
   readonly paid = signal(true);
   readonly confirmError = signal<string | null>(null);
   readonly confirmUncertain = signal(false);

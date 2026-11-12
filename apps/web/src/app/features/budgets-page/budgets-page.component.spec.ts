@@ -2,6 +2,7 @@ import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { assertReadableTable } from '../../shared/utils/assert-readable-table.testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
@@ -370,6 +371,17 @@ describe('BudgetsPageComponent', () => {
     expect(text('kpi-total-spent')).toContain('56,7%');
     expect(text('kpi-available')).toContain('R$ 6.500,00');
     expect(text('kpi-exceeded')).toContain('2 de 4');
+  });
+
+  it('keeps every category cell readable across panel widths', async () => {
+    budgetService.getOverview.and.returnValue(of({
+      ...overview,
+      categories: overview.categories.map((row) => ({
+        ...row, categoryName: row.categoryName + 'RevestimentosEspeciais'.repeat(5),
+      })),
+    }));
+    render(project);
+    await assertReadableTable(fixture.nativeElement, [320, 768, 1024, 1440]);
   });
 
   it('renders each category row with the bar capped at 100% and the real percentage', () => {
