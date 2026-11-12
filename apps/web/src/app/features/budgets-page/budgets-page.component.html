@@ -78,10 +78,10 @@
         <div data-testid="kpi-exceeded">
           <app-kpi-card
             title="Categorias excedidas"
-            [value]="data.exceededCategories + ' de ' + data.budgetedCategories"
+            [value]="exceededCategoryCount() + ' de ' + data.categories.length"
             icon="triangle-alert"
             iconBgClass="bg-rose-100 text-rose-600"
-            [valueClass]="data.exceededCategories > 0 ? 'text-rose-600' : 'text-slate-900'"
+            [valueClass]="exceededCategoryCount() > 0 ? 'text-rose-600' : 'text-slate-900'"
           />
         </div>
       </section>

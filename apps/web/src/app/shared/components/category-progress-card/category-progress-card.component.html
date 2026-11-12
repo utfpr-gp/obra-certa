@@ -10,7 +10,7 @@
         class="text-white font-bold text-[11px] px-2 py-0.5 rounded-full tabular-nums shrink-0 shadow-2xs inline-flex items-center justify-center min-w-8"
         [style.background-color]="category().corBorda"
       >
-        {{ category().percentual }}%
+        {{ progressLabel() }}
       </span>
     </div>
 
@@ -23,7 +23,7 @@
   <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
     <div
       class="h-full rounded-full transition-all"
-      [style.width.%]="category().percentual > 100 ? 100 : category().percentual"
+      [style.width.%]="progressWidth()"
       [style.background-color]="category().corBorda"
     ></div>
   </div>

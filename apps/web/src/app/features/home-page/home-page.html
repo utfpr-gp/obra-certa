@@ -157,8 +157,7 @@
         <!-- 4. Categorias em Risco Card Component -->
         <app-kpi-card [compact]="true"
           title="Categorias em Risco"
-          [value]="activeBudget() ? riskCategories().length.toString() : '—'"
-          [subtitle]="activeBudget() ? 'de ' + obra.categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '') : ''"
+          [value]="activeBudget() ? riskCategoryCount() + ' de ' + obra.categorias.length : '—'"
           icon="triangle-alert"
           iconBgClass="bg-rose-100 text-rose-600"
           valueClass="text-rose-600"

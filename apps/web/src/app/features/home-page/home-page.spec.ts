@@ -255,16 +255,31 @@ describe('HomePage', () => {
     it('renders the active project budget totals and categories at risk', () => {
       answer(activeProject.id, {
         ...overview(activeProject.id, 1),
-        totalSpent: 930, available: 70, globalPercentage: 93,
+        totalSpent: 935, available: 65, globalPercentage: 93.5,
         categories: [{
           categoryId: 'materials', categoryName: 'Materiais', plannedAmount: 1000,
-          spentAmount: 930, balanceAmount: 70, percentage: 93, state: 'WARNING', hasBudget: true,
+          spentAmount: 935, balanceAmount: 65, percentage: 93.5, state: 'WARNING', hasBudget: true,
+        }, {
+          categoryId: 'hydraulics', categoryName: 'Hidráulica', plannedAmount: 0,
+          spentAmount: 1200, balanceAmount: -1200, percentage: null,
+          state: 'NO_BUDGET', hasBudget: false,
         }],
       });
 
-      expect(page().querySelector('app-radial-gauge')?.textContent).toContain('930,00');
-      expect(page().textContent).toContain('70,00');
-      expect(page().textContent).toContain('de 1 — Materiais');
+      const gauge = page().querySelector('app-radial-gauge');
+      expect(gauge?.textContent).toContain('935,00');
+      expect(gauge?.textContent).toContain('93,5%');
+      expect(page().textContent).toContain('65,00');
+      const cards = Array.from(page().querySelectorAll('app-category-progress-card'));
+      expect(cards[0]?.textContent).toContain('93,5%');
+      const hydraulics = cards.find((card) => card.textContent?.includes('Hidráulica'));
+      expect(hydraulics?.textContent).toContain('Sem orçamento');
+      expect(hydraulics?.textContent).toContain('R$ 1,2k');
+      expect(hydraulics?.querySelector('div')?.style.borderLeftColor).toBe('rgb(239, 68, 68)');
+      const risk = Array.from(page().querySelectorAll('app-kpi-card'))
+        .find((card) => card.textContent?.includes('Categorias em Risco'));
+      expect(risk?.textContent?.replace(/\s+/g, ' ')).toContain('2 de 2');
+      expect(risk?.textContent).not.toContain('Materiais');
     });
 
     it('does not advertise missing budgets while the budget API has not answered', () => {

@@ -6,7 +6,7 @@ import { ExpenseResponse } from '../../core/models/expense-registration.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { PaymentService } from '../../core/services/payment.service';
 import { BudgetService } from '../../core/services/budget.service';
-import { BudgetOverview } from '../../core/models/budget.model';
+import { BudgetOverview, hasUnbudgetedExpenses } from '../../core/models/budget.model';
 import { ExpenseService } from '../../core/services/expense.service';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
@@ -111,14 +111,15 @@ export class HomePage {
       totalGasto: budget?.totalSpent ?? 0,
       orcamentoTotal: budget?.totalPlanned ?? 0,
       saldoDisponivel: budget?.available ?? 0,
-      categorias: budget?.categories.filter((category) => category.hasBudget).map((category) => ({
+      categorias: budget?.categories.map((category) => ({
         id: category.categoryId,
         nome: category.categoryName,
         orcado: category.plannedAmount,
         gasto: category.spentAmount,
-        percentual: category.percentage ?? 0,
-        emRisco: category.state === 'WARNING' || category.state === 'EXCEEDED',
-        corBorda: category.state === 'EXCEEDED' ? '#EF4444'
+        percentual: category.percentage,
+        emRisco: category.state === 'WARNING' || category.state === 'EXCEEDED'
+          || hasUnbudgetedExpenses(category),
+        corBorda: category.state === 'EXCEEDED' || hasUnbudgetedExpenses(category) ? '#EF4444'
           : category.state === 'WARNING' ? '#F59E0B' : '#007A80',
       })) ?? [],
       ultimosGastos: this.recentExpenses(),
@@ -152,15 +153,9 @@ export class HomePage {
       this.projects().length === 0 &&
       !this.activeProject(),
   );
-  readonly riskCategories = computed(() => {
-    const obra = this.activeObra();
-    return obra?.categorias.filter((category) => category.emRisco || category.percentual >= 90) ?? [];
-  });
-
-  readonly firstRiskCategory = computed(() => {
-    const list = this.riskCategories();
-    return list.length > 0 ? list[0] : null;
-  });
+  readonly riskCategoryCount = computed(() =>
+    this.activeObra()?.categorias.filter((category) => category.emRisco).length ?? 0,
+  );
 
   constructor() {
     this.reloadProjects();

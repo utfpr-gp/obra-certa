@@ -369,7 +369,7 @@ describe('BudgetsPageComponent', () => {
     expect(text('kpi-total-spent')).toContain('R$ 8.500,00');
     expect(text('kpi-total-spent')).toContain('56,7%');
     expect(text('kpi-available')).toContain('R$ 6.500,00');
-    expect(text('kpi-exceeded')).toContain('1 de 3');
+    expect(text('kpi-exceeded')).toContain('2 de 4');
   });
 
   it('renders each category row with the bar capped at 100% and the real percentage', () => {

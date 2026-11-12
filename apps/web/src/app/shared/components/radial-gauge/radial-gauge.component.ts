@@ -1,5 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { formatPercentage } from '../../utils/format-percentage';
 
 @Component({
   selector: 'app-radial-gauge',
@@ -13,6 +14,7 @@ export class RadialGaugeComponent {
   currentValue = input.required<string>();
   totalValue = input.required<string>();
   label = input<string>('Total Gasto');
+  readonly formatPercentage = formatPercentage;
 
   readonly normalizedPercent = computed(() => {
     const p = this.percent();
