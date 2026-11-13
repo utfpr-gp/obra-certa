@@ -1,12 +1,15 @@
 package com.obracerta.services;
 
 import com.obracerta.configuration.security.TokenService;
+import com.obracerta.exception.DuplicateEmailException;
 import com.obracerta.model.dto.AuthDTO;
 import com.obracerta.model.dto.RegisterUserDTO;
 import com.obracerta.model.entity.User;
 import com.obracerta.repository.UserRepository;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -35,10 +38,18 @@ public class AuthService implements UserDetailsService {
 
     public void register(RegisterUserDTO data){
         if(repository.findByEmail(data.email()).isPresent())
-            throw new IllegalArgumentException("E-mail já cadastrado");
+            throw new DuplicateEmailException();
         String encryptedPassword = passwordEncoder.encode(data.password());
         User newUser = new User(data.name(), data.email(), encryptedPassword);
-        repository.save(newUser);
+        try {
+            repository.save(newUser);
+        } catch (DataIntegrityViolationException exception) {
+            if (exception.getCause() instanceof ConstraintViolationException violation
+                    && "uk_users_email".equals(violation.getConstraintName())) {
+                throw new DuplicateEmailException(exception);
+            }
+            throw exception;
+        }
     }
 
     @Override

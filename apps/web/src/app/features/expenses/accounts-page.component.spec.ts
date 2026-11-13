@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AccountsPageComponent } from './accounts-page.component';
 import { ActiveProjectService } from '../../core/services/active-project.service';
@@ -22,6 +23,74 @@ const expense: ExpenseResponse = {
 
 describe('AccountsPageComponent', () => {
   beforeAll(() => registerLocaleData(localePt));
+
+  for (const categoryId of ['hidraulica', 'mao-de-obra']) {
+    it(`applies the ${categoryId} shortcut on the first request for the active project`, async () => {
+      TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting(),
+          provideRouter([{ path: 'contas', component: AccountsPageComponent }])],
+      });
+      const active = TestBed.inject(ActiveProjectService);
+      const project: Project = { id: 'project', name: 'Casa', type: ProjectType.RENOVATION,
+        status: ProjectStatus.IN_PROGRESS, location: null, createdAt: '', updatedAt: '' };
+      active.setActiveProject(project, 'owner');
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl(
+        `/contas?projectId=${project.id}&categoryId=${categoryId}`, AccountsPageComponent,
+      );
+      const http = TestBed.inject(HttpTestingController);
+      const initial = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(initial.request.params.getAll('categoryIds')).toEqual([categoryId]);
+      expect(component.filterForm.controls.categoryIds.value).toEqual([categoryId]);
+
+      component.filterForm.patchValue({ supplierId: 'supplier', purchaseDateFrom: '2026-01-01' });
+      component.applyFilters();
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.selectTab('OVERDUE');
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.selectSort({ target: { value: 'PURCHASE_DATE_ASC' } } as unknown as Event);
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.loadPage(2);
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+
+      expect(await harness.navigateByUrl('/contas', AccountsPageComponent)).toBe(component);
+      const unfiltered = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(unfiltered.request.params.has('categoryIds')).toBeFalse();
+      expect(unfiltered.request.params.get('tab')).toBe('OVERDUE');
+      expect(unfiltered.request.params.get('sort')).toBe('PURCHASE_DATE_ASC');
+      expect(unfiltered.request.params.get('supplierId')).toBe('supplier');
+      expect(unfiltered.request.params.get('purchaseDateFrom')).toBe('2026-01-01');
+      expect(unfiltered.request.params.get('page')).toBe('0');
+      expect(component.filterForm.controls.categoryIds.value).toEqual([]);
+
+      const nextCategory = categoryId === 'hidraulica' ? 'mao-de-obra' : 'hidraulica';
+      expect(await harness.navigateByUrl(
+        `/contas?projectId=${project.id}&categoryId=${nextCategory}`, AccountsPageComponent,
+      )).toBe(component);
+      const filtered = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(filtered.request.params.getAll('categoryIds')).toEqual([nextCategory]);
+      expect(filtered.request.params.get('tab')).toBe('OVERDUE');
+      expect(filtered.request.params.get('sort')).toBe('PURCHASE_DATE_ASC');
+      expect(filtered.request.params.get('supplierId')).toBe('supplier');
+      expect(filtered.request.params.get('purchaseDateFrom')).toBe('2026-01-01');
+      expect(component.filterForm.controls.categoryIds.value).toEqual([nextCategory]);
+
+      active.setActiveProject({ ...project, id: 'other-project' }, 'owner');
+      harness.detectChanges();
+      const next = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(next.request.params.get('projectId')).toBe('other-project');
+      expect(next.request.params.has('categoryIds')).toBeFalse();
+      expect(next.request.params.has('supplierId')).toBeFalse();
+      expect(next.request.params.get('tab')).toBe('ALL');
+      expect(component.filterForm.controls.categoryIds.value).toEqual([]);
+
+      active.setActiveProject(project, 'owner');
+      harness.detectChanges();
+      const returned = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(returned.request.params.has('categoryIds')).toBeFalse();
+      http.verify();
+    });
+  }
   it('keeps all four situation tabs available, changes tab and resets to first page', () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
@@ -257,7 +326,7 @@ describe('AccountsPageComponent', () => {
     });
   });
 
-  for (const width of [360, 1280]) {
+  for (const width of [360, 768, 1024, 1280]) {
   it(`renders every CA1 field per expense and keeps actions usable in a real ${width}px viewport`, async () => {
     TestBed.configureTestingModule({
       imports: [AccountsPageComponent],
@@ -352,11 +421,12 @@ describe('AccountsPageComponent', () => {
       filtered.flush({content,page:0,size:15,totalElements:2,totalPages:1,
         totals:{totalPaid:125.5,totalPending:2345.67,totalGeneral:2471.17}});
       fixture.detectChanges();
-      const rows = root.querySelector(width < 640 ? '[data-testid="expense-cards"]' : 'table');
+      const useCards = width <= 1024;
+      const rows = root.querySelector(useCards ? '[data-testid="expense-cards"]' : 'table');
       expect(rows).not.toBeNull();
       if (rows) {
         visible(rows);
-        const records = rows.querySelectorAll(width < 640 ? 'article' : 'tbody tr');
+        const records = rows.querySelectorAll(useCards ? 'article' : 'tbody tr');
         expect(records.length).toBe(2);
         const expectedRecords = [
           { id: 'expense-1', description: 'Cimento', category: 'Material', supplier: 'Loja',
@@ -384,14 +454,21 @@ describe('AccountsPageComponent', () => {
           visible(record);
           const fields = [expected.category, expected.supplier, expected.purchase,
             expected.due, expected.price, expected.status];
-          if (width < 640) {
+          if (useCards) {
             expect(text(record.querySelector('h3'))).toBe(expected.description);
             expect(Array.from(record.querySelectorAll('dt'), text))
-              .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
-            expect(Array.from(record.querySelectorAll('dd'), text)).toEqual(fields);
+              .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Valor', 'Vencimento', 'Situação']);
+            const values = Array.from(record.querySelectorAll('dd'));
+            expect(values.map(text)).toEqual([expected.category, expected.supplier, expected.purchase,
+              expected.price, expected.due, expected.status]);
+            expect(values[4].getBoundingClientRect().top).toBeCloseTo(values[5].getBoundingClientRect().top, 0);
           } else {
-            expect(Array.from(record.querySelectorAll('td'), text).slice(0, -1))
+            const cells = Array.from(record.querySelectorAll('td'));
+            expect(cells.map(text).slice(0, -1))
               .toEqual([expected.description, ...fields]);
+            for (const cell of [cells[3], cells[4], cells[6].querySelector('span')!]) {
+              expect(frame.contentWindow!.getComputedStyle(cell).whiteSpace).toBe('nowrap');
+            }
           }
           const link = record.querySelector('a')!;
           expect(link).not.toBeNull();
@@ -416,6 +493,7 @@ describe('AccountsPageComponent', () => {
               expect(markPaid.classList.contains('btn-oc-outline')).toBeTrue();
               visible(markPaid);
               assertCompactAction(markPaid);
+              expect(markPaid.getBoundingClientRect().top).toBeCloseTo(link.getBoundingClientRect().top, 0);
               const router = TestBed.inject(Router);
               const previousUrl = router.url;
               markPaid.click();
@@ -477,7 +555,7 @@ describe('AccountsPageComponent', () => {
           expect(record.querySelector('a')).toBeNull();
           expect(record.querySelectorAll('.account-skeleton').length).toBeGreaterThanOrEqual(7);
           if (width < 640) expect(Array.from(record.querySelectorAll('dt'), node => node.textContent))
-            .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
+            .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Valor', 'Vencimento', 'Situação']);
         });
         expect(resultsPanel.getBoundingClientRect().height).toBeCloseTo(oldHeight, 0);
         expect(resultsPanel.getAttribute('aria-busy')).toBe('true');

@@ -1,3 +1,4 @@
+import { assertReadableTable } from '../../../shared/utils/assert-readable-table.testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
@@ -501,7 +502,8 @@ describe('NfeImportDialogComponent', () => {
     fixture.detectChanges();
 
     expect(request.cancelled).toBeTrue();
-    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-error')?.textContent).toContain('O servidor não respondeu no prazo.');
+    expect(el('nfe-confirm-error')?.textContent).toContain('Confira a lista de despesas antes de tentar novamente.');
     expect(el('nfe-confirm-retry')).not.toBeNull();
 
     click('nfe-confirm-retry');
@@ -849,7 +851,8 @@ describe('NfeImportDialogComponent', () => {
     http.expectOne(importsUrl).flush({}, { status: 503, statusText: 'Service Unavailable' });
     fixture.detectChanges();
 
-    expect(el('nfe-confirm-error')?.textContent).toContain('Não é possível saber se a importação foi gravada');
+    expect(el('nfe-confirm-error')?.textContent).toContain('O servidor está temporariamente indisponível.');
+    expect(el('nfe-confirm-error')?.textContent).toContain('Confira a lista de despesas antes de tentar novamente.');
     expect(el('nfe-confirm-retry')).not.toBeNull();
     expect(el('nfe-result')).toBeNull();
 
@@ -895,5 +898,21 @@ describe('NfeImportDialogComponent', () => {
       ],
     });
     request.flush(created);
+  });
+
+  it('keeps invoice fields in view on mobile cards and in the desktop table', async () => {
+    send();
+    http.expectOne(url).flush({
+      ...preview,
+      items: preview.items.map((item) => ({ ...item, description: 'Material'.repeat(20) })),
+    });
+    fixture.detectChanges();
+    const longName = 'Instalações elétricas e serviços complementares de acabamento';
+    http.expectOne(categoriesUrl).flush([{ id: 'cat-1', name: longName }]);
+    fixture.detectChanges();
+    selectCategory(1, 'cat-1');
+    expect(el('nfe-item-1')?.querySelector('p[aria-hidden]')?.textContent).toContain(longName);
+    await assertReadableTable(fixture.nativeElement, [320, 768], '[data-testid="nfe-items"] ul');
+    await assertReadableTable(fixture.nativeElement, [1280, 1440]);
   });
 });

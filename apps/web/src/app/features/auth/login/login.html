@@ -14,7 +14,7 @@
           type="email"
           formControlName="email"
           autocomplete="username"
-          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent"
           placeholder="Insira o seu e-mail"
         />
         @if (form.get("email")?.invalid && form.get("email")?.touched) {
@@ -29,7 +29,7 @@
             [type]="showPassword ? 'text' : 'password'"
             formControlName="password"
             autocomplete="current-password"
-            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-[#007A80] focus:border-transparent"
+            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent"
             placeholder="Insira a sua senha"
           />
           <button
@@ -47,9 +47,12 @@
         @if (form.get("password")?.invalid && form.get("password")?.touched) {
           <span class="text-red-500 text-sm mb-3">A senha é inválida.</span>
         }
-        <div class="divider m-auto">
-          <a class="link link-hover text-[#007A80]">Esqueceu a senha?</a>
-        </div>
+        <details class="mx-auto mt-2 text-center">
+          <summary class="min-h-11 cursor-pointer py-3 text-primary-oc hover:underline">
+            Esqueceu a senha?
+          </summary>
+          <p class="text-sm text-slate-600">A recuperação de senha ainda não está disponível.</p>
+        </details>
         @if (errorMessage) {
           <span class="text-red-500 text-sm text-center mt-2">{{
             errorMessage
@@ -57,7 +60,7 @@
         }
         <button
           type="submit"
-          class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
+          class="btn border-0 mt-4 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium"
           [class.opacity-50]="isLoading"
           [class.pointer-events-none]="isLoading"
         >
@@ -70,7 +73,7 @@
         <div class="divider text-gray-500">Não possui uma conta?</div>
         <button
           type="button"
-          class="btn border-0 rounded-md text-black bg-[#FDBE00] hover:bg-[#f7ae05] w-[40%] m-auto font-medium"
+          class="btn-oc-secondary w-[40%] m-auto"
           (click)="navigateToRegister()"
         >
           Registrar-se

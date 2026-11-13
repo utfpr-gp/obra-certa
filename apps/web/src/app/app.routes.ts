@@ -9,6 +9,7 @@ import { ExpenseFormComponent } from './features/expenses/expense-form.component
 import { ExpenseDetailComponent } from './features/expenses/expense-detail.component';
 import { AccountsPageComponent } from './features/expenses/accounts-page.component';
 import { ReportsPageComponent } from './features/reports/reports-page.component';
+import { NotFoundPage } from './features/not-found/not-found-page';
 
 export const routes: Routes = [
   {
@@ -43,5 +44,6 @@ export const routes: Routes = [
       },
     ],
   },
+  { path: '**', component: NotFoundPage },
 ];
 

@@ -24,7 +24,7 @@
               </button>
             }
           </div>
-          <button type="button" (click)="openProjectModal()" class="btn border-0 mt-2 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 w-full flex gap-2">
+          <button type="button" (click)="openProjectModal()" class="btn-oc-primary mt-2 px-4 py-2 w-full flex gap-2">
             <svg lucidePlus [size]="16" /> Cadastrar nova obra
           </button>
           @if (activeProject(); as project) {
@@ -42,16 +42,16 @@
       </button>
     </div>
   }
-  <div class="relative">
-    <button type="button" (click)="toggleUserMenu($event)" class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full" aria-label="Menu do usuário">
-      <img src="https://ui-avatars.com/api/?name=Leandro+Nunes&background=007A80&color=fff&size=36" alt="Avatar" class="w-9 h-9 rounded-full" />
-    </button>
-    @if (userMenuOpen()) {
-      <div class="absolute top-12 right-0 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50">
-        <button type="button" (click)="onLogout()" class="flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-rose-600"><svg lucideLogOut [size]="15" /> Sair do sistema</button>
-      </div>
-    }
-  </div>
+  <button
+    type="button"
+    (click)="onLogout()"
+    data-testid="navbar-logout"
+    class="flex min-h-11 items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+    aria-label="Sair do sistema"
+  >
+    <svg lucideLogOut [size]="16" class="shrink-0" />
+    <span>Sair</span>
+  </button>
 </header>
 
 <app-project-modal
@@ -59,4 +59,15 @@
   [project]="projectBeingEdited()"
   (closed)="closeProjectModal()"
   (saved)="onProjectSaved($event)"
+  (deleteRequested)="openDeleteModal()"
+/>
+
+<app-confirm-modal
+  [isOpen]="deleteModalOpen()"
+  title="Excluir obra?"
+  [description]="deleteConfirmationMessage()"
+  confirmText="Excluir"
+  [isDestructive]="true"
+  (cancel)="closeDeleteModal()"
+  (confirm)="confirmDeleteProject()"
 />

@@ -5,7 +5,7 @@
   @if (noExpenses()) { <p class="report-status" role="status">Esta obra ainda não possui despesas ativas. Os valores da distribuição estão zerados.</p> }
   <header class="heading">
     <div><h1>Relatórios</h1><p class="text-[#64748B] mt-[5px] leading-relaxed">Obra: {{ reportProjectName() || activeProject.activeProject()?.name || 'não selecionada' }}. Entenda a distribuição dos gastos e compare o realizado com o orçamento da obra.</p></div>
-    <button type="button" class="export hover:bg-[#00686d]" [disabled]="exportableProjectId() === null" [attr.aria-busy]="generatingPdf()" (click)="exportPdf()"><svg lucideFileText [size]="17" aria-hidden="true" />{{ generatingPdf() ? 'Gerando PDF…' : 'Exportar PDF consolidado' }}</button>
+    <button type="button" class="btn-oc-primary export" [disabled]="exportableProjectId() === null" [attr.aria-busy]="generatingPdf()" (click)="exportPdf()"><svg lucideFileText [size]="17" aria-hidden="true" />{{ generatingPdf() ? 'Gerando PDF…' : 'Exportar PDF consolidado' }}</button>
   </header>
   @if (generatingPdf()) { <p class="pdf-notice" role="status">Gerando PDF…</p> }
   @if (pdfError(); as exportError) { <p class="report-status error" role="alert">{{ exportError }}</p> }

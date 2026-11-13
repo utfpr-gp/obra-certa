@@ -36,3 +36,17 @@ describe('Reports route', () => {
     expect(harness.routeNativeElement?.querySelector('input[formControlName="email"]')).not.toBeNull();
   });
 });
+
+describe('Unknown routes', () => {
+  it('shows a 404 page with a link back to login', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient()] });
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/oi');
+
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent)
+      .toContain('Página não encontrada');
+    const loginLink = harness.routeNativeElement?.querySelector<HTMLAnchorElement>('a[href="/login"]');
+    expect(loginLink?.textContent).toContain('Voltar para o login');
+  });
+});

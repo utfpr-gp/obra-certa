@@ -34,6 +34,10 @@ export interface BudgetCategory {
   hasBudget: boolean;
 }
 
+export function hasUnbudgetedExpenses(category: BudgetCategory): boolean {
+  return category.state === 'NO_BUDGET' && category.spentAmount > 0;
+}
+
 export interface BudgetSetDTO {
   estimatedAmount: number;
 }

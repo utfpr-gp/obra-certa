@@ -5,11 +5,12 @@ import { forkJoin } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
 import { CategoryService } from '../../core/services/category.service';
-import { BudgetCategory, BudgetOverview, BudgetState } from '../../core/models/budget.model';
+import { BudgetCategory, BudgetOverview, BudgetState, hasUnbudgetedExpenses } from '../../core/models/budget.model';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
 import { AlertBannerComponent } from '../../shared/components/alert-banner/alert-banner.component';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
+import { formatPercentage } from '../../shared/utils/format-percentage';
 import { BudgetFormModalComponent } from './components/budget-form-modal/budget-form-modal.component';
 
 @Component({
@@ -38,6 +39,13 @@ export class BudgetsPageComponent {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly isEmpty = computed(() => this.overview()?.categories.length === 0);
+  readonly exceededCategoryCount = computed(() => {
+    const overview = this.overview();
+    if (!overview) return 0;
+
+    const unbudgetedCategoryCount = overview.categories.filter(hasUnbudgetedExpenses).length;
+    return overview.exceededCategories + unbudgetedCategoryCount;
+  });
 
   readonly modalOpen = signal(false);
   readonly modalProjectId = signal<string | null>(null);
@@ -198,18 +206,13 @@ export class BudgetsPageComponent {
     }).format(value ?? 0);
   }
 
-  hasUnbudgetedExpenses(category: BudgetCategory): boolean {
-    return category.state === 'NO_BUDGET' && category.spentAmount > 0;
-  }
+  readonly hasUnbudgetedExpenses = hasUnbudgetedExpenses;
 
   formatPercentage(value: number | null | undefined): string {
     if (value === null || value === undefined) {
       return '—';
     }
-    return `${new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }).format(value)}%`;
+    return formatPercentage(value, 1);
   }
 
   barWidth(percentage: number | null): string {

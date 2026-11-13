@@ -9,6 +9,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { BudgetCategory } from '../../../../core/models/budget.model';
+import { RouterLink } from '@angular/router';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
 import { SinapiFormComponent } from '../sinapi-form/sinapi-form.component';
@@ -21,7 +22,7 @@ import { SinapiFormComponent } from '../sinapi-form/sinapi-form.component';
 @Component({
   selector: 'app-budget-form-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SinapiFormComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SinapiFormComponent],
   templateUrl: './budget-form-modal.component.html',
   styleUrl: './budget-form-modal.component.css',
 })
@@ -54,7 +55,7 @@ export class BudgetFormModalComponent {
 
   readonly saving = signal(false);
   readonly errorMessage = signal('');
-  readonly belowSpentConflict = signal(false);
+  readonly conflictCategoryId = signal<string | null>(null);
   readonly sinapiOpen = signal(false);
   protected readonly sinapiSaving = computed(() => this.sinapiForm()?.saving() ?? false);
 
@@ -78,7 +79,7 @@ export class BudgetFormModalComponent {
       }
       const editing = this.editingCategory();
       this.errorMessage.set('');
-      this.belowSpentConflict.set(false);
+      this.conflictCategoryId.set(null);
       this.saving.set(false);
       this.form.reset({
         categoryId: editing?.categoryId ?? this.preselectedCategoryId() ?? '',
@@ -178,7 +179,7 @@ export class BudgetFormModalComponent {
     const context = this.contextId;
     this.saving.set(true);
     this.errorMessage.set('');
-    this.belowSpentConflict.set(false);
+    this.conflictCategoryId.set(null);
     this.budgetService
       .setBudget(projectId, value.categoryId, {
         estimatedAmount: value.estimatedAmount as number,
@@ -194,7 +195,7 @@ export class BudgetFormModalComponent {
           this.saving.set(false);
           if (error instanceof HttpErrorResponse && error.status === 409
               && typeof error.error?.message === 'string') {
-            this.belowSpentConflict.set(true);
+            this.conflictCategoryId.set(value.categoryId);
             this.errorMessage.set(error.error.message);
             return;
           }

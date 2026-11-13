@@ -11,7 +11,7 @@
       <a
         routerLink="/home"
         data-testid="budgets-go-home"
-        class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
       >
         Ir para a Home
       </a>
@@ -28,7 +28,7 @@
         type="button"
         data-testid="add-budget"
         (click)="openBudgetForm()"
-        class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        class="btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
       >
         Adicionar orçamento
       </button>
@@ -78,10 +78,10 @@
         <div data-testid="kpi-exceeded">
           <app-kpi-card
             title="Categorias excedidas"
-            [value]="data.exceededCategories + ' de ' + data.budgetedCategories"
+            [value]="exceededCategoryCount() + ' de ' + data.categories.length"
             icon="triangle-alert"
             iconBgClass="bg-rose-100 text-rose-600"
-            [valueClass]="data.exceededCategories > 0 ? 'text-rose-600' : 'text-slate-900'"
+            [valueClass]="exceededCategoryCount() > 0 ? 'text-rose-600' : 'text-slate-900'"
           />
         </div>
       </section>
@@ -99,47 +99,49 @@
             type="button"
             data-testid="define-first-budget"
             (click)="openBudgetForm()"
-            class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+            class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
           >
             Definir primeiro orçamento
           </button>
         </section>
       } @else {
-        <section class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-x-auto">
-          <table class="table w-full">
-            <thead>
-              <tr class="text-xs uppercase tracking-wider text-slate-400">
-                <th>Categoria</th>
-                <th class="text-right">Planejado</th>
-                <th class="text-right">Gasto</th>
-                <th class="text-right">Saldo</th>
-                <th>Uso</th>
-                <th>Estado</th>
-                <th class="text-right">Ações</th>
+        <section class="@container rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+          <table role="table" class="budget-table table w-full">
+            <thead role="rowgroup">
+              <tr role="row" class="text-xs uppercase tracking-wider text-slate-600">
+                <th role="columnheader" scope="col">Categoria</th>
+                <th role="columnheader" scope="col" class="text-right">Planejado</th>
+                <th role="columnheader" scope="col" class="text-right">Gasto</th>
+                <th role="columnheader" scope="col" class="text-right">Saldo</th>
+                <th role="columnheader" scope="col">Uso</th>
+                <th role="columnheader" scope="col">Estado</th>
+                <th role="columnheader" scope="col" class="text-right">Ações</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               @for (category of data.categories; track category.categoryId) {
-                <tr [attr.data-testid]="'budget-row-' + category.categoryId">
-                  <td class="font-medium text-slate-900">
+                <tr role="row" [attr.data-testid]="'budget-row-' + category.categoryId">
+                  <th scope="row" role="rowheader" class="font-medium text-slate-900">
                     {{ category.categoryName }}
                     @if (hasUnbudgetedExpenses(category)) {
                       <p
                         [attr.data-testid]="'budget-audit-' + category.categoryId"
                         role="note"
-                        class="mt-2 min-w-48 max-w-xs whitespace-normal text-sm font-normal text-rose-700"
-                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.</p>
+                        class="mt-2 max-w-xs whitespace-normal text-sm font-normal text-rose-700"
+                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou consulte as despesas.</p>
                     }
-                  </td>
-                  <td class="text-right tabular-nums">{{ formatBrl(category.plannedAmount) }}</td>
-                  <td class="text-right tabular-nums">{{ formatBrl(category.spentAmount) }}</td>
+                  </th>
+                  <td role="cell" class="text-right tabular-nums"><span class="budget-field-label" aria-hidden="true">Planejado</span>{{ formatBrl(category.plannedAmount) }}</td>
+                  <td role="cell" class="text-right tabular-nums"><span class="budget-field-label" aria-hidden="true">Gasto</span>{{ formatBrl(category.spentAmount) }}</td>
                   <td
+                    role="cell"
                     class="text-right tabular-nums"
                     [class.text-rose-600]="category.balanceAmount < 0"
                   >
-                    {{ formatBrl(category.balanceAmount) }}
+                    <span class="budget-field-label" aria-hidden="true">Saldo</span>{{ formatBrl(category.balanceAmount) }}
                   </td>
-                  <td class="min-w-40">
+                  <td role="cell">
+                    <span class="budget-field-label" aria-hidden="true">Uso</span>
                     <div class="flex items-center gap-2">
                       <div class="h-2 flex-1 rounded-full bg-slate-100 overflow-hidden">
                         <div
@@ -157,7 +159,8 @@
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td role="cell">
+                    <span class="budget-field-label" aria-hidden="true">Estado</span>
                     <span
                       data-testid="category-state"
                       class="category-state border text-xs font-semibold"
@@ -166,13 +169,13 @@
                       {{ stateLabel(category.state) }}
                     </span>
                   </td>
-                  <td class="text-right whitespace-nowrap">
+                  <td role="cell" class="text-right">
                     @if (category.hasBudget) {
                       <button
                         type="button"
                         [attr.data-testid]="'edit-budget-' + category.categoryId"
                         (click)="openBudgetForm(category)"
-                        class="text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
+                        class="text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
                       >
                         Editar
                       </button>
@@ -192,23 +195,20 @@
                         type="button"
                         [attr.data-testid]="'define-ceiling-' + category.categoryId"
                         (click)="openBudgetForm(category)"
-                        class="ml-3 text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
+                        class="ml-3 text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
                       >
                         Definir teto
                       </button>
                     }
                     @if (hasUnbudgetedExpenses(category)) {
-                      <!-- TODO #6: habilitar a reclassificação de despesas após US04. -->
-                      <!-- TODO #7: integrar o atalho à listagem de despesas de US05. -->
-                      <button
-                        type="button"
-                        [attr.data-testid]="'reclassify-expense-' + category.categoryId"
-                        disabled
-                        title="Disponível após a implementação da tela de despesas (US04/US05)"
-                        class="mt-2 block ml-auto text-sm font-semibold text-slate-400 cursor-not-allowed"
+                      <a
+                        routerLink="/contas"
+                        [queryParams]="{ projectId: data.projectId, categoryId: category.categoryId }"
+                        [attr.data-testid]="'view-category-expenses-' + category.categoryId"
+                        class="mt-2 block text-right text-sm font-semibold text-primary-oc hover:underline"
                       >
-                        Reclassificar despesa
-                      </button>
+                        Ver despesas da categoria
+                      </a>
                     }
                   </td>
                 </tr>

@@ -1,12 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp } from '@lucide/angular';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
-import { forkJoin, timeout } from 'rxjs';
+import { forkJoin, map, timeout } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
 import { SupplierService } from '../../core/services/supplier.service';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { ExpenseResponse, ExpenseTab, ExpenseTotals, ExpenseFilters, ExpenseSupplier, ExpenseSort } from '../../core/models/expense-registration.model';
@@ -81,17 +82,17 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               class="account-tab min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-sm text-slate-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">{{ option.label }}</button>
           }
         </nav>
-        <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-start md:px-6">
-      <div class="flex min-w-0 flex-col gap-1 sm:ml-auto sm:w-64">
-        <label for="expense-sort" class="text-sm font-medium text-slate-800">Ordenar por</label>
+        <div class="flex flex-col gap-2 border-b border-slate-200 bg-slate-50/50 px-4 py-2 sm:flex-row sm:items-start sm:gap-3 md:px-6">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+        <label for="expense-sort" class="shrink-0 text-sm font-medium text-slate-800">Ordenar por</label>
         <select id="expense-sort" data-testid="expense-sort" [value]="sort()" (change)="selectSort($event)"
           class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 sm:w-auto">
           @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
         </select>
       </div>
-      <details data-testid="filters-panel" class="min-w-0 sm:order-first sm:flex-1"
+      <details data-testid="filters-panel" class="min-w-0 sm:order-first sm:open:flex-1"
         (toggle)="onFiltersToggle($event)">
-        <summary class="min-h-11 w-fit list-none cursor-pointer rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden"><svg lucideSlidersHorizontal [size]="16" class="mr-2 inline-block" aria-hidden="true" />Filtros</summary>
+        <summary class="flex min-h-11 w-fit list-none cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden"><svg lucideSlidersHorizontal [size]="16" aria-hidden="true" />Filtros</summary>
         <form data-testid="expense-filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="mt-4 space-y-4">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             @for (field of dateFields; track field.key) {
@@ -151,7 +152,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         @if (nfeImportNotice(); as notice) {
           <p data-testid="nfe-import-notice" role="status" class="m-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{{ notice }}</p>
         }
-        <div #expenseResults class="relative" [style.min-height.px]="loading() ? resultsHeight() : null">
+        <div #expenseResults class="relative @container" [style.min-height.px]="loading() ? resultsHeight() : null">
         @if (loading()) {
           <div data-testid="expenses-loading" role="status" class="absolute right-4 top-1 z-10 rounded-md bg-white px-2 text-xs text-slate-600">
             Carregando despesas... Dados indisponíveis durante a atualização.
@@ -188,20 +189,20 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
         }
         <ng-template #cellPlaceholder><span aria-hidden="true" class="account-skeleton account-cell-placeholder"></span></ng-template>
         @if (hasActiveProject() && !error() && (loading() || expenses().length)) {
-          <div data-testid="expense-cards" class="space-y-4 p-4 sm:hidden">
+          <div data-testid="expense-cards" class="space-y-4 p-4 @min-[64rem]:hidden">
             @for (expense of displayedRows(); track $index) {
               <article [style.height.px]="loading() ? rowDimensions()[$index]?.mobile : null" class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                <h3 class="break-words font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
-                <dl class="mt-3 space-y-2 break-words">
-                  <div><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
-                  <div><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                <h3 class="[overflow-wrap:anywhere] font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
+                <dl class="mt-3 grid grid-cols-2 gap-2 [overflow-wrap:anywhere]">
+                  <div class="col-span-2"><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="col-span-2"><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Compra</dt><dd>@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
-                  <div><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Valor</dt><dd class="font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="whitespace-nowrap"><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Situação</dt><dd>@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                 </dl>
                 @if (expense) {
-                  <div class="mt-2 flex flex-nowrap items-center gap-2">
+                  <div class="mt-2 flex items-center gap-2 whitespace-nowrap">
                     <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                     @if (!expense.paid) {
                       <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -212,12 +213,12 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               </article>
             }
           </div>
-          <div class="hidden overflow-x-auto sm:block">
-            <table [style.table-layout]="loading() ? 'fixed' : null" class="w-full min-w-[900px] text-left text-sm">
+          <div class="hidden overflow-x-auto @min-[64rem]:block">
+            <table [style.table-layout]="loading() ? 'fixed' : null" class="w-full text-left text-sm [overflow-wrap:anywhere]">
               <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
                 <tr>
                   @for (heading of columnHeadings; track heading; let index = $index) {
-                    <th [style.width.px]="loading() ? columnWidths()[index] : null" [class.text-right]="index === 5" class="px-4 py-3">{{ heading }}</th>
+                    <th [style.width.px]="loading() ? columnWidths()[index] : null" [class.text-right]="index === 5" class="whitespace-nowrap px-4 py-3">{{ heading }}</th>
                   }
                 </tr>
               </thead>
@@ -227,13 +228,13 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                     <td class="px-4 py-3 font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">
                       @if (expense) {
-                        <div class="flex flex-nowrap items-center gap-2 whitespace-nowrap">
+                        <div class="inline-flex items-center gap-2 whitespace-nowrap">
                           <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                           @if (!expense.paid) {
                             <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -277,13 +278,20 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
     .account-tab { transition: background-color 150ms, color 150ms; }
     .account-tab:hover { background: #f8fafc; color: #007a80; }
     .account-tab-active { border-bottom-color: #007a80; background: #e6f2f3; color: #007a80; font-weight: 600; }
-    .account-status { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
+    .account-status { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
     .account-status-paid { background: #d1fae5; color: #065f46; }
     .account-status-pending { background: #fef3c7; color: #92400e; }
   `,
 })
 export class AccountsPageComponent {
   private readonly activeProject = inject(ActiveProjectService);
+  private readonly expenseShortcut = toSignal(inject(ActivatedRoute).queryParamMap.pipe(
+    map((params) => ({ projectId: params.get('projectId'), categoryId: params.get('categoryId') })),
+  ), {
+    requireSync: true,
+    equal: (previous, current) => previous.projectId === current.projectId
+      && previous.categoryId === current.categoryId,
+  });
   private readonly destroyRef = inject(DestroyRef);
   readonly hasActiveProject = computed(() => !!this.activeProject.activeProject());
   private readonly expenseService = inject(ExpenseService);
@@ -365,34 +373,59 @@ export class AccountsPageComponent {
     : this.expenses());
 
   constructor() {
+    let lastShortcut: ReturnType<typeof this.expenseShortcut> | undefined;
+    let lastContextVersion: number | undefined;
     effect(() => {
-      this.activeProject.contextVersion();
+      const contextVersion = this.activeProject.contextVersion();
+      const shortcut = this.expenseShortcut();
       untracked(() => {
-        this.queryVersion++;
-        this.filterForm.reset();
-        this.validationAttempted.set(false);
-        this.filters.set({});
-        this.tab.set('ALL');
-        this.sort.set('PURCHASE_DATE_DESC');
-        this.page.set(0);
-        this.totalPages.set(1);
-        this.expenses.set([]);
-        this.totals.set(null);
-        this.totalElements.set(null);
-        this.projectHasExpenses.set(null);
-        this.error.set(null);
-        this.referenceDate.set(null);
-        this.settlement.set(null);
-        this.settlementRefreshPending.set(false);
-        this.paymentSelection.set(null);
-        this.nfeImportSelection.set(null);
-        this.nfeImportNotice.set(null);
-        this.nfeImportRefreshPending = false;
-        this.loading.set(false);
+        if (contextVersion !== lastContextVersion) {
+          lastContextVersion = contextVersion;
+          this.resetProjectContext();
+        }
         const project = this.activeProject.activeProject();
-        if (project) this.loadPage(0, { projectId: project.id });
+        if (!project) return;
+        // A change of active project alone must not reapply the old URL shortcut.
+        if (shortcut !== lastShortcut) {
+          const categoryIds = shortcut.projectId === project.id && shortcut.categoryId
+            ? [shortcut.categoryId] : [];
+          this.filterForm.controls.categoryIds.setValue(categoryIds);
+          this.filters.update((filters) => {
+            const updated = { ...filters };
+            if (categoryIds.length) updated.categoryIds = categoryIds;
+            else delete updated.categoryIds;
+            return updated;
+          });
+        }
+        lastShortcut = shortcut;
+        this.page.set(0);
+        this.loadPage(0, { projectId: project.id });
       });
     });
+  }
+
+  private resetProjectContext(): void {
+    this.queryVersion++;
+    this.filterForm.reset();
+    this.validationAttempted.set(false);
+    this.filters.set({});
+    this.tab.set('ALL');
+    this.sort.set('PURCHASE_DATE_DESC');
+    this.page.set(0);
+    this.totalPages.set(1);
+    this.expenses.set([]);
+    this.totals.set(null);
+    this.totalElements.set(null);
+    this.projectHasExpenses.set(null);
+    this.error.set(null);
+    this.referenceDate.set(null);
+    this.settlement.set(null);
+    this.settlementRefreshPending.set(false);
+    this.paymentSelection.set(null);
+    this.nfeImportSelection.set(null);
+    this.nfeImportNotice.set(null);
+    this.nfeImportRefreshPending = false;
+    this.loading.set(false);
   }
 
   openPayment(expense: ExpenseResponse): void {

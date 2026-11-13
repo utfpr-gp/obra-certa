@@ -255,16 +255,31 @@ describe('HomePage', () => {
     it('renders the active project budget totals and categories at risk', () => {
       answer(activeProject.id, {
         ...overview(activeProject.id, 1),
-        totalSpent: 930, available: 70, globalPercentage: 93,
+        totalSpent: 935, available: 65, globalPercentage: 93.5,
         categories: [{
           categoryId: 'materials', categoryName: 'Materiais', plannedAmount: 1000,
-          spentAmount: 930, balanceAmount: 70, percentage: 93, state: 'WARNING', hasBudget: true,
+          spentAmount: 935, balanceAmount: 65, percentage: 93.5, state: 'WARNING', hasBudget: true,
+        }, {
+          categoryId: 'hydraulics', categoryName: 'Hidráulica', plannedAmount: 0,
+          spentAmount: 1200, balanceAmount: -1200, percentage: null,
+          state: 'NO_BUDGET', hasBudget: false,
         }],
       });
 
-      expect(page().querySelector('app-radial-gauge')?.textContent).toContain('930,00');
-      expect(page().textContent).toContain('70,00');
-      expect(page().textContent).toContain('de 1 — Materiais');
+      const gauge = page().querySelector('app-radial-gauge');
+      expect(gauge?.textContent).toContain('935,00');
+      expect(gauge?.textContent).toContain('93,5%');
+      expect(page().textContent).toContain('65,00');
+      const cards = Array.from(page().querySelectorAll('app-category-progress-card'));
+      expect(cards[0]?.textContent).toContain('93,5%');
+      const hydraulics = cards.find((card) => card.textContent?.includes('Hidráulica'));
+      expect(hydraulics?.textContent).toContain('Sem orçamento');
+      expect(hydraulics?.textContent).toContain('R$ 1,2k');
+      expect(hydraulics?.querySelector('div')?.style.borderLeftColor).toBe('rgb(239, 68, 68)');
+      const risk = Array.from(page().querySelectorAll('app-kpi-card'))
+        .find((card) => card.textContent?.includes('Categorias em Risco'));
+      expect(risk?.textContent?.replace(/\s+/g, ' ')).toContain('2 de 2');
+      expect(risk?.textContent).not.toContain('Materiais');
     });
 
     it('does not advertise missing budgets while the budget API has not answered', () => {
@@ -501,7 +516,8 @@ describe('HomePage', () => {
     it('shows an actionable delete error, closes the modal and keeps the project when deletion fails', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -518,7 +534,8 @@ describe('HomePage', () => {
 
     it('reopens the delete confirmation from the error retry action', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(query('confirm-confirmation')).toBeNull();
@@ -529,7 +546,8 @@ describe('HomePage', () => {
     });
 
     it('names the project in the delete confirmation', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       const content = query<HTMLElement>('confirm-modal-content');
       expect(content).not.toBeNull();
@@ -538,7 +556,8 @@ describe('HomePage', () => {
 
     it('does not show the deletion error of a project after another project becomes active', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       const error = query<HTMLElement>('delete-project-error');
@@ -561,7 +580,8 @@ describe('HomePage', () => {
 
     it('keeps the retry bound to the project that failed when it becomes active again', () => {
       projectService.deleteProject.and.returnValue(throwError(() => new Error('network')));
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       activeProjectState.set(anotherProject);
@@ -588,7 +608,8 @@ describe('HomePage', () => {
     it('activates and persists the remaining project returned by the server after deletion', () => {
       projectService.getProjects.and.returnValue(of([anotherProject]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -610,7 +631,8 @@ describe('HomePage', () => {
 
       projectService.getProjects.and.returnValue(of([anotherProject]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
@@ -624,7 +646,8 @@ describe('HomePage', () => {
     it('falls back to the local optimistic list when the refresh after deletion fails', () => {
       projectService.getProjects.and.returnValue(throwError(() => new Error('network')));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(component.projects().map((project) => project.id)).toEqual([anotherProject.id]);
@@ -642,7 +665,8 @@ describe('HomePage', () => {
 
       projectService.getProjects.and.returnValue(of([]));
 
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
       click('confirm-confirmation');
 
       expect(projectService.deleteProject).toHaveBeenCalledWith(activeProject.id);
@@ -655,7 +679,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when exclusion is cancelled by button', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       click('cancel-confirmation');
 
@@ -665,7 +690,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when exclusion is cancelled with Escape', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       fixture.detectChanges();
@@ -676,7 +702,8 @@ describe('HomePage', () => {
     });
 
     it('does not delete or change the active project when the exclusion modal is closed', () => {
-      click('open-delete-project');
+      component.openDeleteModal();
+      fixture.detectChanges();
 
       click('close-confirmation');
 

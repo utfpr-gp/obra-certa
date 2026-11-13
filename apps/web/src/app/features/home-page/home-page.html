@@ -31,7 +31,7 @@
       <button
         type="button"
         data-testid="onboarding-create-project"
-        class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        class="btn-oc-primary mt-6 px-4 py-2"
         (click)="openProjectModal()"
       >
         Cadastrar primeira obra
@@ -97,7 +97,7 @@
               <a
                 data-testid="define-project-budgets"
                 routerLink="/orcamentos"
-                class="btn mt-3 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+                class="btn-oc-primary mt-3 px-4 py-2"
               >
                 Definir Orçamentos da Obra
               </a>
@@ -110,7 +110,7 @@
           <a
             routerLink="/orcamentos"
             data-testid="generate-budget"
-            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+            class="btn-oc-primary flex items-center gap-2 px-5 min-h-11 self-start sm:self-auto"
           >
             <svg lucidePlusCircle [size]="18" />
             <span>Gerar Orçamento</span>
@@ -118,20 +118,12 @@
         } @else {
           <a
             routerLink="/contas/nova"
-            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium shadow-sm flex items-center gap-2 px-5 h-11 self-start sm:self-auto transition-all active:scale-98 cursor-pointer"
+            class="btn-oc-primary flex items-center gap-2 px-5 min-h-11 self-start sm:self-auto"
           >
             <svg lucidePlusCircle [size]="18" />
             <span>Lançar Nova Despesa</span>
           </a>
         }
-        <button
-          type="button"
-          data-testid="open-delete-project"
-          class="btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium px-4 py-2"
-          (click)="openDeleteModal()"
-        >
-          Excluir obra
-        </button>
         </div>
       </div>
 
@@ -165,8 +157,7 @@
         <!-- 4. Categorias em Risco Card Component -->
         <app-kpi-card [compact]="true"
           title="Categorias em Risco"
-          [value]="activeBudget() ? riskCategories().length.toString() : '—'"
-          [subtitle]="activeBudget() ? 'de ' + obra.categorias.length + (firstRiskCategory() ? ' — ' + firstRiskCategory()?.nome : '') : ''"
+          [value]="activeBudget() ? riskCategoryCount() + ' de ' + obra.categorias.length : '—'"
           icon="triangle-alert"
           iconBgClass="bg-rose-100 text-rose-600"
           valueClass="text-rose-600"
@@ -236,7 +227,7 @@
                   }
                 </div>
               } @else {
-                <p data-testid="payment-alert-empty" class="text-sm text-teal-800">Nenhum pagamento pendente no período. Tudo em dia!</p>
+                <p data-testid="payment-alert-empty" class="py-8 text-center text-sm text-slate-500">Nenhum pagamento pendente no período.</p>
               }
             }
           </div>
@@ -269,7 +260,7 @@
                       <svg lucideClock [size]="16" class="text-amber-500 shrink-0" />
                     }
                     <span class="text-slate-700 truncate font-medium">
-                      {{ gasto.descricao }} <span class="text-slate-400">· {{ gasto.categoriaNome }}</span>
+                      {{ gasto.descricao }} <span class="text-slate-500">· {{ gasto.categoriaNome }}</span>
                     </span>
                   </div>
                     <app-status-badge class="justify-self-start" [status]="gasto.status" />
@@ -284,7 +275,7 @@
                     </span>
                 </div>
               } @empty {
-                <div class="col-span-full py-8 text-center text-sm text-slate-400">
+                <div class="col-span-full py-8 text-center text-sm text-slate-500">
                   @if (recentExpensesLoading()) {
                     Carregando últimos gastos...
                   } @else if (recentExpensesError()) {
@@ -318,6 +309,7 @@
   [isOpen]="projectModalOpen()"
   (closed)="closeProjectModal()"
   (saved)="onProjectSaved()"
+  (deleteRequested)="openDeleteModal()"
 />
 
 @if (selectedPayment(); as selection) {

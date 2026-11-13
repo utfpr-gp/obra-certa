@@ -66,6 +66,11 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
   readonly categoriesLoading = signal(false);
   readonly categoriesError = signal<string | null>(null);
   readonly selectedCategories = signal<Record<number, string | undefined>>({});
+
+  selectedCategoryName(itemNumber: number): string | undefined {
+    const categoryId = this.selectedCategories()[itemNumber];
+    return this.categoryOptions().find((category) => category.id === categoryId)?.name;
+  }
   readonly paid = signal(true);
   readonly confirmError = signal<string | null>(null);
   readonly confirmUncertain = signal(false);
@@ -340,6 +345,16 @@ export class NfeImportDialogComponent implements AfterViewInit, OnDestroy {
       && (error.status === 400 || error.status === 409)) {
       return message;
     }
-    return 'Não é possível saber se a importação foi gravada. Verifique a lista de despesas antes de tentar novamente.';
+    const checkExpenses = 'Confira a lista de despesas antes de tentar novamente.';
+    if (!(error instanceof HttpErrorResponse)) {
+      return `O servidor não respondeu no prazo. ${checkExpenses}`;
+    }
+    if (error.status === 0) {
+      return `A comunicação com o servidor foi interrompida. ${checkExpenses}`;
+    }
+    if (error.status >= 500) {
+      return `O servidor está temporariamente indisponível. ${checkExpenses}`;
+    }
+    return 'O servidor recusou a confirmação da importação.';
   }
 }

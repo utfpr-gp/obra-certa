@@ -103,7 +103,7 @@
         <p role="alert" class="font-medium text-red-700" data-testid="sinapi-allocation-error">{{ allocationMessages[error] }}</p>
       }
     </div>
-    <table role="table" class="block w-full text-left text-sm text-slate-700 sm:table">
+    <table role="table" class="block w-full text-left text-sm text-slate-700 [overflow-wrap:anywhere] sm:table">
       <thead role="rowgroup" class="sr-only sm:not-sr-only sm:table-header-group">
         <tr role="row">
           <th role="columnheader" class="pb-2" scope="col">Categoria</th>
@@ -122,7 +122,7 @@
             </th>
             <td role="cell" class="sm:py-2 sm:text-center">
               <span aria-hidden="true" class="mb-1 block text-xs text-slate-600 sm:hidden">Percentual</span>
-              <input class="input percentage-input w-16" type="number" min="0" step="any" inputmode="decimal"
+              <input class="input percentage-input w-24 max-w-full" type="number" min="0" step="any" inputmode="decimal"
                 [formControl]="row.control" [attr.aria-label]="'Percentual de ' + row.category.name"
                 [attr.data-testid]="'sinapi-percent-' + row.category.id" />
             </td>
@@ -135,7 +135,7 @@
       </tbody>
     </table>
     <div class="flex flex-wrap items-center justify-end gap-2">
-      <button class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
+      <button class="btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
         type="button" data-testid="sinapi-confirm" [disabled]="!canConfirm()" (click)="confirm()">Confirmar rateio</button>
     </div>
     @if (confirmError(); as failure) {

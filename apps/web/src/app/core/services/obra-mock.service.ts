@@ -164,7 +164,7 @@ export class ObraMockService {
 
   readonly riskCategories = computed(() => {
     const active = this.activeObra();
-    return active.categorias.filter((c) => c.emRisco || c.percentual >= 90);
+    return active.categorias.filter((c) => c.emRisco || (c.percentual ?? 0) >= 90);
   });
 
   selectObra(id: string): void {

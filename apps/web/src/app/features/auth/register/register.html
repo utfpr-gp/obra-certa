@@ -7,7 +7,7 @@
         <button
           type="button"
           (click)="goBack()"
-          class="absolute flex items-center focus:outline-none focus:text-[#007A80] w-10 h-10 justify-center rounded-2xl hover:bg-gray-100 hover:text-[#007A80] focus:bg-gray-100"
+          class="absolute flex items-center focus:outline-none focus:text-primary-oc w-10 h-10 justify-center rounded-2xl hover:bg-gray-100 hover:text-primary-oc focus:bg-gray-100"
         >
           <svg lucideArrowLeft [size]="18" />
         </button>
@@ -36,7 +36,7 @@
           type="text"
           formControlName="name"
           class="input border-1 rounded-md text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:border-transparent"
-          [ngClass]="form.get('name')?.invalid && form.get('name')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+          [ngClass]="form.get('name')?.invalid && form.get('name')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
           placeholder="Insira o seu nome"
         />
         @if (form.get("name")?.invalid && form.get("name")?.touched) {
@@ -52,7 +52,7 @@
           formControlName="email"
           autocomplete="username"
           class="input border-1 rounded-md text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:border-transparent"
-          [ngClass]="form.get('email')?.invalid && form.get('email')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+          [ngClass]="form.get('email')?.invalid && form.get('email')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
           placeholder="email@example.com"
         />
         @if (form.get("email")?.invalid && form.get("email")?.touched) {
@@ -67,7 +67,7 @@
             formControlName="password"
             autocomplete="new-password"
             class="input border-1 rounded-md text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:border-transparent"
-            [ngClass]="form.get('password')?.invalid && form.get('password')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+            [ngClass]="form.get('password')?.invalid && form.get('password')?.touched ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
             placeholder="Insira a sua senha"
           />
           <button
@@ -96,7 +96,7 @@
             formControlName="confirmPassword"
             autocomplete="new-password"
             class="input border-1 rounded-md text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:border-transparent"
-            [ngClass]="form.get('confirmPassword')?.touched && (form.get('confirmPassword')?.invalid || form.hasError('passwordMismatch')) ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+            [ngClass]="form.get('confirmPassword')?.touched && (form.get('confirmPassword')?.invalid || form.hasError('passwordMismatch')) ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
             placeholder="Confirme a sua senha"
           />
           <button
@@ -126,7 +126,7 @@
 
         <button
           type="submit"
-          class="btn border-0 mt-4 bg-[#007A80] hover:bg-[#00686d] rounded-md text-white font-medium"
+          class="btn border-0 mt-4 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium"
           [class.opacity-50]="isLoading"
           [class.pointer-events-none]="isLoading"
         >
@@ -140,7 +140,7 @@
       <div class="divider m-auto">
         <p class="text-gray-500 text-sm">
           Já tem uma conta?
-          <a class="link link-hover text-[#007A80]" (click)="goBack()"
+          <a class="link link-hover text-primary-oc" (click)="goBack()"
             >Entrar</a
           >
         </p>

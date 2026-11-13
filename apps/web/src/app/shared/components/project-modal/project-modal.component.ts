@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { LucideTrash2 } from '@lucide/angular';
 import { Project, ProjectStatus, ProjectType } from '../../../core/models/project.model';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
 import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
@@ -10,7 +10,7 @@ import { ProjectService } from '../../../core/services/project.service';
 @Component({
   selector: 'app-project-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, LucideTrash2],
   templateUrl: './project-modal.component.html',
 })
 export class ProjectModalComponent {
@@ -18,6 +18,7 @@ export class ProjectModalComponent {
   readonly project = input<Project | null>(null);
   readonly closed = output<void>();
   readonly saved = output<Project>();
+  readonly deleteRequested = output<void>();
   readonly errorMessage = signal('');
   readonly form = inject(FormBuilder).nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
@@ -29,7 +30,6 @@ export class ProjectModalComponent {
   private readonly projectService = inject(ProjectService);
   private readonly activeProjectService = inject(ActiveProjectService);
   private readonly identityService = inject(AuthenticatedIdentityService);
-  private readonly router = inject(Router);
 
   constructor() {
     effect(() => {
@@ -65,11 +65,6 @@ export class ProjectModalComponent {
       },
       error: () => this.errorMessage.set('Não foi possível salvar a obra. Verifique sua conexão e tente novamente.'),
     });
-  }
-
-  goToBudgets(): void {
-    this.closed.emit();
-    void this.router.navigate(['/orcamentos']);
   }
 
 }

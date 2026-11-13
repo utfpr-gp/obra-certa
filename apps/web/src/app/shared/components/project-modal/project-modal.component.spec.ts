@@ -228,13 +228,22 @@ describe('ProjectModalComponent', () => {
     expectNothingWasSaved();
   });
 
-  it('shows the budgets shortcut and navigates to budgets', () => {
-    const router = TestBed.inject(Router);
-    spyOn(router, 'navigate');
-    spyOn(component.closed, 'emit');
-    expect(fixture.nativeElement.textContent).toContain('Definir Orçamentos');
-    component.goToBudgets();
-    expect(component.closed.emit).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith(['/orcamentos']);
+  it('shows delete button in edit mode and emits deleteRequested', () => {
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.componentRef.setInput('project', project);
+    fixture.detectChanges();
+    spyOn(component.deleteRequested, 'emit');
+    const btn = fixture.nativeElement.querySelector('[data-testid="open-delete-project"]');
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(component.deleteRequested.emit).toHaveBeenCalled();
+  });
+
+  it('hides delete button in create mode', () => {
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.componentRef.setInput('project', null);
+    fixture.detectChanges();
+    const btn = fixture.nativeElement.querySelector('[data-testid="open-delete-project"]');
+    expect(btn).toBeNull();
   });
 });

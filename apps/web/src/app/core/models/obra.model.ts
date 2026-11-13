@@ -10,7 +10,7 @@ export type CategoriaOrcamento = {
   nome: string;
   orcado: number;
   gasto: number;
-  percentual: number;
+  percentual: number | null;
   emRisco: boolean;
   corBorda: string;
 };

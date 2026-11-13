@@ -2,6 +2,7 @@ import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { assertReadableTable } from '../../shared/utils/assert-readable-table.testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ActiveProjectService } from '../../core/services/active-project.service';
 import { BudgetService } from '../../core/services/budget.service';
@@ -369,7 +370,32 @@ describe('BudgetsPageComponent', () => {
     expect(text('kpi-total-spent')).toContain('R$ 8.500,00');
     expect(text('kpi-total-spent')).toContain('56,7%');
     expect(text('kpi-available')).toContain('R$ 6.500,00');
-    expect(text('kpi-exceeded')).toContain('1 de 3');
+    expect(text('kpi-exceeded')).toContain('2 de 4');
+  });
+
+  it('uses the API count and adds only categories with expenses and no ceiling', () => {
+    budgetService.getOverview.and.returnValue(of({
+      ...overview,
+      exceededCategories: 2,
+      categories: [
+        ...overview.categories,
+        { ...overview.categories[3], categoryId: 'cat-no-expenses', spentAmount: 0, balanceAmount: 0 },
+      ],
+    }));
+    render(project);
+
+    expect(text('kpi-exceeded')).toContain('3 de 5');
+  });
+
+  it('keeps every category cell readable across panel widths', async () => {
+    budgetService.getOverview.and.returnValue(of({
+      ...overview,
+      categories: overview.categories.map((row) => ({
+        ...row, categoryName: row.categoryName + 'RevestimentosEspeciais'.repeat(5),
+      })),
+    }));
+    render(project);
+    await assertReadableTable(fixture.nativeElement, [320, 768, 1024, 1440]);
   });
 
   it('renders each category row with the bar capped at 100% and the real percentage', () => {
@@ -759,16 +785,14 @@ describe('BudgetsPageComponent', () => {
       const alert = query<HTMLElement>('budget-audit-cat-alvenaria');
       expect(alert).not.toBeNull();
       expect(alert?.textContent?.trim()).toBe(
-        'Há despesas nesta categoria sem orçamento definido. Defina um teto ou reclassifique a despesa.',
+        'Há despesas nesta categoria sem orçamento definido. Defina um teto ou consulte as despesas.',
       );
       expect(query('budget-row-cat-alvenaria')?.contains(alert!)).toBeTrue();
-      const reclassify = query<HTMLButtonElement>('reclassify-expense-cat-alvenaria');
-      expect(reclassify).not.toBeNull();
-      expect(reclassify?.textContent?.trim()).toBe('Reclassificar despesa');
-      expect(reclassify?.disabled).toBeTrue();
-      expect(reclassify?.title).toBe(
-        'Disponível após a implementação da tela de despesas (US04/US05)',
-      );
+      const shortcut = query<HTMLAnchorElement>('view-category-expenses-cat-alvenaria');
+      expect(shortcut?.textContent?.trim()).toBe('Ver despesas da categoria');
+      expect(shortcut?.pathname).toBe('/contas');
+      expect(new URLSearchParams(shortcut?.search).get('categoryId')).toBe(row.categoryId);
+      expect(new URLSearchParams(shortcut?.search).get('projectId')).toBe(project.id);
 
       const define = query<HTMLButtonElement>('define-ceiling-cat-alvenaria');
       expect(define).not.toBeNull();
@@ -799,9 +823,9 @@ describe('BudgetsPageComponent', () => {
     render(project);
 
     expect(query('budget-audit-cat-alvenaria')).toBeNull();
-    expect(query('reclassify-expense-cat-alvenaria')).toBeNull();
+    expect(query('view-category-expenses-cat-alvenaria')).toBeNull();
     expect(query('budget-audit-cat-eletrica')).toBeNull();
-    expect(query('reclassify-expense-cat-eletrica')).toBeNull();
+    expect(query('view-category-expenses-cat-eletrica')).toBeNull();
   });
 
   it('closes the zero confirmation without calling the API when the owner cancels', () => {
@@ -831,7 +855,7 @@ describe('BudgetsPageComponent', () => {
     expect(budgetService.getOverview.calls.count()).toBe(1);
   });
 
-  it('offers the disabled expense shortcut with the US05 title after a conflict', () => {
+  it('links to the edited category expenses after a conflict', () => {
     const message = 'O orçamento não pode ser menor do que o total de despesas já realizadas nesta categoria: R$ 1.125,00';
     budgetService.setBudget.and.returnValue(throwError(() => new HttpErrorResponse({
       status: 409, error: { message },
@@ -844,11 +868,12 @@ describe('BudgetsPageComponent', () => {
     query<HTMLButtonElement>('budget-form-submit')!.click();
     fixture.detectChanges();
 
-    const shortcut = query<HTMLButtonElement>('budget-form-view-expenses');
+    const shortcut = query<HTMLAnchorElement>('budget-form-view-expenses');
     expect(shortcut).not.toBeNull();
-    expect(shortcut!.disabled).toBeTrue();
     expect(shortcut!.textContent).toContain('Ver despesas desta categoria');
-    expect(shortcut!.title).toBe('Disponível após a implementação da tela de despesas (US05)');
+    expect(shortcut?.pathname).toBe('/contas');
+    expect(new URLSearchParams(shortcut?.search).get('categoryId')).toBe('cat-alvenaria');
+    expect(new URLSearchParams(shortcut?.search).get('projectId')).toBe(project.id);
     expect(text('budget-form-error')).toContain(message);
     expect(query('budget-form-modal')).not.toBeNull();
     expect(query<HTMLInputElement>('budget-form-amount')!.value.replace(/\s/g, ' ')).toBe('R$ 1.100,00');
