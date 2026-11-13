@@ -11,7 +11,7 @@
       <a
         routerLink="/home"
         data-testid="budgets-go-home"
-        class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
       >
         Ir para a Home
       </a>
@@ -28,7 +28,7 @@
         type="button"
         data-testid="add-budget"
         (click)="openBudgetForm()"
-        class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+        class="btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
       >
         Adicionar orçamento
       </button>
@@ -99,7 +99,7 @@
             type="button"
             data-testid="define-first-budget"
             (click)="openBudgetForm()"
-            class="btn mt-6 border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2"
+            class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
           >
             Definir primeiro orçamento
           </button>
@@ -175,7 +175,7 @@
                         type="button"
                         [attr.data-testid]="'edit-budget-' + category.categoryId"
                         (click)="openBudgetForm(category)"
-                        class="text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
+                        class="text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
                       >
                         Editar
                       </button>
@@ -195,7 +195,7 @@
                         type="button"
                         [attr.data-testid]="'define-ceiling-' + category.categoryId"
                         (click)="openBudgetForm(category)"
-                        class="ml-3 text-sm font-semibold text-[#007A80] hover:text-[#00686D] hover:underline"
+                        class="ml-3 text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
                       >
                         Definir teto
                       </button>
@@ -205,7 +205,7 @@
                         routerLink="/contas"
                         [queryParams]="{ projectId: data.projectId, categoryId: category.categoryId }"
                         [attr.data-testid]="'view-category-expenses-' + category.categoryId"
-                        class="mt-2 block text-right text-sm font-semibold text-teal-700 hover:underline"
+                        class="mt-2 block text-right text-sm font-semibold text-primary-oc hover:underline"
                       >
                         Ver despesas da categoria
                       </a>

@@ -56,7 +56,7 @@
             formControlName="categoryId"
             data-testid="budget-form-category"
             class="select border-1 rounded-md text-gray-700 w-full mt-1 focus:outline-none focus:ring-2 focus:border-transparent"
-            [ngClass]="showCategoryError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+            [ngClass]="showCategoryError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
           >
             <option value="">Selecione uma categoria</option>
             @for (category of categories(); track category.id) {
@@ -86,7 +86,7 @@
             data-testid="budget-form-amount"
             placeholder="R$ 0,00"
             class="input border-1 rounded-md text-gray-700 w-full mt-1 focus:outline-none focus:ring-2 focus:border-transparent"
-            [ngClass]="showAmountError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#007A80]'"
+            [ngClass]="showAmountError() ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-oc'"
           />
         </label>
         @if (showAmountError()) {
@@ -105,7 +105,7 @@
             routerLink="/contas"
             [queryParams]="{ projectId: projectId(), categoryId }"
             data-testid="budget-form-view-expenses"
-            class="text-sm font-semibold text-teal-700 hover:underline"
+            class="text-sm font-semibold text-primary-oc hover:underline"
           >
             Ver despesas desta categoria
           </a>
@@ -124,7 +124,7 @@
             type="submit"
             data-testid="budget-form-submit"
             [disabled]="saving()"
-            class="btn border-0 bg-[#007A80] hover:bg-[#00686D] rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
+            class="btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2 disabled:opacity-60"
           >
             Salvar
           </button>
