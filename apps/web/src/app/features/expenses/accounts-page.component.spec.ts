@@ -457,11 +457,18 @@ describe('AccountsPageComponent', () => {
           if (useCards) {
             expect(text(record.querySelector('h3'))).toBe(expected.description);
             expect(Array.from(record.querySelectorAll('dt'), text))
-              .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
-            expect(Array.from(record.querySelectorAll('dd'), text)).toEqual(fields);
+              .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Valor', 'Vencimento', 'Situação']);
+            const values = Array.from(record.querySelectorAll('dd'));
+            expect(values.map(text)).toEqual([expected.category, expected.supplier, expected.purchase,
+              expected.price, expected.due, expected.status]);
+            expect(values[4].getBoundingClientRect().top).toBeCloseTo(values[5].getBoundingClientRect().top, 0);
           } else {
-            expect(Array.from(record.querySelectorAll('td'), text).slice(0, -1))
+            const cells = Array.from(record.querySelectorAll('td'));
+            expect(cells.map(text).slice(0, -1))
               .toEqual([expected.description, ...fields]);
+            for (const cell of [cells[3], cells[4], cells[6].querySelector('span')!]) {
+              expect(frame.contentWindow!.getComputedStyle(cell).whiteSpace).toBe('nowrap');
+            }
           }
           const link = record.querySelector('a')!;
           expect(link).not.toBeNull();
@@ -486,6 +493,7 @@ describe('AccountsPageComponent', () => {
               expect(markPaid.classList.contains('btn-oc-outline')).toBeTrue();
               visible(markPaid);
               assertCompactAction(markPaid);
+              expect(markPaid.getBoundingClientRect().top).toBeCloseTo(link.getBoundingClientRect().top, 0);
               const router = TestBed.inject(Router);
               const previousUrl = router.url;
               markPaid.click();
@@ -547,7 +555,7 @@ describe('AccountsPageComponent', () => {
           expect(record.querySelector('a')).toBeNull();
           expect(record.querySelectorAll('.account-skeleton').length).toBeGreaterThanOrEqual(7);
           if (width < 640) expect(Array.from(record.querySelectorAll('dt'), node => node.textContent))
-            .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Vencimento', 'Valor', 'Situação']);
+            .toEqual(['Categoria', 'Fornecedor', 'Compra', 'Valor', 'Vencimento', 'Situação']);
         });
         expect(resultsPanel.getBoundingClientRect().height).toBeCloseTo(oldHeight, 0);
         expect(resultsPanel.getAttribute('aria-busy')).toBe('true');

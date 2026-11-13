@@ -193,16 +193,16 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
             @for (expense of displayedRows(); track $index) {
               <article [style.height.px]="loading() ? rowDimensions()[$index]?.mobile : null" class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
                 <h3 class="[overflow-wrap:anywhere] font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
-                <dl class="mt-3 space-y-2 [overflow-wrap:anywhere]">
-                  <div><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
-                  <div><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                <dl class="mt-3 grid grid-cols-2 gap-2 [overflow-wrap:anywhere]">
+                  <div class="col-span-2"><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="col-span-2"><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Compra</dt><dd>@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
-                  <div><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Valor</dt><dd class="font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="whitespace-nowrap"><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Situação</dt><dd>@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                 </dl>
                 @if (expense) {
-                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <div class="mt-2 flex items-center gap-2 whitespace-nowrap">
                     <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                     @if (!expense.paid) {
                       <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -218,7 +218,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               <thead class="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
                 <tr>
                   @for (heading of columnHeadings; track heading; let index = $index) {
-                    <th [style.width.px]="loading() ? columnWidths()[index] : null" [class.text-right]="index === 5" class="px-4 py-3">{{ heading }}</th>
+                    <th [style.width.px]="loading() ? columnWidths()[index] : null" [class.text-right]="index === 5" class="whitespace-nowrap px-4 py-3">{{ heading }}</th>
                   }
                 </tr>
               </thead>
@@ -228,13 +228,13 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
                     <td class="px-4 py-3 font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">@if (expense) { <span class="account-status" [class.account-status-paid]="expense.paid" [class.account-status-pending]="!expense.paid">{{ expense.paid ? 'Pago' : 'Pendente' }}</span> } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="px-4 py-3">
                       @if (expense) {
-                        <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex items-center gap-2 whitespace-nowrap">
                           <a class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" [routerLink]="['/despesas', expense.id]">Ver detalhes</a>
                           @if (!expense.paid) {
                             <button type="button" data-testid="mark-expense-paid" class="btn-oc-outline h-11 min-h-11 px-3 py-2 text-xs" (click)="openPayment(expense)">Marcar como Pago</button>
@@ -278,7 +278,7 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
     .account-tab { transition: background-color 150ms, color 150ms; }
     .account-tab:hover { background: #f8fafc; color: #007a80; }
     .account-tab-active { border-bottom-color: #007a80; background: #e6f2f3; color: #007a80; font-weight: 600; }
-    .account-status { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
+    .account-status { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
     .account-status-paid { background: #d1fae5; color: #065f46; }
     .account-status-pending { background: #fef3c7; color: #92400e; }
   `,
