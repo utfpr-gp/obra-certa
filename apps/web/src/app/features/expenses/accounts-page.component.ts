@@ -82,17 +82,17 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               class="account-tab min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-sm text-slate-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc">{{ option.label }}</button>
           }
         </nav>
-        <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-start md:px-6">
-      <div class="flex min-w-0 flex-col gap-1 sm:ml-auto sm:w-64">
-        <label for="expense-sort" class="text-sm font-medium text-slate-800">Ordenar por</label>
+        <div class="flex flex-col gap-2 border-b border-slate-200 bg-slate-50/50 px-4 py-2 sm:flex-row sm:items-start sm:gap-3 md:px-6">
+      <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+        <label for="expense-sort" class="shrink-0 text-sm font-medium text-slate-800">Ordenar por</label>
         <select id="expense-sort" data-testid="expense-sort" [value]="sort()" (change)="selectSort($event)"
           class="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 sm:w-auto">
           @for (option of sortOptions; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
         </select>
       </div>
-      <details data-testid="filters-panel" class="min-w-0 sm:order-first sm:flex-1"
+      <details data-testid="filters-panel" class="min-w-0 sm:order-first sm:open:flex-1"
         (toggle)="onFiltersToggle($event)">
-        <summary class="min-h-11 w-fit list-none cursor-pointer rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden"><svg lucideSlidersHorizontal [size]="16" class="mr-2 inline-block" aria-hidden="true" />Filtros</summary>
+        <summary class="flex min-h-11 w-fit list-none cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden"><svg lucideSlidersHorizontal [size]="16" aria-hidden="true" />Filtros</summary>
         <form data-testid="expense-filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="mt-4 space-y-4">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             @for (field of dateFields; track field.key) {
