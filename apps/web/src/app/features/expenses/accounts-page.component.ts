@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp } from '@lucide/angular';
 import { Component, computed, DestroyRef, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
-import { forkJoin, timeout } from 'rxjs';
+import { forkJoin, map, timeout } from 'rxjs';
 import { CategoryService } from '../../core/services/category.service';
 import { SupplierService } from '../../core/services/supplier.service';
 import { ExpenseCategory } from '../../core/models/expense-category.model';
@@ -284,8 +285,13 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
 })
 export class AccountsPageComponent {
   private readonly activeProject = inject(ActiveProjectService);
-  private readonly route = inject(ActivatedRoute);
-  private expenseShortcutPending = true;
+  private readonly expenseShortcut = toSignal(inject(ActivatedRoute).queryParamMap.pipe(
+    map((params) => ({ projectId: params.get('projectId'), categoryId: params.get('categoryId') })),
+  ), {
+    requireSync: true,
+    equal: (previous, current) => previous.projectId === current.projectId
+      && previous.categoryId === current.categoryId,
+  });
   private readonly destroyRef = inject(DestroyRef);
   readonly hasActiveProject = computed(() => !!this.activeProject.activeProject());
   private readonly expenseService = inject(ExpenseService);
@@ -367,46 +373,59 @@ export class AccountsPageComponent {
     : this.expenses());
 
   constructor() {
+    let lastShortcut: ReturnType<typeof this.expenseShortcut> | undefined;
+    let lastContextVersion: number | undefined;
     effect(() => {
-      this.activeProject.contextVersion();
+      const contextVersion = this.activeProject.contextVersion();
+      const shortcut = this.expenseShortcut();
       untracked(() => {
-        this.queryVersion++;
-        this.filterForm.reset();
-        this.validationAttempted.set(false);
-        this.filters.set({});
-        this.tab.set('ALL');
-        this.sort.set('PURCHASE_DATE_DESC');
-        this.page.set(0);
-        this.totalPages.set(1);
-        this.expenses.set([]);
-        this.totals.set(null);
-        this.totalElements.set(null);
-        this.projectHasExpenses.set(null);
-        this.error.set(null);
-        this.referenceDate.set(null);
-        this.settlement.set(null);
-        this.settlementRefreshPending.set(false);
-        this.paymentSelection.set(null);
-        this.nfeImportSelection.set(null);
-        this.nfeImportNotice.set(null);
-        this.nfeImportRefreshPending = false;
-        this.loading.set(false);
-        const project = this.activeProject.activeProject();
-        if (project) {
-          if (this.expenseShortcutPending) {
-            this.expenseShortcutPending = false;
-            const params = this.route.snapshot.queryParamMap;
-            const categoryId = params.get('categoryId');
-            if (categoryId && params.get('projectId') === project.id) {
-              const categoryIds = [categoryId];
-              this.filterForm.controls.categoryIds.setValue(categoryIds);
-              this.filters.set({ categoryIds });
-            }
-          }
-          this.loadPage(0, { projectId: project.id });
+        if (contextVersion !== lastContextVersion) {
+          lastContextVersion = contextVersion;
+          this.resetProjectContext();
         }
+        const project = this.activeProject.activeProject();
+        if (!project) return;
+        // A change of active project alone must not reapply the old URL shortcut.
+        if (shortcut !== lastShortcut) {
+          const categoryIds = shortcut.projectId === project.id && shortcut.categoryId
+            ? [shortcut.categoryId] : [];
+          this.filterForm.controls.categoryIds.setValue(categoryIds);
+          this.filters.update((filters) => {
+            const updated = { ...filters };
+            if (categoryIds.length) updated.categoryIds = categoryIds;
+            else delete updated.categoryIds;
+            return updated;
+          });
+        }
+        lastShortcut = shortcut;
+        this.page.set(0);
+        this.loadPage(0, { projectId: project.id });
       });
     });
+  }
+
+  private resetProjectContext(): void {
+    this.queryVersion++;
+    this.filterForm.reset();
+    this.validationAttempted.set(false);
+    this.filters.set({});
+    this.tab.set('ALL');
+    this.sort.set('PURCHASE_DATE_DESC');
+    this.page.set(0);
+    this.totalPages.set(1);
+    this.expenses.set([]);
+    this.totals.set(null);
+    this.totalElements.set(null);
+    this.projectHasExpenses.set(null);
+    this.error.set(null);
+    this.referenceDate.set(null);
+    this.settlement.set(null);
+    this.settlementRefreshPending.set(false);
+    this.paymentSelection.set(null);
+    this.nfeImportSelection.set(null);
+    this.nfeImportNotice.set(null);
+    this.nfeImportRefreshPending = false;
+    this.loading.set(false);
   }
 
   openPayment(expense: ExpenseResponse): void {

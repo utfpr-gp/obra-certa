@@ -43,12 +43,52 @@ describe('AccountsPageComponent', () => {
       expect(initial.request.params.getAll('categoryIds')).toEqual([categoryId]);
       expect(component.filterForm.controls.categoryIds.value).toEqual([categoryId]);
 
+      component.filterForm.patchValue({ supplierId: 'supplier', purchaseDateFrom: '2026-01-01' });
+      component.applyFilters();
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.selectTab('OVERDUE');
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.selectSort({ target: { value: 'PURCHASE_DATE_ASC' } } as unknown as Event);
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      component.loadPage(2);
+      http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+
+      expect(await harness.navigateByUrl('/contas', AccountsPageComponent)).toBe(component);
+      const unfiltered = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(unfiltered.request.params.has('categoryIds')).toBeFalse();
+      expect(unfiltered.request.params.get('tab')).toBe('OVERDUE');
+      expect(unfiltered.request.params.get('sort')).toBe('PURCHASE_DATE_ASC');
+      expect(unfiltered.request.params.get('supplierId')).toBe('supplier');
+      expect(unfiltered.request.params.get('purchaseDateFrom')).toBe('2026-01-01');
+      expect(unfiltered.request.params.get('page')).toBe('0');
+      expect(component.filterForm.controls.categoryIds.value).toEqual([]);
+
+      const nextCategory = categoryId === 'hidraulica' ? 'mao-de-obra' : 'hidraulica';
+      expect(await harness.navigateByUrl(
+        `/contas?projectId=${project.id}&categoryId=${nextCategory}`, AccountsPageComponent,
+      )).toBe(component);
+      const filtered = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(filtered.request.params.getAll('categoryIds')).toEqual([nextCategory]);
+      expect(filtered.request.params.get('tab')).toBe('OVERDUE');
+      expect(filtered.request.params.get('sort')).toBe('PURCHASE_DATE_ASC');
+      expect(filtered.request.params.get('supplierId')).toBe('supplier');
+      expect(filtered.request.params.get('purchaseDateFrom')).toBe('2026-01-01');
+      expect(component.filterForm.controls.categoryIds.value).toEqual([nextCategory]);
+
       active.setActiveProject({ ...project, id: 'other-project' }, 'owner');
       harness.detectChanges();
       const next = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
       expect(next.request.params.get('projectId')).toBe('other-project');
       expect(next.request.params.has('categoryIds')).toBeFalse();
+      expect(next.request.params.has('supplierId')).toBeFalse();
+      expect(next.request.params.get('tab')).toBe('ALL');
       expect(component.filterForm.controls.categoryIds.value).toEqual([]);
+
+      active.setActiveProject(project, 'owner');
+      harness.detectChanges();
+      const returned = http.expectOne((request) => request.url === `${environment.apiUrl}/api/expenses`);
+      expect(returned.request.params.has('categoryIds')).toBeFalse();
+      http.verify();
     });
   }
   it('keeps all four situation tabs available, changes tab and resets to first page', () => {
