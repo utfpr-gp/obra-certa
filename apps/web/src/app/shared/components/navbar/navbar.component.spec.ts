@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { NavbarComponent } from './navbar.component';
 import { ActiveProjectService } from '../../../core/services/active-project.service';
+import { Auth } from '../../../core/services/auth';
 import { AuthenticatedIdentityService } from '../../../core/services/authenticated-identity.service';
 import { ProjectService } from '../../../core/services/project.service';
 import { Project, ProjectType, ProjectStatus } from '../../../core/models/project.model';
@@ -166,5 +167,16 @@ describe('NavbarComponent', () => {
       projects,
       jasmine.any(String),
     );
+  });
+
+  it('logs out when the exit button is clicked', () => {
+    const logout = spyOn(TestBed.inject(Auth), 'logout');
+    const logoutButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '[data-testid="navbar-logout"]',
+    );
+
+    expect(logoutButton?.textContent).toContain('Sair');
+    logoutButton?.click();
+    expect(logout).toHaveBeenCalledTimes(1);
   });
 });
