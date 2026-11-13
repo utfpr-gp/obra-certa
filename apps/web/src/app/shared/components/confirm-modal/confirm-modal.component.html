@@ -48,8 +48,8 @@
           [disabled]="saving()"
           [attr.aria-label]="confirmText()"
           (click)="onConfirm()"
-          class="btn border-0 font-medium rounded-md px-4 py-2 shadow-sm transition-all active:scale-98 cursor-pointer"
-          [ngClass]="isDestructive() ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-[#007A80] hover:bg-[#00686D] text-white'"
+          class="min-h-11 px-4 py-2"
+          [ngClass]="isDestructive() ? 'btn-oc-danger' : 'btn-oc-primary'"
         >
           {{ confirmText() }}
         </button>
