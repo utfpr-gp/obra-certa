@@ -373,6 +373,20 @@ describe('BudgetsPageComponent', () => {
     expect(text('kpi-exceeded')).toContain('2 de 4');
   });
 
+  it('uses the API count and adds only categories with expenses and no ceiling', () => {
+    budgetService.getOverview.and.returnValue(of({
+      ...overview,
+      exceededCategories: 2,
+      categories: [
+        ...overview.categories,
+        { ...overview.categories[3], categoryId: 'cat-no-expenses', spentAmount: 0, balanceAmount: 0 },
+      ],
+    }));
+    render(project);
+
+    expect(text('kpi-exceeded')).toContain('3 de 5');
+  });
+
   it('keeps every category cell readable across panel widths', async () => {
     budgetService.getOverview.and.returnValue(of({
       ...overview,

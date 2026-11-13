@@ -39,11 +39,13 @@ export class BudgetsPageComponent {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly isEmpty = computed(() => this.overview()?.categories.length === 0);
-  readonly exceededCategoryCount = computed(() =>
-    this.overview()?.categories.filter((category) =>
-      category.state === 'EXCEEDED' || hasUnbudgetedExpenses(category),
-    ).length ?? 0,
-  );
+  readonly exceededCategoryCount = computed(() => {
+    const overview = this.overview();
+    if (!overview) return 0;
+
+    const unbudgetedCategoryCount = overview.categories.filter(hasUnbudgetedExpenses).length;
+    return overview.exceededCategories + unbudgetedCategoryCount;
+  });
 
   readonly modalOpen = signal(false);
   readonly modalProjectId = signal<string | null>(null);
