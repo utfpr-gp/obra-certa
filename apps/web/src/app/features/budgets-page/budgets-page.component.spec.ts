@@ -1032,7 +1032,7 @@ describe('BudgetsPageComponent connection recovery through HTTP', () => {
       expect(localStorage.getItem('auth_token')).toBeNull();
       expect(auth.isAuthenticated()).toBeFalse();
       expect(TestBed.inject(ActiveProjectService).activeProject()).toBeNull();
-      expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+      expect(navigate).toHaveBeenCalledOnceWith(['/login'], { queryParams: { reason: 'session-expired' } });
       expect(query('budget-form-modal')).toBeNull();
       expect(query('confirm-modal-content')).toBeNull();
       expect(fixture.componentInstance.overview()).toBeNull();

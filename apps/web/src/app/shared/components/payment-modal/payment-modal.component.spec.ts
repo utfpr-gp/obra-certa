@@ -255,7 +255,7 @@ describe('Payment modal through the Home HTTP flow', () => {
       expect(request.request.headers.get('Authorization')).toBe('Bearer test-session');
       request.flush({}, { status: 401, statusText: 'Unauthorized' }); fixture.detectChanges();
       expect(active.activeProject()).toBeNull(); expect(TestBed.inject(Auth).getToken()).toBeNull();
-      expect(navigate).toHaveBeenCalledWith(['/login']); expect(el('payment-modal')).toBeNull();
+      expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'session-expired' } }); expect(el('payment-modal')).toBeNull();
       TestBed.inject(Auth).saveToken('new-session'); active.setActiveProject(project, 'owner');
       fixture.detectChanges(); http.expectOne(alertsUrl).flush(alerts()); fixture.detectChanges();
       expect(el('payment-modal')).toBeNull(); http.expectNone(paymentUrl); http.expectNone(expenseUrl);

@@ -624,8 +624,11 @@ flowchart TD
   configuram a entrega. Produção exige HTTPS no link e STARTTLS no SMTP.
 
 1. **Autenticação Stateless (JWT):**
-   - Emissão de token assinado via HMAC256 com validade configurada (7 dias);
+   - Emissão de token assinado via HMAC256 com validade de 24 horas (86.400 segundos) para novos logins;
    - Transmissão no cabeçalho `Authorization: Bearer <token>`.
+   - O frontend acompanha a expiração, inclusive em ociosidade, e sincroniza o encerramento entre abas. A expiração remove o token e a obra ativa e leva ao login com o aviso “Sua sessão expirou. Faça login novamente para continuar.”.
+   - Os guards de entrada e de rotas filhas bloqueiam páginas privadas. Um `401` de uma chamada protegida encerra a sessão correspondente ao token usado; chamadas públicas de autenticação mantêm o tratamento de credenciais. Respostas atrasadas de uma sessão anterior preservam o token novo.
+   - Tokens emitidos antes da redução de validade mantêm a data de expiração original.
 2. **Anti-IDOR Centralizado no Servidor:**
    - Em todas as operações de leitura, edição ou exclusão, os repositórios filtram por `project.user.id = :authUserId`;
    - Se o identificador referenciar recurso de outro usuário, o sistema responde com `404 Not Found` (não revelando a existência do dado).

@@ -115,11 +115,11 @@ describe('Accounts navigation', () => {
 
   it('requires authentication before opening accounts', async () => {
     TestBed.configureTestingModule({providers: [provideRouter(routes), provideHttpClient(),
-      {provide: Auth, useValue: {isAuthenticated: () => false}}]});
+      {provide: Auth, useValue: {isAuthenticated: () => false, getToken: () => null}}]});
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/contas');
     await harness.fixture.whenStable();
-    expect(TestBed.inject(Router).url).toBe('/');
+    expect(TestBed.inject(Router).url).toBe('/login');
     expect(harness.routeNativeElement?.querySelector('input[formControlName="email"]')).not.toBeNull();
   });
 
@@ -141,11 +141,11 @@ describe('Accounts navigation', () => {
 
   it('requires authentication before opening the canonical registration address', async () => {
     TestBed.configureTestingModule({providers: [provideRouter(routes), provideHttpClient(),
-      {provide: Auth, useValue: {isAuthenticated: () => false}}]});
+      {provide: Auth, useValue: {isAuthenticated: () => false, getToken: () => null}}]});
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/contas/nova');
     await harness.fixture.whenStable();
-    expect(TestBed.inject(Router).url).toBe('/');
+    expect(TestBed.inject(Router).url).toBe('/login');
     expect(harness.routeNativeElement?.querySelector('input[formControlName="email"]')).not.toBeNull();
   });
 

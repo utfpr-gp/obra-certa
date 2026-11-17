@@ -1,5 +1,7 @@
 import {Component, inject} from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Auth} from '../../../core/services/auth';
 import { LucideEye, LucideEyeOff } from '@lucide/angular';
@@ -19,6 +21,9 @@ export class Login {
   private router = inject(Router);
   private formBuilder = inject(FormBuilder);
   private authService = inject(Auth);
+  readonly sessionExpired = toSignal(inject(ActivatedRoute).queryParamMap.pipe(
+    map((params) => params.get('reason') === 'session-expired'),
+  ), { initialValue: false });
 
   isLoading = false;
   errorMessage = '';

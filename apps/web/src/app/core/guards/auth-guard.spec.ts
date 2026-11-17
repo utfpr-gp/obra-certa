@@ -12,7 +12,7 @@ describe('authGuard', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: Auth, useValue: { isAuthenticated: () => false } },
+        { provide: Auth, useValue: { isAuthenticated: () => false, getToken: () => null } },
       ],
     });
   });
@@ -29,5 +29,14 @@ describe('authGuard', () => {
     TestBed.overrideProvider(Auth, { useValue: { isAuthenticated: () => true } });
 
     expect(executeGuard({} as never, {} as never)).toBeTrue();
+  });
+
+  it('ends an expired session instead of opening the protected page', () => {
+    const logout = jasmine.createSpy('logout');
+    TestBed.overrideProvider(Auth, {
+      useValue: { isAuthenticated: () => false, getToken: () => 'expired-token', logout },
+    });
+    expect(executeGuard({} as never, {} as never)).toBeFalse();
+    expect(logout).toHaveBeenCalledOnceWith(true);
   });
 });

@@ -94,7 +94,7 @@ describe('PaymentService', () => {
     expect(status).toBe(401);
     expect(auth.getToken()).toBeNull();
     expect(clear).toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(['/login']);
+    expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'session-expired' } });
     http.expectNone(url);
   });
 });

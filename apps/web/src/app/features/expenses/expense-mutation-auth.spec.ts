@@ -80,10 +80,10 @@ describe('expense mutation authentication', () => {
       request.flush({ message: 'Sessão expirada' }, { status: 401, statusText: 'Unauthorized' });
 
       expect(received).toEqual(jasmine.any(HttpErrorResponse));
-      expect(logout).toHaveBeenCalledOnceWith();
+      expect(logout).toHaveBeenCalledOnceWith(true);
       expect(auth.getToken()).toBeNull();
       expect(TestBed.inject(ActiveProjectService).activeProject()).toBeNull();
-      expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+      expect(navigate).toHaveBeenCalledOnceWith(['/login'], { queryParams: { reason: 'session-expired' } });
 
       auth.saveToken(jwt(Math.floor(Date.now() / 1000) + 3600));
       http.expectNone(endpoint + mutation.path);
@@ -103,7 +103,7 @@ describe('expense mutation authentication', () => {
 
     expect(await failed).toBeTrue();
     expect(auth.getToken()).toBeNull();
-    expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+    expect(navigate).toHaveBeenCalledOnceWith(['/login'], { queryParams: { reason: 'session-expired' } });
     auth.saveToken(jwt(Math.floor(Date.now() / 1000) + 3600));
     http.expectNone(endpoint);
   });
