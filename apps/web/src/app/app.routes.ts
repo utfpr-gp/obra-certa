@@ -10,8 +10,12 @@ import { ExpenseDetailComponent } from './features/expenses/expense-detail.compo
 import { AccountsPageComponent } from './features/expenses/accounts-page.component';
 import { ReportsPageComponent } from './features/reports/reports-page.component';
 import { NotFoundPage } from './features/not-found/not-found-page';
+import { PasswordRecovery } from './features/auth/password-recovery/password-recovery';
+import { PasswordReset } from './features/auth/password-recovery/password-reset';
 
 export const routes: Routes = [
+  { path: 'recuperar-senha', component: PasswordRecovery },
+  { path: 'redefinir-senha', component: PasswordReset },
   {
     path: 'login',
     component: Login,

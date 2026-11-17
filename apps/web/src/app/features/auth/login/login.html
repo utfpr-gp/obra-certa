@@ -47,12 +47,7 @@
         @if (form.get("password")?.invalid && form.get("password")?.touched) {
           <span class="text-red-500 text-sm mb-3">A senha é inválida.</span>
         }
-        <details class="mx-auto mt-2 text-center">
-          <summary class="min-h-11 cursor-pointer py-3 text-primary-oc hover:underline">
-            Esqueceu a senha?
-          </summary>
-          <p class="text-sm text-slate-600">A recuperação de senha ainda não está disponível.</p>
-        </details>
+        <a routerLink="/recuperar-senha" class="mx-auto mt-2 inline-flex min-h-11 items-center py-3 text-primary-oc hover:underline">Esqueceu a senha?</a>
         @if (errorMessage) {
           <span class="text-red-500 text-sm text-center mt-2">{{
             errorMessage

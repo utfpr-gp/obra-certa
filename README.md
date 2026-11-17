@@ -56,8 +56,11 @@ Crie o arquivo `.env` na raiz do projeto a partir do modelo `.env.example`.
 | `SPRING_DATASOURCE_URL` | String de conexão JDBC com o PostgreSQL | Docker / Backend |
 | `JWT_SECRET` | Chave criptográfica para assinatura e validação dos tokens JWT | Backend |
 | `SPRING_PROFILES_ACTIVE` | Perfil de execução do Spring Boot (`dev`, `prod`, `test`) | Backend |
-| `FRONTEND_URL` | Origem permitida nas políticas de CORS do backend | Backend |
-| `SEFAZ_API_KEY` | Chave de integração com o serviço de consulta e importação de NF-e | Backend |
+| `FRONTEND_URL` | URL pública do frontend usada no link de recuperação de senha | Backend |
+| `CORS_ALLOWED_ORIGINS` | Origens autorizadas no CORS, separadas por vírgula | Backend |
+| `MAIL_FROM` | Remetente autorizado para os e-mails de recuperação | Backend |
+| `SMTP_HOST`, `SMTP_PORT` | Servidor e porta de envio SMTP | Backend |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenciais SMTP do remetente | Backend |
 
 > ⚠️ **Atenção:** Nunca comite arquivos `.env` contendo credenciais ou chaves reais no repositório.
 
@@ -134,6 +137,20 @@ CREATE DATABASE obracerta;
 ---
 
 ## 🧪 Executando os Testes Automatizados
+
+A recuperação de senha está em `/recuperar-senha`. Configure `FRONTEND_URL`,
+`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME` e `SMTP_PASSWORD` no
+ambiente da API, conforme `.env.example`. Em produção, a URL pública deve usar HTTPS
+e o SMTP deve aceitar STARTTLS. No desenvolvimento, um capturador SMTP local pode
+escutar na porta 1025 com `SMTP_AUTH=false` e `SMTP_STARTTLS=false`.
+Ao usar a API em Docker, `SMTP_HOST` deve apontar para um endereço acessível pelo
+container. O Flyway aplica a migration V14 na inicialização.
+
+O link expira em 30 minutos e é consumido ao redefinir a senha. Existe intervalo
+mínimo de 60 segundos entre solicitações para o mesmo endereço. O envio é
+processado em segundo plano; falhas SMTP geram um aviso no log sem expor dados do
+usuário. Após configurar o remetente, valide a entrega na caixa de entrada e no
+spam do destinatário. Os JWTs já emitidos seguem válidos até a expiração existente.
 
 - **Testes da API (Backend):**
   ```bash

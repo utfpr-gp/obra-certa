@@ -16,6 +16,12 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(InvalidRecoveryTokenException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleInvalidRecoveryToken(InvalidRecoveryTokenException exception, HttpServletRequest request) {
+        return new ApiErrorResponse(Instant.now(), 400, HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(), request.getRequestURI(), List.of());
+    }
     @ExceptionHandler(SinapiReferenceException.class)
     public ResponseEntity<ApiErrorResponse> handleSinapiReference(
             SinapiReferenceException exception, HttpServletRequest request) {

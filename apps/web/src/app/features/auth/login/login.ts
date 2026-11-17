@@ -1,5 +1,5 @@
 import {Component, inject} from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Auth} from '../../../core/services/auth';
 import { LucideEye, LucideEyeOff } from '@lucide/angular';
@@ -8,6 +8,7 @@ import { LucideEye, LucideEyeOff } from '@lucide/angular';
   selector: 'app-login',
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     LucideEye,
     LucideEyeOff
   ],
