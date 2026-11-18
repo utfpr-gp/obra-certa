@@ -1,0 +1,84 @@
+<div class="justify-center flex h-screen items-center">
+  <div
+    class="card w-full sm:w-[90%] md:w-[60%] lg:w-[55%] shrink-0 sm:shadow-none md:shadow-2xl rounded-2xl"
+  >
+    <div class="card-body">
+      <h2 class="card-title justify-center text-gray-500 font-semibold">
+        Seja bem-vindo ao
+      </h2>
+      <img src="assets/images/logo.png" class="mx-auto mb-4 w-40" />
+      @if (sessionExpired()) {
+        <p role="alert" class="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Sua sessão expirou. Faça login novamente para continuar.
+        </p>
+      }
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="fieldset">
+        <label for="email" class="label font-medium">Email:</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          autocomplete="username"
+          class="input border-1 rounded-md border-gray-300 text-gray-700 w-auto mb-3 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent"
+          placeholder="Insira o seu e-mail"
+        />
+        @if (form.get("email")?.invalid && form.get("email")?.touched) {
+          <span class="text-red-500 text-sm mb-3"
+            >Por favor, insira um e-mail válido.</span
+          >
+        }
+        <label for="password" class="label font-medium">Senha:</label>
+        <div class="relative w-auto mb-3">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+            class="input border-1 rounded-md border-gray-300 text-gray-700 w-full pr-10 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent"
+            placeholder="Insira a sua senha"
+          />
+          <button
+            type="button"
+            class="absolute inset-y-0 right-3 z-10 flex items-center text-gray-400 hover:text-gray-700 focus:outline-none focus:text-gray-700"
+            (click)="togglePassword()"
+          >
+            @if (showPassword) {
+              <svg lucideEyeOff [size]="20" />
+            } @else {
+              <svg lucideEye [size]="20" />
+            }
+          </button>
+        </div>
+        @if (form.get("password")?.invalid && form.get("password")?.touched) {
+          <span class="text-red-500 text-sm mb-3">A senha é inválida.</span>
+        }
+        <a routerLink="/recuperar-senha" class="mx-auto mt-2 inline-flex min-h-11 items-center py-3 text-primary-oc hover:underline">Esqueceu a senha?</a>
+        @if (errorMessage) {
+          <span class="text-red-500 text-sm text-center mt-2">{{
+            errorMessage
+          }}</span>
+        }
+        <button
+          type="submit"
+          class="btn border-0 mt-4 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium"
+          [class.opacity-50]="isLoading"
+          [class.pointer-events-none]="isLoading"
+        >
+          @if (isLoading) {
+            <span class="loading loading-spinner loading-sm"></span>
+          } @else {
+            Entrar
+          }
+        </button>
+        <div class="divider text-gray-500">Não possui uma conta?</div>
+        <button
+          type="button"
+          class="btn-oc-secondary w-[40%] m-auto"
+          (click)="navigateToRegister()"
+        >
+          Registrar-se
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

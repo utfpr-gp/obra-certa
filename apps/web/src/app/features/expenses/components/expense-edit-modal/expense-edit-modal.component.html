@@ -1,0 +1,55 @@
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" data-testid="expense-edit-backdrop">
+  <section role="dialog" aria-modal="true" aria-labelledby="edit-title" class="bg-white rounded-2xl border border-slate-200 p-4 md:p-6 max-w-2xl min-w-0 w-full max-h-[90dvh] overflow-y-auto text-sm text-slate-600 shadow-xl" data-testid="expense-edit-modal">
+    <div class="flex justify-between items-center gap-4 mb-6">
+      <h2 id="edit-title" class="text-xl font-semibold text-slate-800">Editar despesa</h2>
+      <button type="button" class="btn-oc-ghost min-h-11 min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" aria-label="Fechar edição" data-testid="edit-close" (click)="close()">✕</button>
+    </div>
+    <label class="block min-w-0 mb-6 text-sm font-medium text-slate-700">Obra<input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-slate-50 text-slate-500 disabled:cursor-not-allowed" data-testid="edit-project" [value]="project()?.name" disabled /></label>
+    @if (loading()) { <p class="mb-4 text-sm text-slate-500" role="status">Carregando categorias…</p> }
+    @if (optionsError()) { <p class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700 break-words" role="alert">{{ optionsError() }}</p><button type="button" class="btn-oc-outline mt-3 min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" (click)="loadCategories()">Tentar novamente</button> }
+    <form [formGroup]="form" (ngSubmit)="save()" class="space-y-5">
+      <label class="block min-w-0 text-sm font-medium text-slate-700">Descrição<input class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-description" formControlName="description" [attr.aria-invalid]="invalid('description')" /></label>
+      @if (invalid('description')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-description-error">Informe a descrição.</p> }
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="min-w-0">
+      <label class="block min-w-0 text-sm font-medium text-slate-700">Data<input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-purchaseDate" formControlName="purchaseDate" [attr.aria-invalid]="invalid('purchaseDate')" /></label>
+      @if (invalid('purchaseDate')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-purchaseDate-error">Informe uma data válida, até o vencimento pendente existente.</p> }
+        </div>
+        <div class="min-w-0">
+      <label class="block min-w-0 text-sm font-medium text-slate-700">Categoria<select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-categoryId" formControlName="categoryId" [attr.aria-invalid]="invalid('categoryId')">
+        <option value="">Selecione</option>@for (category of categories(); track category.id) { <option [value]="category.id">{{ category.name }}</option> }
+      </select></label>
+      @if (invalid('categoryId')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-categoryId-error">Selecione a categoria.</p> }
+        </div>
+      </div>
+      <label class="block min-w-0 text-sm font-medium text-slate-700">Pagamento<select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-paid" formControlName="paid">
+        <option [ngValue]="true">Quitada</option>
+        <option [ngValue]="false">Não quitada</option>
+      </select></label>
+      @if (!form.controls.paid.value) {
+        <label class="block min-w-0 text-sm font-medium text-slate-700">Vencimento<input type="date" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-dueDate" formControlName="dueDate" [min]="form.controls.purchaseDate.value" [attr.aria-invalid]="invalid('dueDate')" /></label>
+        @if (invalid('dueDate')) {
+          <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-dueDate-error">
+            {{ form.controls.dueDate.hasError('required') ? 'Informe o vencimento.' : 'O vencimento não pode ser anterior à data da despesa.' }}
+          </p>
+        }
+      }
+      <label class="block min-w-0 text-sm font-medium text-slate-700">Modo de valor<select class="select mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-valueMode" formControlName="valueMode"><option value="DIRECT">Total direto</option><option value="CALCULATED">Quantidade × valor unitário</option></select></label>
+      @if (form.controls.valueMode.value === 'DIRECT') {
+        <label class="block min-w-0 text-sm font-medium text-slate-700">Total (R$)<input inputmode="numeric" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-totalPrice" [value]="money(form.controls.totalPrice.value)" (input)="onMoneyInput($event,'totalPrice')" (blur)="form.controls.totalPrice.markAsTouched()" [attr.aria-invalid]="invalid('totalPrice')" /></label>
+        @if (invalid('totalPrice')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-totalPrice-error">Informe total positivo com até duas casas decimais e menor que 10 trilhões.</p> }
+      } @else {
+        <label class="block min-w-0 text-sm font-medium text-slate-700">Quantidade<input type="number" step="0.01" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-quantity" formControlName="quantity" [attr.aria-invalid]="invalid('quantity')" /></label>
+        @if (invalid('quantity')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-quantity-error">Informe quantidade positiva com até duas casas decimais e menor que 100 milhões.</p> }
+        <label class="block min-w-0 text-sm font-medium text-slate-700">Valor unitário (R$)<input inputmode="numeric" class="input mt-1 min-h-11 min-w-0 w-full rounded-md border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-oc focus:border-transparent aria-invalid:border-rose-500" data-testid="edit-unitPrice" [value]="money(form.controls.unitPrice.value)" (input)="onMoneyInput($event,'unitPrice')" (blur)="form.controls.unitPrice.markAsTouched()" [attr.aria-invalid]="invalid('unitPrice')" /></label>
+        @if (invalid('unitPrice')) { <p class="mt-1 text-xs text-rose-700 break-words" data-testid="edit-unitPrice-error">Informe valor positivo com até duas casas decimais e menor que 10 trilhões.</p> }
+        @if (form.hasError('invalidTotal')) { <p class="mt-1 text-xs text-rose-700 break-words" role="alert">O total calculado deve ser positivo e menor que 10 trilhões.</p> }
+      }
+      @if (errorMessage()) { <p class="mt-1 text-xs text-rose-700 break-words" role="alert">{{ errorMessage() }}</p><button type="button" class="btn-oc-outline min-h-11 h-auto whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" data-testid="edit-check-state" (click)="checkState.emit()">Consultar estado atual</button> }
+      <div class="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
+        <button type="button" class="btn-oc-outline min-h-11 w-full sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" data-testid="edit-cancel" (click)="close()">Cancelar</button>
+        <button type="submit" class="btn-oc-primary min-h-11 w-full sm:w-auto disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-oc" data-testid="edit-save" [disabled]="saving() || loading() || !!optionsError()">{{ saving() ? 'Salvando…' : 'Salvar' }}</button>
+      </div>
+    </form>
+  </section>
+</div>

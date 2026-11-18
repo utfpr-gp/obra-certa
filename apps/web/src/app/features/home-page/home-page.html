@@ -1,0 +1,328 @@
+@if (projectsLoadError()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section
+      data-testid="projects-load-error"
+      class="max-w-lg rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center"
+      role="alert"
+    >
+      <h1 class="text-xl font-bold text-rose-900">Não foi possível carregar suas obras</h1>
+      <p class="mt-3 text-rose-800">{{ projectsLoadError() }}</p>
+      <button
+        type="button"
+        data-testid="retry-load-projects"
+        class="btn mt-6"
+        (click)="reloadProjects()"
+      >
+        Tentar novamente
+      </button>
+    </section>
+  </main>
+} @else if (projectsLoading()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <p class="text-slate-500">Carregando suas obras...</p>
+  </main>
+} @else if (showOnboarding()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section class="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <h1 class="text-2xl font-bold text-slate-900">Vamos começar sua obra</h1>
+      <p class="mt-3 text-slate-600">
+        Cadastre sua primeira obra para organizar seus orçamentos e acompanhar o planejamento.
+      </p>
+      <button
+        type="button"
+        data-testid="onboarding-create-project"
+        class="btn-oc-primary mt-6 px-4 py-2"
+        (click)="openProjectModal()"
+      >
+        Cadastrar primeira obra
+      </button>
+    </section>
+  </main>
+} @else if (activeObra(); as obra) {
+@if (paymentAlerts(); as alerts) {
+  @if (alerts.count > 0 && !paymentAlertDismissed()) {
+    <div data-testid="payment-alert-banner" class="sticky top-0 z-30">
+      <app-alert-banner
+        type="warning"
+        title="Você tem {{ alerts.count }} contas totalizando {{ formatBrl(alerts.totalAmount) }}"
+        message="a vencer nos próximos 7 dias."
+        actionLabel="Ver Conta"
+        dismissLabel="Fechar alerta"
+        (actionClick)="goToAccounts()"
+        (dismissClick)="dismissPaymentAlert()"
+      />
+    </div>
+  }
+}
+<!-- Scrollable Main Dashboard Content -->
+<main class="p-4 md:p-6 lg:p-8 space-y-6">
+<section aria-label="Alertas de pagamentos" aria-live="polite">
+  @if (paymentSettlement(); as settled) {
+    <p data-testid="payment-settled-notice" role="status" class="mb-3 rounded-lg bg-teal-50 p-3 text-teal-900">Pagamento confirmado para {{ settled.description }}@if (settled.paidAt) { em {{ formatCivilDate(settled.paidAt) }}}.</p>
+  }
+</section>
+      <!-- Page Header with Title and Action CTA -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+            <svg lucideHome [size]="24" class="text-slate-700 shrink-0" />
+            <span>{{ obra.nome }}</span>
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">
+            Visão geral do estado financeiro da obra — orçamentos, despesas e alertas.
+          </p>
+          @if (deleteError()) {
+            <div
+              data-testid="delete-project-error"
+              class="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"
+              role="alert"
+            >
+              <p>{{ deleteError() }}</p>
+              <button
+                type="button"
+                data-testid="retry-delete-project"
+                class="btn min-h-11 mt-2 border-rose-300 bg-white text-rose-700"
+                (click)="openDeleteModal()"
+              >
+                Tentar excluir novamente
+              </button>
+            </div>
+          }
+          @if (hasNoBudgets()) {
+            <div class="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4 max-w-xl">
+              <p class="font-semibold text-teal-900">Esta obra ainda não possui orçamentos</p>
+              <p class="mt-1 text-sm text-teal-800">
+                Defina os orçamentos da obra para acompanhar seu planejamento financeiro.
+              </p>
+              <a
+                data-testid="define-project-budgets"
+                routerLink="/orcamentos"
+                class="btn-oc-primary mt-3 px-4 py-2"
+              >
+                Definir Orçamentos da Obra
+              </a>
+            </div>
+          }
+        </div>
+
+        <div class="flex items-center gap-2">
+        @if (hasNoBudgets()) {
+          <a
+            routerLink="/orcamentos"
+            data-testid="generate-budget"
+            class="btn-oc-primary flex items-center gap-2 px-5 min-h-11 self-start sm:self-auto"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Gerar Orçamento</span>
+          </a>
+        } @else {
+          <a
+            routerLink="/contas/nova"
+            class="btn-oc-primary flex items-center gap-2 px-5 min-h-11 self-start sm:self-auto"
+          >
+            <svg lucidePlusCircle [size]="18" />
+            <span>Lançar Nova Despesa</span>
+          </a>
+        }
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards Grid -->
+      <div class="grid auto-rows-fr grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <!-- 1. Total Gasto Radial Gauge Component -->
+        <app-radial-gauge
+          [percent]="obra.percentualGasto"
+          [currentValue]="activeBudget() ? formatBrl(obra.totalGasto) : '—'"
+          [totalValue]="activeBudget() ? formatBrl(obra.orcamentoTotal) : '—'"
+          label="Total Gasto"
+        />
+
+        <!-- 2. Saldo Disponível Card Component -->
+        <app-kpi-card [compact]="true"
+          title="Saldo Disponível"
+          [value]="activeBudget() ? formatBrl(obra.saldoDisponivel) : '—'"
+          icon="piggy-bank"
+          iconBgClass="bg-amber-100/70 text-amber-700"
+        />
+
+        <!-- 3. Contas a Vencer Card Component -->
+        <app-kpi-card [compact]="true"
+          title="Contas a Vencer"
+          [value]="paymentAlerts() ? paymentAlerts()!.count + ' contas' : '—'"
+          subtitle="/ próximos 7 dias e vencidas"
+          icon="calendar-clock"
+          iconBgClass="bg-amber-100/70 text-amber-700"
+        />
+
+        <!-- 4. Categorias em Risco Card Component -->
+        <app-kpi-card [compact]="true"
+          title="Categorias em Risco"
+          [value]="activeBudget() ? riskCategoryCount() + ' de ' + obra.categorias.length : '—'"
+          icon="triangle-alert"
+          iconBgClass="bg-rose-100 text-rose-600"
+          valueClass="text-rose-600"
+        />
+      </div>
+
+      <!-- Orçamento por Categoria Section -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-semibold text-slate-800">
+            Orçamento por categoria ({{ obra.categorias.length }})
+          </h2>
+          <a
+            routerLink="/orcamentos"
+            class="btn-oc-redirect"
+            title="Acessar página de orçamentos"
+          >
+            <span>Gerenciar Orçamentos</span>
+            <svg lucideArrowRight [size]="14" />
+          </a>
+        </div>
+
+        <div class="grid auto-rows-fr grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          @for (cat of obra.categorias; track cat.id) {
+            <app-category-progress-card [category]="cat" />
+          }
+        </div>
+      </div>
+
+      <!-- Bottom Lists: Contas Próximas & Últimos Gastos -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Panel 1: Pagamentos próximos (contas a vencer) -->
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-semibold text-slate-700">Pagamentos próximos • 7 dias</h3>
+              <a routerLink="/contas" class="btn-oc-redirect" title="Ver todas as contas">
+                <span>Ver todas</span>
+                <svg lucideArrowRight [size]="14" />
+              </a>
+            </div>
+
+            @if (paymentLoading()) {
+              <p data-testid="payment-alert-loading" class="text-sm text-slate-500">Carregando pagamentos...</p>
+            } @else if (paymentError()) {
+              <div data-testid="payment-alert-error" role="alert" class="text-sm text-rose-700">
+                <p>{{ paymentSettlement() ? 'A quitação ocorreu, mas a atualização da consulta falhou. Consulte novamente.' : 'Não foi possível carregar os pagamentos. Tente novamente.' }}</p>
+                <button type="button" data-testid="retry-payment-alerts" class="btn-oc-outline min-h-11 mt-2" (click)="reloadPaymentAlerts()">Tentar novamente</button>
+              </div>
+            } @else if (paymentAlerts(); as alerts) {
+              @if (alerts.count > 0) {
+                <div class="divide-y divide-slate-100">
+                  @for (item of alerts.items; track item.expenseId) {
+                    <div data-testid="payment-alert-item" class="flex flex-col gap-2 rounded-lg px-2 py-3 text-sm transition-colors hover:bg-slate-50/70 md:flex-row md:items-center md:justify-between">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <svg lucideClock [size]="16" class="shrink-0" [class.text-amber-500]="item.urgency !== 'REGULAR'" [class.text-slate-400]="item.urgency === 'REGULAR'" />
+                        <span appHoverScroll class="min-w-0 font-medium text-slate-700">
+                          {{ item.description }} <span class="whitespace-nowrap text-slate-500">— {{ formatCivilDate(item.dueDate) }}</span>
+                        </span>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2 md:shrink-0">
+                        <app-status-badge [status]="urgencyBadgeStatus(item.urgency)" [label]="urgencyBadgeLabel(item.urgency)" />
+                        <span class="font-bold tabular-nums text-slate-900">{{ formatBrl(item.totalPrice) }}</span>
+                        <button type="button" data-testid="mark-payment-paid" class="btn-oc-outline ml-auto h-11 min-h-11 px-2.5 text-xs font-semibold text-primary-oc md:ml-0 md:h-9 md:min-h-9" (click)="openPayment(item)">Marcar como Pago</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p data-testid="payment-alert-empty" class="py-8 text-center text-sm text-slate-500">Nenhum pagamento pendente no período.</p>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Panel 2: Últimos Gastos -->
+        <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-semibold text-slate-700">
+                Últimos Gastos@if (!recentExpensesLoading() && !recentExpensesError()) { ({{ obra.ultimosGastos.length }}) }
+              </h3>
+              <a
+                routerLink="/contas"
+                class="btn-oc-redirect"
+                title="Ver todos os gastos"
+              >
+                <span>Ver todos</span>
+                <svg lucideArrowRight [size]="14" />
+              </a>
+            </div>
+
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-2 divide-y divide-slate-100 px-2">
+              @for (gasto of obra.ultimosGastos; track gasto.id) {
+                <div class="col-span-full grid grid-cols-subgrid items-center rounded-lg py-2.5 text-sm transition-colors hover:bg-slate-50/70">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    @if (gasto.status === 'pago') {
+                      <svg lucideCheckCircle [size]="16" class="text-[#007A80] shrink-0" />
+                    } @else {
+                      <svg lucideClock [size]="16" class="text-amber-500 shrink-0" />
+                    }
+                    <span appHoverScroll class="min-w-0 text-slate-700 font-medium">
+                      {{ gasto.descricao }} <span class="text-slate-500">· {{ gasto.categoriaNome }}</span>
+                    </span>
+                  </div>
+                    <app-status-badge class="justify-self-start" [status]="gasto.status" />
+                    <span
+                      class="text-right font-bold whitespace-nowrap tabular-nums"
+                      [ngClass]="{
+                        'text-slate-900': gasto.status === 'pago',
+                        'text-amber-700': gasto.status === 'pendente'
+                      }"
+                    >
+                      {{ formatBrl(gasto.valor) }}
+                    </span>
+                </div>
+              } @empty {
+                <div class="col-span-full py-8 text-center text-sm text-slate-500">
+                  @if (recentExpensesLoading()) {
+                    Carregando últimos gastos...
+                  } @else if (recentExpensesError()) {
+                    <p role="alert">Não foi possível carregar os últimos gastos.</p>
+                    <button type="button" class="btn-oc-outline min-h-11 mt-2" (click)="reloadRecentExpenses()">Tentar novamente</button>
+                  } @else {
+                    Nenhum gasto registrado recentemente.
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+} @else {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section
+      data-testid="select-project-empty-state"
+      class="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
+    >
+      <h1 class="text-xl font-bold text-slate-900">Selecione uma obra</h1>
+      <p class="mt-3 text-slate-600">
+        Você possui obras cadastradas. Use o seletor da Navbar para escolher qual obra deseja acompanhar.
+      </p>
+    </section>
+  </main>
+}
+
+<app-project-modal
+  [isOpen]="projectModalOpen()"
+  (closed)="closeProjectModal()"
+  (saved)="onProjectSaved()"
+  (deleteRequested)="openDeleteModal()"
+/>
+
+@if (selectedPayment(); as selection) {
+  <app-payment-modal [target]="selection.target" [projectId]="selection.projectId"
+    (closed)="closePayment()" (settled)="onPaymentSettled($event)" />
+}
+
+<app-confirm-modal
+  [isOpen]="deleteModalOpen()"
+  title="Excluir obra?"
+  [description]="deleteConfirmationMessage()"
+  confirmText="Excluir"
+  [isDestructive]="true"
+  (cancel)="closeDeleteModal()"
+  (confirm)="confirmDeleteProject()"
+/>

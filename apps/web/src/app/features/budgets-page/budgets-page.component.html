@@ -1,0 +1,258 @@
+@if (!activeProject()) {
+  <main class="min-h-full flex items-center justify-center p-6">
+    <section
+      data-testid="budgets-no-project-empty-state"
+      class="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
+    >
+      <h1 class="text-xl font-bold text-slate-900">Selecione uma obra</h1>
+      <p class="mt-3 text-slate-600">
+        Selecione ou cadastre uma obra para acompanhar seus orçamentos, gastos e saldo.
+      </p>
+      <a
+        routerLink="/home"
+        data-testid="budgets-go-home"
+        class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
+      >
+        Ir para a Home
+      </a>
+    </section>
+  </main>
+} @else {
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+    <header class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Orçamentos</h1>
+        <p class="text-sm text-slate-500 mt-1">{{ activeProject()!.name }}</p>
+      </div>
+      <button
+        type="button"
+        data-testid="add-budget"
+        (click)="openBudgetForm()"
+        class="btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
+      >
+        Adicionar orçamento
+      </button>
+    </header>
+
+    @if (loading()) {
+      <section data-testid="budgets-loading" class="text-slate-500">
+        Carregando orçamentos...
+      </section>
+    } @else if (loadError()) {
+      <div data-testid="budgets-load-error">
+        <app-alert-banner
+          type="danger"
+          title="Não foi possível carregar os orçamentos"
+          [message]="loadError()"
+          actionLabel="Tentar novamente"
+          (actionClick)="retry()"
+        />
+      </div>
+    } @else if (overview(); as data) {
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-testid="kpi-total-planned">
+          <app-kpi-card
+            title="Total planejado"
+            [value]="formatBrl(data.totalPlanned)"
+            icon="piggy-bank"
+          />
+        </div>
+        <div data-testid="kpi-total-spent">
+          <app-kpi-card
+            title="Total gasto"
+            [value]="formatBrl(data.totalSpent)"
+            [subtitle]="formatPercentage(data.globalPercentage) + ' do planejado'"
+            icon="wallet"
+            iconBgClass="bg-sky-100 text-sky-700"
+          />
+        </div>
+        <div data-testid="kpi-available">
+          <app-kpi-card
+            title="Saldo disponível"
+            [value]="formatBrl(data.available)"
+            icon="coins"
+            iconBgClass="bg-amber-100/70 text-amber-700"
+            [valueClass]="data.available < 0 ? 'text-rose-600' : 'text-slate-900'"
+          />
+        </div>
+        <div data-testid="kpi-exceeded">
+          <app-kpi-card
+            title="Categorias excedidas"
+            [value]="exceededCategoryCount() + ' de ' + data.categories.length"
+            icon="triangle-alert"
+            iconBgClass="bg-rose-100 text-rose-600"
+            [valueClass]="exceededCategoryCount() > 0 ? 'text-rose-600' : 'text-slate-900'"
+          />
+        </div>
+      </section>
+
+      @if (isEmpty()) {
+        <section
+          data-testid="budgets-empty-state"
+          class="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center"
+        >
+          <h2 class="text-lg font-bold text-teal-900">Seu orçamento começa aqui</h2>
+          <p class="mt-3 text-teal-800">
+            Defina o primeiro orçamento para começar a acompanhar categorias, gastos e saldo.
+          </p>
+          <button
+            type="button"
+            data-testid="define-first-budget"
+            (click)="openBudgetForm()"
+            class="btn mt-6 border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium px-4 py-2"
+          >
+            Definir primeiro orçamento
+          </button>
+        </section>
+      } @else {
+        <section class="@container rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+          <table role="table" class="budget-table table w-full">
+            <thead role="rowgroup">
+              <tr role="row" class="text-xs uppercase tracking-wider text-slate-600">
+                <th role="columnheader" scope="col">Categoria</th>
+                <th role="columnheader" scope="col" class="text-right">Planejado</th>
+                <th role="columnheader" scope="col" class="text-right">Gasto</th>
+                <th role="columnheader" scope="col" class="text-right">Saldo</th>
+                <th role="columnheader" scope="col">Uso</th>
+                <th role="columnheader" scope="col">Estado</th>
+                <th role="columnheader" scope="col" class="text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              @for (category of data.categories; track category.categoryId) {
+                <tr role="row" [attr.data-testid]="'budget-row-' + category.categoryId">
+                  <th scope="row" role="rowheader" class="font-medium text-slate-900">
+                    <span appHoverScroll class="max-w-64">{{ category.categoryName }}</span>
+                    @if (hasUnbudgetedExpenses(category)) {
+                      <p
+                        [attr.data-testid]="'budget-audit-' + category.categoryId"
+                        role="note"
+                        class="mt-2 max-w-xs whitespace-normal text-sm font-normal text-rose-700"
+                      >Há despesas nesta categoria sem orçamento definido. Defina um teto ou consulte as despesas.</p>
+                    }
+                  </th>
+                  <td role="cell" class="text-right tabular-nums"><span class="budget-field-label" aria-hidden="true">Planejado</span>{{ formatBrl(category.plannedAmount) }}</td>
+                  <td role="cell" class="text-right tabular-nums"><span class="budget-field-label" aria-hidden="true">Gasto</span>{{ formatBrl(category.spentAmount) }}</td>
+                  <td
+                    role="cell"
+                    class="text-right tabular-nums"
+                    [class.text-rose-600]="category.balanceAmount < 0"
+                  >
+                    <span class="budget-field-label" aria-hidden="true">Saldo</span>{{ formatBrl(category.balanceAmount) }}
+                  </td>
+                  <td role="cell">
+                    <span class="budget-field-label" aria-hidden="true">Uso</span>
+                    <div class="flex items-center gap-2">
+                      <div class="h-2 flex-1 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          data-testid="category-bar"
+                          class="h-full rounded-full transition-all"
+                          [style.width]="barWidth(category.percentage)"
+                          [ngClass]="barClasses(category.state)"
+                        ></div>
+                      </div>
+                      <span
+                        data-testid="category-percentage"
+                        class="text-xs font-semibold text-slate-600 tabular-nums"
+                      >
+                        {{ formatPercentage(category.percentage) }}
+                      </span>
+                    </div>
+                  </td>
+                  <td role="cell">
+                    <span class="budget-field-label" aria-hidden="true">Estado</span>
+                    <span
+                      data-testid="category-state"
+                      class="category-state border text-xs font-semibold"
+                      [ngClass]="stateClasses(category.state)"
+                    >
+                      {{ stateLabel(category.state) }}
+                    </span>
+                  </td>
+                  <td role="cell" class="text-right">
+                    @if (category.hasBudget) {
+                      <button
+                        type="button"
+                        [attr.data-testid]="'edit-budget-' + category.categoryId"
+                        (click)="openBudgetForm(category)"
+                        class="text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
+                      >
+                        Editar
+                      </button>
+                      @if (category.plannedAmount > 0) {
+                        <button
+                          type="button"
+                          [attr.data-testid]="'zero-budget-' + category.categoryId"
+                          (click)="openZeroConfirm(category)"
+                          class="ml-3 text-sm font-semibold text-rose-600 hover:text-rose-700 hover:underline"
+                        >
+                          Zerar
+                        </button>
+                      }
+                    }
+                    @if (!category.hasBudget || hasUnbudgetedExpenses(category)) {
+                      <button
+                        type="button"
+                        [attr.data-testid]="'define-ceiling-' + category.categoryId"
+                        (click)="openBudgetForm(category)"
+                        class="ml-3 text-sm font-semibold text-primary-oc hover:text-primary-oc-hover hover:underline"
+                      >
+                        Definir teto
+                      </button>
+                    }
+                    @if (hasUnbudgetedExpenses(category)) {
+                      <a
+                        routerLink="/contas"
+                        [queryParams]="{ projectId: data.projectId, categoryId: category.categoryId }"
+                        [attr.data-testid]="'view-category-expenses-' + category.categoryId"
+                        class="mt-2 block text-right text-sm font-semibold text-primary-oc hover:underline"
+                      >
+                        Ver despesas da categoria
+                      </a>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    }
+
+    <app-budget-form-modal
+      [isOpen]="modalOpen()"
+      [projectId]="modalProjectId()"
+      [editingCategory]="modalEditingCategory()"
+      [preselectedCategoryId]="modalPreselectedCategoryId()"
+      [categories]="modalCategories()"
+      [sinapiCategories]="categories()"
+      [budgetRows]="overview()?.categories ?? []"
+      (closed)="closeBudgetForm()"
+      (saved)="onBudgetSaved()"
+      (sinapiConfirmed)="onBudgetSaved()"
+    />
+
+    @if (zeroModalOpen() && zeroError()) {
+      <div data-testid="budget-zero-error" role="alert" class="fixed top-4 inset-x-4 z-[60] mx-auto max-w-lg">
+        <app-alert-banner
+          type="danger"
+          title="Não foi possível zerar o orçamento"
+          [message]="zeroError()"
+          actionLabel="Tentar novamente"
+          (actionClick)="confirmZero()"
+        />
+      </div>
+    }
+
+    <app-confirm-modal
+      [isOpen]="zeroModalOpen()"
+      [saving]="zeroSaving()"
+      title="Zerar orçamento?"
+      [description]="zeroConfirmationMessage()"
+      confirmText="Zerar"
+      [isDestructive]="true"
+      (cancel)="closeZeroConfirm()"
+      (confirm)="confirmZero()"
+    />
+  </main>
+}

@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light;
+}
+
+@theme {
+  --color-primary-oc: #007A80;
+  --color-primary-oc-hover: #00686d;
+  --color-secondary-oc: #FDBE00;
+  --color-secondary-oc-hover: #f7ae05;
+}
+
+/* ObraCerta Design System - Componentes de Botão Padronizados */
+@layer components {
+  /* Botão Primário (Ação Principal) */
+  .btn-oc-primary {
+    @apply btn border-0 bg-primary-oc hover:bg-primary-oc-hover rounded-md text-white font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Secundário / Destaque */
+  .btn-oc-secondary {
+    @apply btn border-0 bg-secondary-oc hover:bg-secondary-oc-hover rounded-md text-slate-900 font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Outline / Neutro */
+  .btn-oc-outline {
+    @apply btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Destrutivo / Excluir */
+  .btn-oc-danger {
+    @apply btn border-0 bg-rose-600 hover:bg-rose-700 rounded-md text-white font-medium shadow-xs transition-all duration-150 cursor-pointer active:scale-98;
+  }
+
+  /* Botão Ghost */
+  .btn-oc-ghost {
+    @apply btn btn-ghost text-slate-600 hover:text-primary-oc hover:bg-slate-100 rounded-md font-medium transition-all duration-150 cursor-pointer;
+  }
+
+  /* Botão de Redirecionamento de Seção (Ghost Compacto com Ícone) */
+  .btn-oc-redirect {
+    @apply btn btn-ghost btn-sm text-primary-oc hover:bg-primary-oc/10 rounded-md font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors;
+  }
+}
+
+* {
+  font-family: "Inter", sans-serif;
+}
+
+.hover-scroll-text {
+  display: block;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  scrollbar-width: none;
+}
+
+.hover-scroll-text::-webkit-scrollbar {
+  display: none;
+}
+
+.hover-scroll-text:focus-visible {
+  outline: 2px solid var(--color-primary-oc);
+  outline-offset: 2px;
+}

@@ -1,0 +1,30 @@
+<div
+  class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 hover:shadow-md transition-all flex flex-col justify-between h-full"
+  [style.border-left-width.px]="5"
+  [style.border-left-color]="category().corBorda"
+>
+  <div>
+    <div class="flex items-center justify-between gap-2 mb-1.5">
+      <h3 class="text-sm font-bold text-slate-800 line-clamp-1">{{ category().nome }}</h3>
+      <span
+        class="text-white font-bold text-[11px] px-2 py-0.5 rounded-full tabular-nums shrink-0 shadow-2xs inline-flex items-center justify-center min-w-8"
+        [style.background-color]="category().corBorda"
+      >
+        {{ progressLabel() }}
+      </span>
+    </div>
+
+    <div class="text-xs text-slate-500 mb-2.5 font-medium tabular-nums">
+      {{ formatBrlShort(category().gasto) }} / {{ formatBrlShort(category().orcado) }}
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+    <div
+      class="h-full rounded-full transition-all"
+      [style.width.%]="progressWidth()"
+      [style.background-color]="category().corBorda"
+    ></div>
+  </div>
+</div>

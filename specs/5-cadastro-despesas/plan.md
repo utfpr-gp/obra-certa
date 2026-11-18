@@ -1,0 +1,105 @@
+# Plano — Issue #5
+
+## Decisões técnicas
+
+Plano aprovado explicitamente pelo autor nesta conversa. A implementação acontece em `feature/us03-cadastro-despesas`. Não alterar o status da spec pelo agente. Antes do código, conferir a aprovação commitada pelo autor e este plano aprovado e commitado.
+
+Recorte de entrega atualizado por decisão do autor em 2026-10-30: a entrega original termina na tarefa 8. Idempotência da criação e recuperação de campos após sessão expirada foram retiradas desta entrega. Após a auditoria final, o autor autorizou a nova tarefa 9 de correção do AF-01, sem restaurar aquelas funcionalidades. O autor realizará o envio ao GitHub.
+
+### Backend (`apps/api`)
+
+- `POST /api/expenses`: recebe `ExpenseCreateDTO`, retorna `201 Created`, `Location` e `ExpenseResponseDTO`. Campos: `projectId`, `description`, `purchaseDate`, `categoryId`, seleção exclusiva entre `supplierId` e `newSupplier` (nome e CNPJ), `paid`, `dueDate` e modo de valor `DIRECT` ou `CALCULATED`. No modo direto, exigir `totalPrice`; no calculado, exigir `quantity` e `unitPrice` e calcular o total no servidor. Não aceitar um total arbitrário que substitua o cálculo.
+- Valores monetários positivos com até duas casas decimais, respeitando `NUMERIC(15,2)`. Quantidade positiva com até duas casas, respeitando `NUMERIC(10,2)`. Multiplicar com `BigDecimal` e arredondar o resultado final para centavos com `HALF_UP`. Validar também o total calculado: não pode resultar em zero nem exceder a coluna. São decisões técnicas propostas para aprovação deste plano.
+- `GET /api/expenses/{id}`: consulta individual, `200` com dados da despesa, informação de quitação, eventual pagamento e estado de comprovante. O retorno nunca expõe uma URL pública do armazenamento. A criação fornece o endereço da consulta individual para acesso posterior.
+- `GET /api/suppliers`: listar apenas fornecedores do usuário autenticado para seleção. A criação inline é parte da transação da despesa; falha de validação do lançamento não deixa fornecedor recém-criado órfão. Por ajuste solicitado pelo autor em 2026-10-30, o nome é obrigatório e o CNPJ é opcional, com máscara na digitação; quando preenchido, validar 14 dígitos e normalizar para comparação. Documento ausente é persistido como nulo, sem reutilizar fornecedor por ausência de documento; não consultar bases fiscais externas.
+- `PUT /api/expenses/{id}/receipt`: enviar um único arquivo multipart à despesa já salva. A gravação financeira é confirmada antes do envio. O formulário informa, na criação, se havia intenção de anexar comprovante, permitindo registrar `PENDING` antes da tentativa. Sem intenção, registrar `NONE`; upload confirmado gera `UPLOADED`. A consulta deriva a tag “Sem comprovante” sempre que não há arquivo confirmado. Uma interrupção antes de iniciar o upload também deixa a pendência recuperável.
+- `GET /api/expenses/{id}/receipt`: leitura autenticada do arquivo, com tipo e nome seguros. Validar a posse antes de acessar o armazenamento; não permitir referência arbitrária de objeto enviada pelo cliente.
+- Armazenamento Supabase Storage pela API S3, em desenvolvimento e produção, conforme escolha explícita do autor em 2026-10-28. Usar buckets privados separados e credenciais exclusivas por ambiente, somente no backend. Manter PostgreSQL e autenticação existentes. Desenvolvimento requer internet; testes automatizados usam substituto controlado, sem acesso à conta real. Remover a configuração MinIO desta tarefa. Chave interna gerada no servidor. Confirmar `UPLOADED` somente após armazenamento bem-sucedido; falhas preservam o lançamento e permitem retry. Repetir o envio para uma pendência não deve criar registros financeiros nem acumular arquivos órfãos; se o arquivo já foi confirmado, consultar o resultado antes de tentar substituir, pois substituição é US04.
+- Conforme decisão explícita do autor em 2026-10-29, validar somente o tipo declarado do arquivo (MIME e extensão correspondente para JPEG, PNG e PDF) e o tamanho máximo de 10 MiB (10 × 1024 × 1024 bytes), recusando arquivo vazio. Não inspecionar bytes, assinatura, estrutura, páginas ou conteúdo interno; não usar PDFBox nem decodificar imagens. Comunicar os formatos e o limite no formulário. Tipo inválido: `400`; tamanho excedido: `413`, ambos com mensagem compreensível. Limites multipart devem comportar o envelope sem rejeitar um arquivo válido de exatamente esse tamanho.
+- O service valida obra ativa não excluída do usuário, categoria existente e fornecedor pertencente ao mesmo usuário. Leituras e upload filtram também despesa ativa e obra não excluída. Recurso alheio/inexistente: `404`, sem acesso ao armazenamento nem escrita. Controllers não recebem entidades nem acessam repositórios.
+- Despesa e pagamento pendente são uma única transação. Despesa quitada não cria pagamento pendente. Vencimento é obrigatório para não quitada e não pode anteceder `purchaseDate`. Valores gastos incluem despesas ativas pagas e pendentes; usar o agregado de orçamento da US07 para os alertas, sem manter um segundo saldo mutável.
+
+### Migração de schema
+
+- Última migration no início do plano: `V7__seed_predefined_expense_categories.sql`. Confirmar novamente a sequência antes de cada tarefa; nunca editar uma migration aplicada. Manter `ddl-auto=validate`.
+- Tarefa 1: `V8__prepare_expense_registration.sql`. Flexibilizar `expenses.budget_id` para permitir categoria sem orçamento; manter obra e categoria obrigatórias. Persistir a informação de quitação. Introduzir titularidade de fornecedor e ajustar dados legados sem misturar contas: associar fornecedor usado por uma conta a essa conta, clonar e religar referências por proprietário quando compartilhado no legado. Fornecedores legados sem referências ficam sem proprietário e não são expostos pela API. Testar explicitamente esse backfill; não atribuir dados sem dono a um usuário arbitrário.
+- Tarefa 2: nenhuma migration. O schema existente já representa pagamento com vencimento e vínculo único à despesa. Obrigatoriedade e comparação com a data da despesa serão validadas no service para novos lançamentos, dentro da transação. Preservar dados legados com vencimento nulo, sem inventar datas nem alterar migrations aplicadas.
+- Tarefa 5: `V9__add_expense_receipt_state.sql`. Persistir chave interna e estado `NONE`/`PENDING`/`UPLOADED`, com integridade entre presença de chave e estado. Tratar valores legados explicitamente; não inventar sucesso para uma referência cujo objeto não foi confirmado. O estado após upload deve ser consistente com o comportamento de retry da tarefa 7.
+- Caso uma migration prevista não seja necessária após verificar o schema, registrar “nenhuma” na tarefa antes de implementá-la; não criar migration vazia. Renumerar apenas as futuras, ainda não aplicadas.
+
+### Frontend (`apps/web`)
+
+- Rotas protegidas `/contas/nova` e `/despesas/:id`, carregadas sob o layout existente. Cadastro com `ReactiveForms`, tokens existentes e modos de valor mutuamente exclusivos. Consulta individual com tag “Sem comprovante”, acesso ao comprovante confirmado e seleção de arquivo para reenvio. Sem criar uma seção separada de pendências nem antecipar a listagem completa da US05.
+- Ajuste solicitado pelo autor na triagem da tarefa 1: o acesso ao cadastro fica em um botão **“Cadastrar conta”** dentro de **“Contas a pagar”** (`/contas`), direcionando a `/contas/nova`. Não criar um item “Cadastrar despesa” no menu principal. A página de entrada não antecipa listagem, filtros ou baixa de pagamentos das histórias posteriores.
+- `core/services/expense.service.ts` e `supplier.service.ts` concentram HTTP e DTOs tipados. Usar `CategoryService`, `BudgetService`, `ActiveProjectService` e identidade autenticada existentes. Estado de carregamento, erro, envio e progresso em signals; nenhum componente usa HTTP diretamente.
+- Após criar, abrir a consulta individual usando o ID confirmado e disponibilizar seu endereço. Para comprovante selecionado, enviar somente depois da criação; falha mostra o alerta aprovado sem apagar o sucesso da gravação financeira. Reabrir o endereço permite reenvio escolhendo outro arquivo local.
+- A mudança real de obra encerra o contexto do formulário e ignora respostas antigas, inclusive A → B → A. Atualização dos metadados da mesma obra não descarta campos. Uma operação já recebida pelo servidor pode concluir para a obra original; não prometer cancelamento transacional por navegação.
+- Manter o encerramento de sessão e redirecionamento para login da arquitetura existente, sem recuperação de rascunho após novo login neste recorte.
+
+## Tarefas
+
+- [x] **Tarefa 1 — Cadastrar despesa quitada com fornecedor**
+  - Cobre: CA1, CA10 e CA7 para criação e consulta individual.
+  - Teste primeiro: JUnit de criação por valor direto e calculado, limites e campos inválidos, seleção/criação inline de fornecedor e rollback, incluindo fornecedor/obra alheios com 404. Integração PostgreSQL para backfill de fornecedores e persistência. Angular `.spec.ts` para formulário, validações dos dois modos, fornecedor inline, resposta de sucesso e consulta individual real. RED antes de criar o fluxo.
+  - Migration: `V8__prepare_expense_registration.sql`.
+  - Arquivos previstos: `apps/api/src/main/java/com/obracerta/{controller,service,repository,mapper,model/dto,model/entity}` nos recursos Expense/Supplier; migration e testes correspondentes em `apps/api/src/test`; `apps/web/src/app/core/{models,services}`, `apps/web/src/app/features/expenses`, `app.routes.ts` e navegação necessária ao cadastro, com testes correspondentes.
+  - Entrega: formulário → API → PostgreSQL → consulta individual; gasto da US07 reflete a despesa. Nenhuma listagem completa é criada.
+
+- [x] **Tarefa 2 — Registrar pagamento pendente com vencimento válido**
+  - Cobre: CA2 e CA9; reforça CA7 no lançamento a prazo.
+  - Teste primeiro: JUnit prova criação atômica de despesa/pagamento, igualdade de datas aceita, data anterior e ausência rejeitadas sem gravação parcial. Angular prova opção não quitada, campo obrigatório e erro de vencimento. Testar que falha não deixa fornecedor inline órfão.
+  - Migration: nenhuma; o schema atual já suporta o pagamento. Validar vencimento obrigatório e sua relação com a data da despesa no service, preservando o legado.
+  - Arquivos previstos: DTO/service/mapper de Expense, `PendingPayment`, repositório e migration; formulário e modelos de despesas; testes API/web.
+
+- [x] **Tarefa 3 — Avisar sobre categoria sem teto**
+  - Cobre: CA4.
+  - Teste primeiro: JUnit/integração prova salvamento sem orçamento e com teto zerado sem criar teto artificial; Angular prova aviso, atalho para orçamento da categoria e manutenção dos campos ao abrir esse fluxo.
+  - Migration: nenhuma; nullable de `budget_id` nasce na tarefa 1.
+  - Arquivos previstos: service/DTO de despesas se necessário; formulário, serviços de categoria/orçamento e integração com o formulário de teto existente; testes API/web.
+
+- [x] **Tarefa 4 — Alertar quando o gasto atingir o teto**
+  - Cobre: CA5.
+  - Teste primeiro: JUnit prova agregação após salvar, incluindo despesas pagas/pendentes e exclusão de deletadas; Angular prova alerta em 100% e acima, ausência abaixo do teto e salvamento concluído apesar do alerta.
+  - Migration: nenhuma.
+  - Arquivos previstos: service/DTO de resposta de despesas, integração com `BudgetService`, consulta individual/formulário e testes API/web.
+
+- [x] **Tarefa 5 — Anexar e consultar comprovante válido**
+  - Cobre: CA3 e CA7 para acesso ao comprovante.
+  - Teste primeiro: JUnit com armazenamento controlado prova upload/leitura de JPEG, PNG e PDF, limite exato aceito e 404 antes de acesso ao storage para recurso alheio ou excluído. Angular prova instruções de formato/tamanho, progresso e upload apenas após confirmar criação financeira.
+  - Migration: `V9__add_expense_receipt_state.sql`.
+  - Arquivos previstos: controller/service de comprovantes, adaptador S3 e configuração Supabase por ambiente, `pom.xml`, entidade/DTO de despesa, migration e testes API; serviço e componentes de despesa com testes web; `docker-compose.yml` e `.env.example` sem MinIO nem credenciais reais; roteiro em `docs/supabase-storage.md`, referência no README e alinhamento de armazenamento em `docs/architecture.md`.
+
+- [x] **Tarefa 6 — Rejeitar comprovantes inválidos**
+  - Cobre: CA8.
+  - Teste primeiro: JUnit prova rejeição de MIME/extensão não permitidos ou divergentes, arquivo vazio e limite excedido sem objeto persistido; prova também que o conteúdo não é inspecionado quando tipo e tamanho são aceitos. Angular prova rejeição na seleção e apresentação dos erros 400/413 sem declarar sucesso de upload, sem leitura assíncrona dos bytes. A ausência de um anexo válido não invalida os dados financeiros. Esta simplificação substitui a inspeção de conteúdo inicialmente prevista, por decisão do autor em 2026-10-29.
+  - Migration: nenhuma.
+  - Arquivos previstos: validação e configuração de upload, tratamento de erros da API, seletor de arquivo e testes API/web.
+
+- [x] **Tarefa 7 — Manter tag e permitir reenvio na despesa**
+  - Cobre: CA6 completo e CA7 no reenvio.
+  - Teste primeiro: JUnit prova despesa e pagamento preservados após falha do storage, estado recuperável por GET, upload posterior na mesma despesa e ausência de duplicação financeira. Angular simula falha, alerta, tag “Sem comprovante”, destruição/reabertura da consulta e nova seleção/reenvio; sucesso remove tag, nova falha mantém. Provar tag também em despesa criada sem anexo, sem alerta de falha nesse caso.
+  - Migration: nenhuma; estado persistente incluído na tarefa 5.
+  - Arquivos previstos: service/DTO de comprovante e despesas, consulta individual e serviço web, testes API/web. Não criar seção de pendências ou listagem geral.
+
+- [x] **Tarefa 8 — Preservar o contexto ao cancelar ou trocar de obra**
+  - Cobre: CA11.
+  - Teste primeiro: Angular prova cancelamento/fechamento antes do envio sem POST, ausência de obra com orientação, troca de obra e respostas atrasadas inclusive A → B → A, sem descarte por mudança de metadados da mesma obra. JUnit reforça que a obra persistida é a validada no payload da operação original.
+  - Migration: nenhuma.
+  - Arquivos previstos: componentes de despesas, integração com `ActiveProjectService` e rotas; testes web e teste de integração da API.
+
+- [x] **Tarefa 9 — Exibir alerta de orçamento mesmo quando o comprovante falhar**
+  - Cobre: CA5 combinado com CA6; preserva CA11. Correção AF-01 aceita pelo autor na triagem da auditoria final.
+  - Entrega: após confirmar a criação financeira, o alerta de categoria com teto atingido ou ultrapassado deve aparecer mesmo que o envio do comprovante falhe. Manter o lançamento permitido, a despesa salva, a mensagem de falha do comprovante e o acesso à consulta/reenvio. A verificação do orçamento não pode impedir a criação nem depender do sucesso do upload. Descartar resultados de contexto antigo.
+  - Teste primeiro: Angular com rotas e HTTP reais controlados prova criação 201 com comprovante seguido de falha de upload, alerta simultâneo de teto em 100% e acima, ausência de alerta abaixo do teto e preservação da mensagem de falha. Provar que falha da consulta de orçamento não repete nem desfaz o lançamento e que respostas atrasadas não contaminam outra obra. Na rodada 2, cobrir também sucesso e erro de consultas anteriores no mesmo contexto, impedindo que substituam a consulta mais recente, conforme triagem aceita pelo autor.
+  - Migration: nenhuma. Nenhuma mudança de contrato financeiro ou validação bloqueante.
+  - Arquivos previstos: `apps/web/src/app/features/expenses/expense-form.component.ts`, `expense-form.component.html`, `expense-flow.spec.ts`, `expense-budget.spec.ts` e `expense-context.spec.ts`, conforme necessário para a correção e seus testes.
+
+Cada tarefa segue RED → GREEN → REFACTOR nas camadas citadas. Usar PostgreSQL real com Flyway/validate nos testes de persistência, nunca H2 como substituto desses testes. Limite de duas rodadas de TDD pelo mesmo motivo e duas rodadas de revisão, conforme a constituição.
+
+Validação por tarefa: testes JUnit do comportamento afetado em `apps/api` com perfil `test` e PostgreSQL configurado; testes Jasmine/Karma em `apps/web` com ChromeHeadless. Executar build Angular quando alterar componentes/contratos. Não declarar checks concluídos sem executá-los.
+
+Após cada implementação: revisores distintos de conformidade e código, pareceres imutáveis e triagem do autor; leitura do diff com tutor e commit somente após autorização. Executar uma tarefa por vez e devolver o controle ao autor ao final.
+
+No fechamento, após as oito tarefas: atualizar PRD, arquitetura, índice de specs e documentação de sessão conforme o recorte aprovado; solicitar autorização para o commit documental, então despachar auditor-final contra a spec revisada, seguindo `utf-issue`. Essa etapa não é uma tarefa adicional de implementação nem autoriza ampliar o escopo sem novo aceite.
+
+## Critérios sem tarefa

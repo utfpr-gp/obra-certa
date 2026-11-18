@@ -1,0 +1,41 @@
+<div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 flex items-center gap-4 text-center w-full h-full">
+  <div class="relative size-20 shrink-0 flex items-center justify-center">
+    <!-- Circular Background & Progress SVG -->
+    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+      <circle
+        cx="50"
+        cy="50"
+        r="40"
+        stroke="#E2E8F0"
+        stroke-width="10"
+        fill="transparent"
+      />
+      <circle
+        cx="50"
+        cy="50"
+        r="40"
+        [attr.stroke]="strokeColor()"
+        stroke-width="10"
+        stroke-linecap="round"
+        fill="transparent"
+        [attr.stroke-dasharray]="251.2"
+        [attr.stroke-dashoffset]="strokeDashoffset()"
+        class="transition-all duration-500 ease-out"
+      />
+    </svg>
+    <div class="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+      <span class="text-base font-bold leading-none text-slate-900 tabular-nums">
+        {{ formatPercentage(percent()) }}
+      </span>
+      <span class="text-[9px] font-medium leading-none text-slate-500 uppercase tracking-wide">
+        usado
+      </span>
+    </div>
+  </div>
+
+  <div class="min-w-0 flex flex-col gap-1 text-left">
+    <div class="text-xs font-semibold leading-tight text-slate-500 uppercase tracking-wide">{{ label() }}</div>
+    <div class="text-lg font-bold leading-tight text-slate-900 tabular-nums">{{ currentValue() }}</div>
+    <div class="text-xs leading-tight text-slate-500 tabular-nums">de {{ totalValue() }}</div>
+  </div>
+</div>

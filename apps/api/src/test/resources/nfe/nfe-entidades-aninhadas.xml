@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nfeProc [
+  <!ENTITY a "AAAAAAAAAA">
+  <!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">
+  <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">
+  <!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">
+]>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35261012345678000190550010000000011000000012" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <nNF>1100</nNF>
+        <dhEmi>2026-10-15T10:30:00-03:00</dhEmi>
+      </ide>
+      <emit>
+        <CNPJ>12345678000190</CNPJ>
+        <xNome>Construções Exemplo Materiais Ltda</xNome>
+      </emit>
+      <det nItem="1">
+        <prod>
+          <cProd>001</cProd>
+          <xProd>&d;</xProd>
+          <uCom>SC</uCom>
+          <qCom>10.0000</qCom>
+          <vUnCom>32.5000</vUnCom>
+          <vProd>325.00</vProd>
+        </prod>
+      </det>
+    </infNFe>
+  </NFe>
+</nfeProc>

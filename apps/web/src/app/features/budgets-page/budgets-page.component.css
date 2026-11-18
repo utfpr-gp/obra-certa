@@ -1,0 +1,71 @@
+/* Budgets Page Styles */
+:host {
+  display: block;
+}
+
+.category-state {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: auto;
+  min-height: 1.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.budget-table {
+  overflow-wrap: anywhere;
+}
+
+.budget-field-label {
+  display: none;
+}
+
+@container (width < 60rem) {
+  .budget-table,
+  .budget-table tbody {
+    display: block;
+  }
+
+  .budget-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .budget-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .budget-table tbody tr + tr {
+    border-top: 1px solid var(--color-slate-200);
+  }
+
+  .budget-table tbody :is(th, td) {
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .budget-table tbody th,
+  .budget-table tbody td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .budget-table tbody td:last-child a {
+    text-align: left;
+  }
+
+  .budget-field-label {
+    display: block;
+    color: #475569;
+    font-size: 0.75rem;
+  }
+}

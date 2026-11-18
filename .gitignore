@@ -1,9 +1,12 @@
 # Ignorar arquivos globais
 .DS_Store
 .env
+.env.*
+!.env.example
 node_modules/
 .idea/
 .vscode/
 logs/
 *.log
 docker-compose.override.yml
+data/
