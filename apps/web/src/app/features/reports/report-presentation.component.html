@@ -56,7 +56,7 @@
       <tbody>
         @for (row of vm.rows(); track row.id) {
           <tr data-testid="report-detail-row" class="detail-row" [class.exceeded]="row.exceeded">
-            <th scope="row"><span class="category-dot" [style.background]="row.color"></span>{{ row.name }}</th>
+            <th scope="row"><span [appHoverScroll]="!exportMode()" class="report-category-text"><span class="category-dot" [style.background]="row.color"></span>{{ row.name }}</span></th>
             <td><span class="mobile-label">Previsto</span>{{ vm.money(row.plannedCents) }}</td>
             <td><span class="mobile-label">Realizado</span>{{ vm.money(row.actualCents) }}</td>
             <td><span class="mobile-label">Participação no gasto</span>{{ vm.totals().actualCents ? vm.percent(row.share) : '—' }}</td>

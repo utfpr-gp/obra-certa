@@ -604,9 +604,31 @@ flowchart TD
 
 ## 🛡️ 7. Segurança, Isolamento e Soft Delete
 
+### Recuperação de senha
+
+- As rotas públicas `/recuperar-senha` e `/redefinir-senha` usam os endpoints
+  `POST /api/auth/forgot-password` e `POST /api/auth/reset-password`.
+- A solicitação retorna `200` sem informar se a conta existe. Um executor com
+  fila limitada processa a consulta e o envio SMTP. O intervalo entre pedidos
+  por endereço é de 60 segundos, persistido como hash SHA-256 do e-mail.
+- A migration V14 cria `password_recovery_tokens` e `password_recovery_requests`.
+  O token tem 32 bytes aleatórios, é enviado como fragmento do link e somente
+  seu hash SHA-256 é armazenado. O prazo de validade é de 30 minutos.
+- As operações usam JDBC e `TransactionTemplate`. A trava na linha do usuário
+  serializa a substituição e o consumo do token. O consumo e a atualização da senha
+  com o encoder existente são atômicos. Falha SMTP reverte a substituição.
+- A API valida o limite de 72 bytes UTF-8 do BCrypt. Um link inválido, expirado
+  ou consumido retorna `400` no formato `ApiErrorResponse`. Os JWTs anteriores
+  continuam sujeitos à expiração configurada.
+- `FRONTEND_URL` define a origem pública dos links; `MAIL_FROM` e `SMTP_*`
+  configuram a entrega. Produção exige HTTPS no link e STARTTLS no SMTP.
+
 1. **Autenticação Stateless (JWT):**
-   - Emissão de token assinado via HMAC256 com validade configurada (7 dias);
+   - Emissão de token assinado via HMAC256 com validade de 24 horas (86.400 segundos) para novos logins;
    - Transmissão no cabeçalho `Authorization: Bearer <token>`.
+   - O frontend acompanha a expiração, inclusive em ociosidade, e sincroniza o encerramento entre abas. A expiração remove o token e a obra ativa e leva ao login com o aviso “Sua sessão expirou. Faça login novamente para continuar.”.
+   - Os guards de entrada e de rotas filhas bloqueiam páginas privadas. Um `401` de uma chamada protegida encerra a sessão correspondente ao token usado; chamadas públicas de autenticação mantêm o tratamento de credenciais. Respostas atrasadas de uma sessão anterior preservam o token novo.
+   - Tokens emitidos antes da redução de validade mantêm a data de expiração original.
 2. **Anti-IDOR Centralizado no Servidor:**
    - Em todas as operações de leitura, edição ou exclusão, os repositórios filtram por `project.user.id = :authUserId`;
    - Se o identificador referenciar recurso de outro usuário, o sistema responde com `404 Not Found` (não revelando a existência do dado).

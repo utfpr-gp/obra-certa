@@ -258,7 +258,7 @@ describe('NfeImportDialogComponent', () => {
     fixture.detectChanges();
 
     expect(auth.getToken()).toBeNull();
-    expect(navigate).toHaveBeenCalledWith(['/login']);
+    expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'session-expired' } });
     expect(el('nfe-failure-alert')).toBeNull();
     http.expectNone(url);
   });
@@ -775,7 +775,7 @@ describe('NfeImportDialogComponent', () => {
     fixture.detectChanges();
 
     expect(auth.getToken()).toBeNull();
-    expect(navigate).toHaveBeenCalledWith(['/login']);
+    expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'session-expired' } });
     expect(closedCount).toBe(1);
     expect(el('nfe-confirm-error')).toBeNull();
     http.expectNone(importsUrl);

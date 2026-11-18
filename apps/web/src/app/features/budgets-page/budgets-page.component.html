@@ -122,7 +122,7 @@
               @for (category of data.categories; track category.categoryId) {
                 <tr role="row" [attr.data-testid]="'budget-row-' + category.categoryId">
                   <th scope="row" role="rowheader" class="font-medium text-slate-900">
-                    {{ category.categoryName }}
+                    <span appHoverScroll class="max-w-64">{{ category.categoryName }}</span>
                     @if (hasUnbudgetedExpenses(category)) {
                       <p
                         [attr.data-testid]="'budget-audit-' + category.categoryId"

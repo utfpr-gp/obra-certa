@@ -173,7 +173,7 @@ describe('Accounts query context (CA9 and CA10)', () => {
     const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     request().flush({}, { status: 401, statusText: 'Unauthorized' }); fixture.detectChanges();
     expect(logout).toHaveBeenCalledTimes(1); expect(active.activeProject()).toBeNull();
-    expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+    expect(navigate).toHaveBeenCalledOnceWith(['/login'], { queryParams: { reason: 'session-expired' } });
     expect(fixture.componentInstance.error()).toBeNull();
     auth.saveToken('new-session'); fixture.detectChanges();
     http.expectNone(r => r.url.endsWith('/api/expenses'));

@@ -6,6 +6,7 @@ import { catchError, EMPTY, merge, Subject, switchMap } from 'rxjs';
 import { BudgetCategory, SinapiAvailability, SinapiReferences } from '../../../../core/models/budget.model';
 import { ExpenseCategory } from '../../../../core/models/expense-category.model';
 import { BudgetService } from '../../../../core/services/budget.service';
+import { HoverScrollDirective } from '../../../../shared/directives/hover-scroll.directive';
 import {
   allocateCents,
   estimateCents,
@@ -21,7 +22,7 @@ export type AllocationError = PercentError | 'sum';
 
 @Component({
   selector: 'app-sinapi-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, HoverScrollDirective],
   templateUrl: './sinapi-form.component.html',
   styleUrl: './sinapi-form.component.css',
 })

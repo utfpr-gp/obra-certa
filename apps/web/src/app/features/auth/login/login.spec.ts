@@ -24,17 +24,8 @@ describe('Login', () => {
     expect(component).toBeTruthy();
   });
 
-  it('explains that password recovery is unavailable', () => {
+  it('links to the public password recovery page', () => {
     const page = fixture.nativeElement as HTMLElement;
-    const help = page.querySelector<HTMLDetailsElement>('details');
-    const summary = help?.querySelector('summary');
-
-    expect(summary?.textContent).toContain('Esqueceu a senha?');
-    expect(help?.open).toBeFalse();
-
-    summary?.click();
-
-    expect(help?.open).toBeTrue();
-    expect(help?.textContent).toContain('A recuperação de senha ainda não está disponível.');
+    expect(page.querySelector('a[href="/recuperar-senha"]')?.textContent).toContain('Esqueceu a senha?');
   });
 });

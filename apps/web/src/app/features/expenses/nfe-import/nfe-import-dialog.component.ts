@@ -26,13 +26,14 @@ import { ActiveProjectService } from '../../../core/services/active-project.serv
 import { CategoryService } from '../../../core/services/category.service';
 import { NfeImportService } from '../../../core/services/nfe-import.service';
 import { formatCivilDate } from '../../../shared/utils/civil-date';
+import { HoverScrollDirective } from '../../../shared/directives/hover-scroll.directive';
 
 type NfeImportPhase = 'idle' | 'sending' | 'preview' | 'invalid' | 'conflict' | 'failure' | 'confirming' | 'notFound' | 'result';
 
 @Component({
   selector: 'app-nfe-import-dialog',
   standalone: true,
-  imports: [LucideX],
+  imports: [LucideX, HoverScrollDirective],
   templateUrl: './nfe-import-dialog.component.html',
   styleUrl: './nfe-import-dialog.component.css',
 })

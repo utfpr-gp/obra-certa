@@ -14,6 +14,10 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}:is(
 :host.export-mode tbody th{white-space:normal;overflow-wrap:anywhere;max-width:260px}
 :host.export-mode .bar-label,:host.export-mode .distribution-item>div{overflow-wrap:anywhere}
 
+:host:not(.export-mode) .report-category-text {
+  max-width: 18rem;
+}
+
 :host:not(.export-mode) .detail-panel {
   container-type: inline-size;
 }

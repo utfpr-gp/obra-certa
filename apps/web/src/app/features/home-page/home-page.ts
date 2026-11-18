@@ -23,6 +23,7 @@ import { ProjectModalComponent } from '../../shared/components/project-modal/pro
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
 import { Project } from '../../core/models/project.model';
+import { HoverScrollDirective } from '../../shared/directives/hover-scroll.directive';
 import {
   LucideHome,
   LucidePlusCircle,
@@ -35,6 +36,7 @@ import {
   selector: 'app-home-page',
   standalone: true,
   imports: [
+    HoverScrollDirective,
     CommonModule,
     PaymentModalComponent,
     RouterLink,

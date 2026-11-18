@@ -28,7 +28,7 @@ describe('authInterceptor', () => {
       },
     });
 
-    expect(auth.logout).toHaveBeenCalled();
+    expect(auth.logout).toHaveBeenCalledWith(true);
   });
 
   it('preserves generic server errors for the requesting service', () => {
@@ -54,6 +54,21 @@ describe('authInterceptor', () => {
       },
     });
 
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps invalid login credentials on the login form without an expiry notice', () => {
+    const request = new HttpRequest('POST', '/obracerta/api/auth/login', {});
+    interceptor(request, () => throwError(() => new HttpErrorResponse({ status: 401 })))
+      .subscribe({ error: () => {} });
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('does not end a new session when an old request returns unauthorized', () => {
+    auth.getToken.and.returnValues('old-token', 'new-token');
+    interceptor(new HttpRequest('GET', '/api/projects'),
+      () => throwError(() => new HttpErrorResponse({ status: 401 })))
+      .subscribe({ error: () => {} });
     expect(auth.logout).not.toHaveBeenCalled();
   });
 });

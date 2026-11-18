@@ -12,11 +12,13 @@ import { ConfirmModalComponent } from '../../shared/components/confirm-modal/con
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { formatPercentage } from '../../shared/utils/format-percentage';
 import { BudgetFormModalComponent } from './components/budget-form-modal/budget-form-modal.component';
+import { HoverScrollDirective } from '../../shared/directives/hover-scroll.directive';
 
 @Component({
   selector: 'app-budgets-page',
   standalone: true,
   imports: [
+    HoverScrollDirective,
     CommonModule,
     RouterLink,
     AlertBannerComponent,

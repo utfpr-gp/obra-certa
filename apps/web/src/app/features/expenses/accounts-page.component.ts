@@ -15,11 +15,12 @@ import { PaymentTarget } from '../../core/models/payment.model';
 import { PaymentModalComponent } from '../../shared/components/payment-modal/payment-modal.component';
 import { NfeImportDialogComponent } from './nfe-import/nfe-import-dialog.component';
 import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civil-date';
+import { HoverScrollDirective } from '../../shared/directives/hover-scroll.directive';
 
 @Component({
   selector: 'app-accounts-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, NfeImportDialogComponent, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, PaymentModalComponent, NfeImportDialogComponent, HoverScrollDirective, LucidePlus, LucideCalendarClock, LucideCircleCheck, LucideReceipt, LucideSlidersHorizontal, LucideFileUp],
   template: `
     <main class="min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
       <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -192,10 +193,10 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
           <div data-testid="expense-cards" class="space-y-4 p-4 @min-[64rem]:hidden">
             @for (expense of displayedRows(); track $index) {
               <article [style.height.px]="loading() ? rowDimensions()[$index]?.mobile : null" class="min-w-0 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                <h3 class="[overflow-wrap:anywhere] font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
+                <h3 appHoverScroll class="font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</h3>
                 <dl class="mt-3 grid grid-cols-2 gap-2 [overflow-wrap:anywhere]">
-                  <div class="col-span-2"><dt class="font-medium">Categoria</dt><dd>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
-                  <div class="col-span-2"><dt class="font-medium">Fornecedor</dt><dd>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="col-span-2 min-w-0"><dt class="font-medium">Categoria</dt><dd appHoverScroll>@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
+                  <div class="col-span-2 min-w-0"><dt class="font-medium">Fornecedor</dt><dd appHoverScroll>@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Compra</dt><dd>@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div><dt class="font-medium">Valor</dt><dd class="font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
                   <div class="whitespace-nowrap"><dt class="font-medium">Vencimento</dt><dd>@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</dd></div>
@@ -225,9 +226,9 @@ import { formatCivilDate as formatCivilDateValue } from '../../shared/utils/civi
               <tbody>
                 @for (expense of displayedRows(); track $index) {
                   <tr [style.height.px]="loading() ? rowDimensions()[$index]?.desktop : null" class="border-b border-slate-200/70 text-slate-600 hover:bg-slate-50/60">
-                    <td class="px-4 py-3 font-semibold text-slate-800">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
-                    <td class="px-4 py-3">@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800"><span appHoverScroll class="max-w-64">@if (expense) { {{ expense.description }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</span></td>
+                    <td class="px-4 py-3"><span appHoverScroll class="max-w-64">@if (expense) { {{ expense.categoryName }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</span></td>
+                    <td class="px-4 py-3"><span appHoverScroll class="max-w-64">@if (expense) { {{ expense.supplier.name }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</span></td>
                     <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.purchaseDate | date:'dd/MM/yyyy' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="whitespace-nowrap px-4 py-3">@if (expense) { {{ expense.dueDate ? (expense.dueDate | date:'dd/MM/yyyy') : '—' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>
                     <td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-800">@if (expense) { {{ expense.totalPrice | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} } @else { <ng-container [ngTemplateOutlet]="cellPlaceholder" /> }</td>

@@ -9,6 +9,8 @@ import { Auth } from '../services/auth';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(Auth);
   const token = authService.getToken();
+  const publicAuthentication = /\/api\/auth\/(login|register|forgot-password|reset-password)\/?$/
+    .test(req.url.split('?')[0]);
 
   const request = token
     ? req.clone({
@@ -18,8 +20,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse && error.status === 401) {
-        authService.logout();
+      if (error instanceof HttpErrorResponse && error.status === 401
+          && !publicAuthentication && authService.getToken() === token) {
+        authService.logout(true);
       }
 
       return throwError(() => error);
