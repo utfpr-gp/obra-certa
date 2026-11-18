@@ -36,7 +36,8 @@ export async function assertReadableTable(
         if (rect.left < bounds.left - 1 || rect.right > bounds.right + 1) {
           throw new Error(`Element outside ${selector} at ${width}px: ${cell.textContent?.trim()}`);
         }
-        if (cell.matches('th,td,dd,li,p') && cell.scrollWidth > cell.clientWidth + 1) {
+        if (cell.matches('th,td,dd,li,p') && !cell.classList.contains('hover-scroll-text')
+            && cell.scrollWidth > cell.clientWidth + 1) {
           throw new Error(`Text overflows at ${width}px: ${cell.textContent?.trim()}`);
         }
       }

@@ -115,7 +115,7 @@
         @for (row of result.rows; track row.category.id) {
           <tr role="row" class="grid grid-cols-2 items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:table-row sm:rounded-none sm:border-x-0 sm:border-b-0 sm:p-0">
             <th role="rowheader" class="col-span-2 font-medium sm:py-2 sm:pr-2" scope="row">
-              {{ row.category.name }}
+              <span appHoverScroll class="max-w-64">{{ row.category.name }}</span>
               @if (row.existingAmount !== null) {
                 <span class="block text-xs font-normal text-slate-600" [attr.data-testid]="'sinapi-preserved-' + row.category.id">Teto atual {{ currency.format(row.existingAmount) }} preservado</span>
               }

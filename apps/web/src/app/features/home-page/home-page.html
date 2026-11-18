@@ -214,7 +214,7 @@
                     <div data-testid="payment-alert-item" class="flex flex-col gap-2 rounded-lg px-2 py-3 text-sm transition-colors hover:bg-slate-50/70 md:flex-row md:items-center md:justify-between">
                       <div class="flex items-center gap-2.5 min-w-0">
                         <svg lucideClock [size]="16" class="shrink-0" [class.text-amber-500]="item.urgency !== 'REGULAR'" [class.text-slate-400]="item.urgency === 'REGULAR'" />
-                        <span class="min-w-0 break-words font-medium text-slate-700">
+                        <span appHoverScroll class="min-w-0 font-medium text-slate-700">
                           {{ item.description }} <span class="whitespace-nowrap text-slate-500">— {{ formatCivilDate(item.dueDate) }}</span>
                         </span>
                       </div>
@@ -259,7 +259,7 @@
                     } @else {
                       <svg lucideClock [size]="16" class="text-amber-500 shrink-0" />
                     }
-                    <span class="text-slate-700 truncate font-medium">
+                    <span appHoverScroll class="min-w-0 text-slate-700 font-medium">
                       {{ gasto.descricao }} <span class="text-slate-500">· {{ gasto.categoriaNome }}</span>
                     </span>
                   </div>
