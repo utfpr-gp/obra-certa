@@ -6,8 +6,12 @@ RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --create-home app
 WORKDIR /app
-COPY --from=build /app/target/obracerta-backend-0.0.1-SNAPSHOT.jar /app/app.jar
+COPY --from=build --chown=app:app /app/target/obracerta-backend-0.0.1-SNAPSHOT.jar /app/app.jar
+USER app
 EXPOSE 8080
 # Ajustes para containers pequenos (ex.: 512 MB e fracao de CPU): heap proporcional ao
 # limite do container, coletor serial (menos threads) e compilacao JIT so no nivel 1,

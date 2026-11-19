@@ -7,7 +7,7 @@ labels: manutencao
 <!-- Tarefa técnica NÃO passa pelo ciclo de spec: ninguém demonstra uma atualização
      de dependência para quem não programa. Exemplos: subir a versão do Angular ou do
      Spring Boot, extrair um componente repetido, ajustar lint, configurar a esteira
-     de CI, preparar o deploy na Neon.
+     de CI, preparar o deploy na AWS.
 
      ⚠️ Mudança de schema NÃO entra aqui: tabela ou coluna nova existe porque alguma
      regra de negócio pede, então a migration Flyway viaja na história que a usa. -->

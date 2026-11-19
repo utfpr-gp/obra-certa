@@ -1,0 +1,14 @@
+{$APP_DOMAIN} {
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+    # A API usa a mesma origem do Angular e recebe o caminho completo do Spring.
+    handle /obracerta/* {
+        reverse_proxy backend:8080
+    }
+    handle {
+        reverse_proxy frontend:80
+    }
+}

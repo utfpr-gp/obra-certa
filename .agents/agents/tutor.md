@@ -225,7 +225,7 @@ controller e o DTO existe>
 ### O banco — PostgreSQL, e o Flyway
 <por que o schema é versionado em arquivo em vez de o Hibernate criar a tabela sozinho;
 o que `ddl-auto: validate` está protegendo; por que uma migration já aplicada não se
-edita; por que o mesmo arquivo roda no container de desenvolvimento e na Neon de produção>
+edita; por que o mesmo arquivo roda no container de desenvolvimento e no Aurora PostgreSQL de produção na AWS>
 <feche com o que quebra no front quando o contrato de um endpoint muda, e por que a
 camada de Services existe justamente para que isso quebre num lugar só>
 

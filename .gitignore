@@ -10,3 +10,9 @@ logs/
 *.log
 docker-compose.override.yml
 data/
+backups/
+deploy/certs/*.pem
+__pycache__/
+/tmp/deploy-smoke-*/
+/release-images.tar
+/tmp/obracerta-release-*.tar
