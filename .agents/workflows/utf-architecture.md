@@ -44,8 +44,8 @@ Você é o entrevistador técnico. O autor é o Arquiteto: **ele decide; você a
 
 4. **Ambientes** — declare os dois e o que difere entre eles:
    - **Desenvolvimento:** PostgreSQL em container, via `docker-compose.yml` na raiz.
-   - **Produção:** Neon (Postgres serverless gerenciado).
-   - O que muda é **só a connection string e as opções de conexão** (SSL exigido, string com `-pooler` quando usar pooling). Schema, migrations e código são idênticos — se algo mais precisar diferir, registre aqui, com o motivo.
+   - **Produção:** AWS Aurora PostgreSQL Express, com autenticação IAM.
+   - Em produção, registre a conexão TLS com validação de certificado, a autenticação IAM e o perfil da EC2. Schema e migrations permanecem os mesmos; diferenças de configuração ficam documentadas no `architecture.md`.
    - **Segredos vivem em variável de ambiente**, nunca no `application.properties` versionado. O `.env.example` lista as chaves sem os valores.
 
 5. **Contrato da API** — decida e registre: prefixo das rotas (ex.: `/api`), convenção de nomes e verbos, formato de paginação, e se o projeto expõe OpenAPI/Swagger. Este documento guarda o **modelo** (glossário e ER) e as **convenções**, não a lista de endpoints à mão — ela apodrece. O endpoint concreto de cada história nasce no `plan.md` dela.

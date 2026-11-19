@@ -16,10 +16,10 @@ Você é o Engenheiro e o Arquiteto; a IA é a sua equipe de execução.
 
 ## 🌳 Fluxo Git e Proteção da Produção (Gitflow)
 
-- **Duas branches permanentes e bloqueadas:** a `main` reflete a produção (o deploy na Neon); a `develop` integra o trabalho em andamento. Commit direto em qualquer uma das duas é proibido.
+- **Duas branches permanentes e bloqueadas:** a `main` reflete a produção (a implantação na AWS); a `develop` integra o trabalho em andamento. Commit direto em qualquer uma das duas é proibido.
 - **Trabalho:** Crie uma branch curta **a partir da `develop`** para cada Issue, nomeada `feature/<numero-da-issue>-<slug>`. Manutenção (bug, tarefa técnica, setup) usa `chore/<slug>`.
 - **Integração:** Ao finalizar, abra um Pull Request **para a `develop`** com `Closes #<n>`. O CI (testes + lint) precisa passar antes do merge.
-- **Release:** quando a `develop` está estável, um PR de `develop` → `main` publica a versão (é o que o deploy em produção acompanha).
+- **Release:** quando a `develop` está estável, um PR de `develop` → `main` integra a versão de produção. A implantação na AWS é executada pelos scripts de `deploy/`, conforme `docs/deploy-aws.md`.
 - **O que este projeto não usa:** o Gitflow original também prevê branches `release/*` e `hotfix/*`. Aqui não há trem de release nem correção de emergência em produção separada — a publicação é o próprio PR de `develop` → `main`. Se você encontrar esses nomes em tutoriais, não é algo que ficou faltando.
 - **Trabalho individual:** sendo um TCC, não há colega para aprovar o PR — a proteção de branch exige o PR e o Portão de Entendimento verde, não uma aprovação. O que substitui o revisor humano são os **dois revisores agentes** de cada tarefa, cujos pareceres ficam versionados em `specs/<issue>-<slug>/reviews/`. Se o orientador for colaborador do repositório, a aprovação dele pode ser exigida — é decisão sua.
 

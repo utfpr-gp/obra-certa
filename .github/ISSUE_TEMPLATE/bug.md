@@ -31,7 +31,7 @@ labels: manutencao
 
 ## Ambiente
 
-- Onde: local (Docker) / produção (Neon)
+- Onde: local (Docker) / produção (AWS)
 - Navegador e versão:
 - Camada onde o defeito aparece: `apps/web` / `apps/api` / banco
 

@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Perfil minimo da EC2 para autenticar no usuario dedicado do Aurora Express existente.
+Parameters:
+  ClusterResourceId:
+    Type: String
+    AllowedPattern: 'cluster-[A-Za-z0-9]+'
+    Description: ID do recurso do cluster (cluster-...), nao o nome amigavel obra-certa.
+  DatabaseUser:
+    Type: String
+    Default: obracerta
+    AllowedPattern: '[a-z][a-z0-9_]{0,62}'
+Resources:
+  DatabaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ConnectOnlyToObraCertaDatabaseUser
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: rds-db:connect
+                Resource: !Sub arn:${AWS::Partition}:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${ClusterResourceId}/${DatabaseUser}
+  DatabaseInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref DatabaseRole
+Outputs:
+  InstanceProfileName:
+    Value: !Ref DatabaseInstanceProfile
+    Description: Vincule este perfil a EC2 existente em Acoes > Seguranca > Modificar perfil IAM.
+  RoleArn:
+    Value: !GetAtt DatabaseRole.Arn
