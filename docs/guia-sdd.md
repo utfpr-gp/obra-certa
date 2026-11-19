@@ -49,7 +49,7 @@ e assume a responsabilidade técnica. A IA apenas traduz as suas decisões em si
   controller → service → repository e DTOs na fronteira.
 - **Dados:** **PostgreSQL**, com o schema versionado em migrations **Flyway**.
   Em desenvolvimento o banco sobe em container (`docker-compose.yml`); em produção
-  é a **Neon**. A mesma migration roda nos dois.
+  é o **AWS Aurora PostgreSQL Express**. A mesma migration roda nos dois.
 - A escolha do framework CSS é sua, mas é única e definitiva — trocar no meio
   invalida o `architecture.md` e todas as specs que apontam para ele.
 > Os exemplos deste guia usam um tema de **caronas**. O método não muda com o tema:

@@ -72,7 +72,7 @@ obra-certa/
 │       │   │       ├── application.properties       # Propriedades gerais
 │       │   │       ├── application-dev.properties   # Perfil de desenvolvimento (Postgres Docker)
 │       │   │       ├── application-test.properties  # PostgreSQL fornecido por ambiente/serviço de CI
-│       │   │       └── application-prod.properties  # Perfil de produção (Neon Serverless)
+│       │   │       └── application-prod.properties  # Perfil de produção (AWS Aurora PostgreSQL Express)
 │       │   └── test/                      # JUnit 5, Mockito e integração com PostgreSQL
 │       ├── Dockerfile                     # Empacotamento em container OCI da aplicação Spring Boot
 │       └── pom.xml                        # Maven, Spring Boot, Flyway e dependências de teste
@@ -104,7 +104,7 @@ flowchart TD
         direction TB
         Frontend["💻 Frontend Web<br/>(Angular 21.2.x + Tailwind v4 + DaisyUI v5)<br/>Build estático"]
         Backend["⚙️ Backend API REST<br/>(Java 21 LTS + Spring Boot 3.5.4)<br/>Spring Security Stateless JWT"]
-        Database[("🗄️ PostgreSQL 16+<br/>(Dev: Docker / Prod: Neon Serverless)")]
+        Database[("🗄️ PostgreSQL<br/>(Dev: Docker 16+ / Prod: AWS Aurora Express 17)")]
         Storage[("📦 Supabase Storage (API S3)<br/>(Dev e Prod: buckets privados separados)")]
 
         Frontend -->|"HTTPS / JSON<br/>Bearer Token JWT"| Backend
@@ -646,18 +646,19 @@ flowchart TD
 
 | Configuração | Desenvolvimento (`dev`) | Testes e CI (`test`) | Produção (`prod`) |
 | :--- | :--- | :--- | :--- |
-| **Banco de Dados** | PostgreSQL 16+ via Docker Compose | PostgreSQL 16 fornecido pelo ambiente ou serviço da CI | Neon Serverless PostgreSQL |
-| **Conexão** | `localhost:5432` | `SPRING_DATASOURCE_URL`, usuário e senha por ambiente | Pooling (`-pooler`) com `prepareThreshold=0` |
-| **Flyway** | Executado na subida (`validate`) | Executado na subida (`validate`) | String direta (sem pooler) para advisory locks |
+| **Banco de Dados** | PostgreSQL 16+ via Docker Compose | PostgreSQL 16 fornecido pelo ambiente ou serviço da CI | AWS Aurora PostgreSQL Express 17 |
+| **Conexão** | `localhost:5432` | `SPRING_DATASOURCE_URL`, usuário e senha por ambiente | Endpoint gravador, TLS `verify-full`, autenticação IAM e pool Hikari de até 5 conexões |
+| **Flyway** | Executado na subida (`validate`) | Executado na subida (`validate`) | Mesmo endpoint gravador, driver IAM e `ddl-auto=validate` |
 | **Comprovantes** | Supabase Storage S3; bucket privado de desenvolvimento, requer internet | Substituto controlado e HTTP local, sem conta real | Supabase Storage S3; bucket privado e credenciais exclusivos de produção |
-| **Frontend** | Angular CLI (`localhost:4200`) | Jasmine/Karma com ChromeHeadless | Build estático; hospedagem conforme configuração de implantação |
-| **Backend** | Spring Boot CLI (`localhost:8080`) | JUnit 5 + SpringBootTest | Container Docker gerenciado sob HTTPS |
+| **Frontend** | Angular CLI (`localhost:4200`) | Jasmine/Karma com ChromeHeadless | Angular estático no Nginx da EC2, com HTTPS no Caddy |
+| **Backend** | Spring Boot CLI (`localhost:8080`) | JUnit 5 + SpringBootTest | Container Docker na EC2, mesma origem pública do frontend |
 
 - **Configuração de comprovantes:** `RECEIPT_STORAGE_*` no `.env` da raiz, preenchido manualmente. O Compose usa `env_file`; o Spring importa opcionalmente esse arquivo ao executar da raiz ou de `apps/api`. As chaves S3 ficam apenas no backend; como elas ignoram RLS, a API valida a posse antes de acessar objetos. PostgreSQL e autenticação JWT existentes são preservados. O roteiro de configuração e validação está em [supabase-storage.md](./supabase-storage.md). A inicialização financeira não depende de credenciais ou conexão com o storage.
 
 - **Variáveis do perfil `prod`** (`application-prod.properties`). As obrigatórias não têm valor padrão: sem elas a aplicação se recusa a subir, em vez de subir com segredo previsível.
   - Obrigatórias: `SPRING_PROFILES_ACTIVE=prod`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET` e `CORS_ALLOWED_ORIGINS` (origens do frontend separadas por vírgula).
-  - Opcionais: `FLYWAY_URL` (string direta do Neon, sem pooler; padrão é a URL do banco), `DB_POOL_SIZE` (padrão 5), `PORT` (padrão 8080; o Render define sozinho), `RECEIPT_STORAGE_*` e `JAVA_TOOL_OPTIONS`.
+  - Opcionais no perfil genérico: `FLYWAY_URL` (padrão é a URL do banco), `DB_POOL_SIZE` (padrão 5), `PORT` (padrão 8080), `RECEIPT_STORAGE_*` e `JAVA_TOOL_OPTIONS`.
+  - Na implantação AWS, ative `prod,aws-iam`: `docker-compose.prod.yml` configura o driver AWS JDBC com plugin IAM, URL TLS e senha vazia. Credenciais temporárias vêm do perfil IAM da EC2; não há senha fixa de banco. O modo Express utiliza gateway gerenciado fora de VPC e aceita apenas IAM. `minimum-idle=0` permite fechar conexões ociosas e a suspensão do Aurora. Configuração, política IAM, scripts de backup/restauração e critérios de validação estão em [deploy-aws.md](deploy-aws.md).
   - Em produção, os logs vão só para o console, o seed de demonstração nunca roda e `show-sql` fica desligado.
   - A imagem do backend usa heap proporcional ao limite do container, coletor serial e JIT de nível 1. Medido com 512 MB e 0,1 de CPU (limites típicos de plano gratuito), a partida caiu de cerca de 110 s para 64 s.
 

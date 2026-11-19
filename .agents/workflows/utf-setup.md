@@ -123,7 +123,7 @@ via `curl`), com Maven e o wrapper (`mvnw`), na linha de versão que o
 - **Configuração por ambiente, sem segredo versionado.** O
   `application.properties` lê tudo do ambiente
   (`${SPRING_DATASOURCE_URL}` e afins). Desenvolvimento aponta para o container;
-  produção, para a Neon. Nenhuma senha entra no arquivo versionado.
+  produção, para o Aurora PostgreSQL na AWS, com autenticação IAM. Nenhuma senha entra no arquivo versionado.
 
 ## Passo 4 — A raiz
 
@@ -165,8 +165,8 @@ via `curl`), com Maven e o wrapper (`mvnw`), na linha de versão que o
    `architecture.md` — no mínimo o `db` (PostgreSQL na linha declarada), e os apps se
    o documento previr containers para eles. Todas as credenciais vêm de variável de
    ambiente; o `.env.example` lista **as chaves sem os valores**, e o `.env` real fica
-   fora do Git (Passo 4.1). Este é o banco de **desenvolvimento**: a Neon de produção
-   não tem entrada nenhuma aqui, só a connection string no ambiente de deploy.
+   fora do Git (Passo 4.1). Este é o banco de **desenvolvimento**: o Aurora de produção
+   usa configuração própria de conexão TLS e IAM no ambiente de deploy.
 
 5. **Formatação, na raiz — regra do projeto, não preferência de quem digita.**
 
@@ -316,7 +316,7 @@ motivo, **PARE** e relate. Não tente uma terceira abordagem.
   do glossário do PRD aparecer em código gerado por você, você passou do ponto — o
   negócio começa na primeira Issue, pelo `/utf-issue`, com spec aprovada.
 - Nada de CI além do Portão de Entendimento — esteira de testes é Issue própria.
-- Nada de deploy nem de configuração da Neon — produção é Issue própria. Aqui só
+- Nada de deploy nem de configuração da AWS — produção é Issue própria. Aqui só
   nasce a leitura por variável de ambiente que torna o deploy possível depois.
 - Não editar `docs/prd.md` nem `docs/architecture.md`. Se encontrar contradição
   entre eles, relate; não resolva por conta própria.
